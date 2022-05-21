@@ -8,22 +8,22 @@ compiler features.
 
 ## Experiments to try
 
-- [ ] [Unspecialized lambda set variables](https://www.notion.so/rwx/Non-linear-monomorphization-0b26991a028949a285ca77a8ffcff3c5#1930c4eadf08465f9c7b96469f11f664)
+- [ ] [Unspecialized lambda set variables](https://www.notion.so/rwx/Non-linear-monomorphization-0b26991a028949a285ca77a8ffcff3c5#1930c4eadf08465f9c7b96469f11f664) ([./experiments/uls](./experiments/uls))
 - [ ] Only open tag unions in output positions
 - [ ] Can -> x86 lowering
 
 ## Organization
 
-`cor/roc` contains the core of the language (haha i'm so good). What that core
+`roc` contains the core of the language (haha i'm so good). What that core
 consists of and doesn't consist of is enumerated below.
 
-My goal is you can just copy `cor/roc` into a folder under `experiments`, named
+My goal is you can just copy `roc` into a folder under `experiments`, named
 to represent your experiment, say `e1`. You'll need to update `cor` and dune's
 build files to recognize `e1` and correctly implement a few functors. Afterwards,
 running `cor e1 ...` will run the compiler in `e1`. Ideally you can prune
 everything that's not needed for your experiment from the forked mini-compiler.
 
-### `cor/roc`
+### `roc`
 
 #### What's included
 
@@ -89,14 +89,14 @@ There are two options:
 1. Build and install the `cor` binary to your system. This is `dune build; dune
    install`. The installation can be tested with `cor --help`. Note that on all
    changes, you will need to re-run `dune build; dune install`.
-2. On changes, run `dune exec ./cor/cor.exe -- <program arguments>` to rebuild
+2. On changes, run `dune exec ./cor.exe -- <program arguments>` to rebuild
    and run `cor`.
 
 The behavior of `cor` is detailed in `cor --help` (resp. `dune exec
-./cor/cor.exe -- --help`). In short:
+./cor.exe -- --help`). In short:
 
 ```
-dune exec ./cor/cor.exe -- \
+dune exec ./cor.exe -- \
   [roc] +[parse|solve] -[print|elab] (input_file)?
 #                                    ^^^^^^^^^^^^ if elided, reads from stdin
 #                       ^^^^^^^^^^^^ emit strategy
@@ -105,7 +105,7 @@ dune exec ./cor/cor.exe -- \
 
 # Examples:
 
-dune exec ./cor/cor.exe -- roc +parse -print
+dune exec ./cor.exe -- roc +parse -print
 \x -> x<EOF>
 \x -> x
 ```
