@@ -34,7 +34,7 @@ everything that's not needed for your experiment from the forked mini-compiler.
   - function application
   - tag application
   - records (TODO)
-  - ints, strings
+  - ints
 - Types
   - arrows (function types)
   - lambda sets
@@ -43,7 +43,7 @@ everything that's not needed for your experiment from the forked mini-compiler.
   - polymorphic records (TODO)
   - aliases, opaques
   - abilities (TODO)
-  - int, string
+  - int
 - Code gen
   - Monomorphization
   - Evaluation (TODO)

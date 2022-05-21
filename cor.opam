@@ -4,7 +4,7 @@ authors: ["Ayaz Hafiz"]
 homepage: "https://github.com/ayazhafiz/cor"
 bug-reports: "https://github.com/ayazhafiz/cor/issues"
 depends: [
-  "dune" {>= "3.1"}
+  "dune" {>= "3.2"}
   "odoc" {with-doc}
 ]
 build: [

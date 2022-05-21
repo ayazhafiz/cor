@@ -17,7 +17,8 @@ if ! exists "opam"; then
   install "nixpkgs.opam"
   opam init
 fi
-if ! exists "dune"; then opam install dune; fi
-if ! exists "ocamllsp"; then install "nixpkgs.ocamlPackages.ocaml-lsp"; fi
 
-opam install ppx_expect ppx_inline_test menhir
+opam install \
+  dune ocaml-lsp-server ocamlformat \
+  ppx_expect ppx_inline_test \
+  menhir sedlex

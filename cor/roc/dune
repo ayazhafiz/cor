@@ -1,6 +1,10 @@
+(menhir
+  (flags --explain --fixed-exception --no-dollars)
+  (modules parser))
+
 (library
  (name roc)
- (modules syntax)
+ (modules syntax lexer parser util)
  (inline_tests)
  (preprocess
-  (pps ppx_inline_test)))
+  (pps ppx_inline_test sedlex.ppx)))
