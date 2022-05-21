@@ -3,8 +3,13 @@
   (modules parser))
 
 (library
+ (name language)
+ (modules language))
+
+(library
  (name roc)
- (modules syntax lexer parser util)
+ (modules roc syntax lexer parser util)
+ (libraries language sedlex menhirLib)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test sedlex.ppx)))

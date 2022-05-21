@@ -8,6 +8,9 @@ type loc = lineco * lineco
 
 type loc_str = loc * string
 
+type loc_pat = loc * pat
+and pat = PVar of string | PApp of loc_str * loc_pat
+
 type loc_expr = loc * expr
 
 and expr =
@@ -20,15 +23,39 @@ and expr =
   | Clos of loc_str list * loc_expr  (** args -> body *)
   | When of loc_expr * branch list
 
-and branch = loc_expr * loc_expr
+and branch = loc_pat * loc_expr
 
-type parens_ctx = [ `Free | `CallHead | `CallArg ]
+let pp_pat f =
+  let open Format in
+  let int_of_parens_ctx = function `Free -> 1 | `App -> 2 in
+  let ( >> ) c1 c2 = int_of_parens_ctx c1 > int_of_parens_ctx c2 in
 
-let int_of_parens_ctx = function `Free -> 1 | `CallHead -> 2 | `CallArg -> 3
-let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2
+  let with_parens needs_parens inside =
+    if needs_parens then pp_print_string f "(";
+    inside ();
+    if needs_parens then pp_print_string f ")"
+  in
+  let rec go parens (_, p) =
+    match p with
+    | PVar x -> pp_print_string f x
+    | PApp ((_, hd), arg) ->
+        fprintf f "@[<hov 2>";
+        pp_print_string f hd;
+        fprintf f "@ ";
+        with_parens (parens >> `Free) (fun () -> go `App arg);
+        fprintf f "@]"
+  in
+  go `Free
 
 let pp_expr f =
   let open Format in
+  let int_of_parens_ctx = function
+    | `Free -> 1
+    | `CallHead -> 2
+    | `CallArg -> 3
+  in
+  let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
+
   let with_parens needs_parens inside =
     if needs_parens then pp_print_string f "(";
     inside ();
@@ -62,18 +89,44 @@ let pp_expr f =
         in
         with_parens (parens >> `Free) expr;
         fprintf f "@]"
-    | Clos (args, body) ->
-        fprintf f "@[<hov 2>\\";
+    | Call (head, args) ->
+        fprintf f "@[<hov 2>";
         let expr () =
+          go `CallHead head;
+          List.iter
+            (fun arg ->
+              fprintf f "@ ";
+              go `CallArg arg)
+            args
+        in
+        with_parens (parens >> `CallHead) expr;
+        fprintf f "@]"
+    | Clos (args, body) ->
+        fprintf f "@[<hov 2>";
+        let expr () =
+          fprintf f "\\";
           List.iteri
             (fun i (_, x) ->
               let prefix = if i > 0 then ", " else "" in
               fprintf f "%s%s" prefix x)
             args;
-          fprintf f "@ ->";
+          fprintf f " ->@ ";
           go `Free body
         in
         with_parens (parens >> `Free) expr;
+        fprintf f "@]"
+    | When (cond, branches) ->
+        fprintf f "@[<v 2>@[<hov 2>when@ ";
+        go `Free cond;
+        fprintf f "is@]";
+        List.iter
+          (fun (pat, expr) ->
+            fprintf f "@[<hov 2>";
+            pp_pat f pat;
+            fprintf f " ->@ ";
+            go `Free expr;
+            fprintf f "@]")
+          branches;
         fprintf f "@]"
   in
   go `Free

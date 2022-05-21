@@ -1,4 +1,8 @@
 (executable
  (public_name cor)
  (name cor)
- (modules cor))
+ (modules cor)
+ (libraries
+   language
+   roc
+   ))

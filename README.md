@@ -83,7 +83,34 @@ Otherwise, install
 
 Then run `dune build` and follow the hints to install needed packages from opam.
 
-### Development tips
+### Development
+
+There are two options:
+1. Build and install the `cor` binary to your system. This is `dune build; dune
+   install`. The installation can be tested with `cor --help`. Note that on all
+   changes, you will need to re-run `dune build; dune install`.
+2. On changes, run `dune exec ./cor/cor.exe -- <program arguments>` to rebuild
+   and run `cor`.
+
+The behavior of `cor` is detailed in `cor --help` (resp. `dune exec
+./cor/cor.exe -- --help`). In short:
+
+```
+dune exec ./cor/cor.exe -- \
+  [roc] +[parse|solve] -[print|elab] (input_file)?
+#                                    ^^^^^^^^^^^^ if elided, reads from stdin
+#                       ^^^^^^^^^^^^ emit strategy
+#        ^^^^^^^^^^^^^ target compiler phase
+# ^^^^^ target language
+
+# Examples:
+
+dune exec ./cor/cor.exe -- roc +parse -print
+\x -> x<EOF>
+\x -> x
+```
+
+#### Tips
 
 Some general tips I've found useful:
 

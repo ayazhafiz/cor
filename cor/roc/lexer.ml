@@ -7,11 +7,13 @@ let whitespace = [%sedlex.regexp? Plus (' ' | '\t')]
 let newline = [%sedlex.regexp? '\n' | "\r\n"]
 let nat = [%sedlex.regexp? Plus '0' .. '9']
 
-let ident =
+let lower =
   [%sedlex.regexp?
     'a' .. 'z', Star ('a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'')]
 
-let lam = [%sedlex.regexp? "\u{03BB}"]
+let upper =
+  [%sedlex.regexp?
+    'A' .. 'Z', Star ('a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'')]
 
 let pos_info_of_position ({ pos_lnum; pos_bol; pos_cnum; _ } : Lexing.position)
     =
@@ -39,7 +41,8 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "if" -> make lexbuf (fun i -> IF i)
   | "then" -> make lexbuf (fun i -> THEN i)
   | "else" -> make lexbuf (fun i -> ELSE i)
-  | ident -> make lexbuf (fun i -> IDENT (i, Utf8.lexeme lexbuf))
+  | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))
+  | upper -> make lexbuf (fun i -> UPPER (i, Utf8.lexeme lexbuf))
   | nat -> make lexbuf (fun i -> NUM (i, int_of_string (Utf8.lexeme lexbuf)))
   | "#" -> comment lexbuf
   | eof -> EOF

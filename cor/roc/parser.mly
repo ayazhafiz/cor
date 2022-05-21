@@ -5,7 +5,8 @@ let range (start, _) (_, fin) = (start, fin)
 %}
 
 
-%token <Syntax.loc * string> IDENT
+%token <Syntax.loc * string> LOWER
+%token <Syntax.loc * string> UPPER
 %token <Syntax.loc * int>    NUM
 
 %token <Syntax.loc> LET
@@ -54,7 +55,7 @@ expr_app:
   | head=expr_app e=expr_atom { e::head }
 
 expr_lets:
-  | loc_x=IDENT EQ e=expr chain=and_chain {
+  | loc_x=LOWER EQ e=expr chain=and_chain {
       let (rest, body) = chain in
       let loc = range (fst loc_x) (fst body) in
       let e =
@@ -66,19 +67,26 @@ expr_lets:
 
 and_chain:
   | body=expr { ([], body) }
-  | AND loc_x=IDENT EQ e=expr chain=and_chain {
+  | AND loc_x=LOWER EQ e=expr chain=and_chain {
       let (rest, body) = chain in
       ((loc_x, e)::rest, body)
   }
 
 param_chain:
-  | p=IDENT COMMA rest=param_chain { p::rest }
-  | p=IDENT { [p] }
+  | p=LOWER { [p] }
 
 branches:
-  | pat=expr_atom ARROW body=expr_atom { [(pat, body)] }
-  | rest=branches pat=expr_atom ARROW body=expr_atom { (pat, body)::rest }
+  | pat=pat ARROW body=expr { [(pat, body)] }
+  | rest=branches pat=pat ARROW body=expr { (pat, body)::rest }
 
 expr_atom:
-  | x=IDENT { (fst x, Var (snd x)) }
+  | x=LOWER { (fst x, Var (snd x)) }
   | n=NUM   { (fst n, Int (snd n)) }
+  | l=LPAREN e=expr r=RPAREN { (range l r, snd e) }
+
+pat:
+  | hd=UPPER arg=pat_atom { (range (fst hd) (fst arg), PApp(hd, arg)) }
+
+pat_atom:
+  | x=LOWER { (fst x, PVar (snd x)) }
+  | l=LPAREN p=pat r=RPAREN { (range l r, snd p) }
