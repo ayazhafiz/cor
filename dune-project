@@ -1,4 +1,4 @@
-(lang dune 3.1)
+(lang dune 3.2)
 (using menhir 2.0)
 
 (name cor)

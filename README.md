@@ -72,10 +72,13 @@ A lot.
 
 ### Installation
 
-If you have nix, run `nix-shell` to get started. Otherwise, install
+If you have nix, run `./nix-install.sh` to get started. It's not a nix shell
+because I can't get opam2nix to work on Darwin, and so you will have a opam
+installation with local state in your home directory.
+Otherwise, install
 
 - OCaml; nix is using OCaml 4.14 (`ocamlc --version`)
-- dune >=3.1
+- dune >=3.2
 - ocamlformat, ocaml-lsp, utop, other development tools you may want
 
 Then run `dune build` and follow the hints to install needed packages from opam.
