@@ -1,6 +1,9 @@
-open Roc
 open Language
 
+(*** All languages ***)
+let languages : (module LANGUAGE) list = [ (module Roc.Roc); (module Uls.Uls) ]
+
+(* Driver *)
 let phase : [ `None | `Parse ] ref = ref `None
 let emit : [ `None | `Print | `Elab ] ref = ref `None
 let lang = ref None
@@ -39,7 +42,6 @@ let read_chan chan =
 
 let read_file f = read_chan @@ open_in f
 let read_stdin () = read_chan stdin
-let langs : (module LANGUAGE) list = [ (module Roc) ]
 
 let main () =
   parse_args ();
@@ -47,7 +49,7 @@ let main () =
     match !lang with
     | Some lang -> (
         let lang_mod =
-          List.find_opt (fun (module M : LANGUAGE) -> M.name = lang) langs
+          List.find_opt (fun (module M : LANGUAGE) -> M.name = lang) languages
         in
         match lang_mod with
         | Some m -> m

@@ -5,4 +5,5 @@
  (libraries
    language
    roc
+   uls
    ))

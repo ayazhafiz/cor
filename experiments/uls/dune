@@ -1,0 +1,11 @@
+(menhir
+  (flags --explain --fixed-exception --no-dollars)
+  (modules parser))
+
+(library
+ (name uls)
+ (modules uls syntax lexer parser util)
+ (libraries language sedlex menhirLib)
+ (inline_tests)
+ (preprocess
+  (pps ppx_inline_test sedlex.ppx)))
