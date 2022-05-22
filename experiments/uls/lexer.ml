@@ -54,7 +54,8 @@ and comment lexbuf =
   match%sedlex lexbuf with
   | eof -> EOF
   | newline -> read lexbuf
-  | _ -> comment lexbuf
+  | any -> comment lexbuf
+  | _ -> failwith ""
 
 let from_string s =
   let lexbuf = Utf8.from_string s in

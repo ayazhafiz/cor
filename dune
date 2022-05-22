@@ -3,6 +3,7 @@
  (name cor)
  (modules cor)
  (libraries
+   str
    language
    roc
    uls
