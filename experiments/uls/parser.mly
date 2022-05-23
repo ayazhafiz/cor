@@ -8,6 +8,12 @@ type proto_ctx = {
   uty: (string * ty);
   fresh_region: unit -> int;
 }
+
+let fresh_var ctx = TVar (ref (Unbd (ctx.fresh_var ()))) 
+
+let xloc = Syntax.xloc
+let xty = Syntax.xty
+let xv = Syntax.xv
 %}
 
 
@@ -29,7 +35,7 @@ type proto_ctx = {
 
 %start toplevel
 %type <Syntax.parse_ctx -> Syntax.program> toplevel
-%type <Syntax.parse_ctx -> Syntax.loc_expr> expr
+%type <Syntax.parse_ctx -> Syntax.e_expr> expr
 %%
 
 toplevel:
@@ -52,15 +58,15 @@ decl:
 expr:
   | app=expr_app { app }
   | e=expr_lets { fun c -> e c }
-  | lam=LAM arg=pat ARROW body=expr { fun c ->
-      let body = body c in
-      let loc = range lam (fst body) in
-      (loc, Clos(arg, Lam (c.fresh_clos_name ()), body))
+  | lam=LAM arg=pat ARROW body=expr { fun ctx ->
+      let body = body ctx in
+      let loc = range lam (xloc body) in
+      (loc, fresh_var ctx, Clos(arg ctx, Lam (ctx.fresh_clos_name ()), body))
   }
   | c=CHOICE rev_branches=branches { fun ctx ->
       let rev_branches = rev_branches ctx in
-      let loc = range c (fst @@ fst @@ List.hd rev_branches) in
-      (loc, Choice(List.rev rev_branches))
+      let loc = range c (xloc @@ snd @@ List.hd rev_branches) in
+      (loc, fresh_var ctx, Choice(List.rev rev_branches))
   }
 
 expr_app:
@@ -68,30 +74,33 @@ expr_app:
   | head=expr_app e=expr_atom { fun c ->
       let head = head c in
       let e = e c in
-      (range (fst head) (fst e), Call(head, e))
+      (range (xloc head) (xloc e), fresh_var c, Call(head, e))
   }
 
 expr_lets:
   | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
       let body = body c in
-      let loc = range l (fst body) in
-      (loc, Let(loc_x, e c, body))
+      let loc = range l (xloc body) in
+      (loc, fresh_var c, Let(loc_x, e c, body))
   }
 
 branches:
-  | pat=pat ARROW body=expr { fun ctx -> [(pat, body ctx)] }
-  | rest=branches pat=pat ARROW body=expr { fun ctx -> (pat, body ctx)::(rest ctx) }
+  | pat=pat ARROW body=expr { fun ctx -> [(pat ctx, body ctx)] }
+  | rest=branches pat=pat ARROW body=expr { fun ctx -> (pat ctx, body ctx)::(rest ctx) }
 
 expr_atom:
-  | x=LOWER { fun _ -> (fst x, Var (snd x)) }
-  | v=UPPER { fun _ -> (fst v, Val (snd v)) }
-  | v=UNIT  { fun _ -> (v, Val "Unit") }
-  | l=LPAREN e=expr r=RPAREN { fun ctx -> (range l r, snd (e ctx)) }
+  | x=LOWER { fun ctx -> (fst x, fresh_var ctx, Var (snd x)) }
+  | v=UPPER { fun _ -> (fst v, TVal (snd v), Val (snd v)) }
+  | v=UNIT  { fun _ -> (v, TVal "Unit", Val "Unit") }
+  | l=LPAREN e=expr r=RPAREN { fun ctx -> 
+      let e = e ctx in
+      (range l r, xty e, xv e)
+  }
 
 pat:
-  | x=LOWER { (fst x, PVar (snd x)) }
-  | u=UNIT { (u, PVal("Unit")) }
-  | hd=UPPER { (fst hd, PVal(snd hd)) }
+  | x=LOWER { fun ctx -> (fst x, fresh_var ctx, PVar (snd x)) }
+  | u=UNIT { fun _ -> (u, TVal("Unit"), PVal("Unit")) }
+  | hd=UPPER { fun _ -> (fst hd, TVal(snd hd), PVal(snd hd)) }
 
 ty:
   | arrow=ty_arrow { fun ctx -> arrow ctx }

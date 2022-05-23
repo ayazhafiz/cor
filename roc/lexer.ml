@@ -17,7 +17,7 @@ let upper =
 
 let pos_info_of_position ({ pos_lnum; pos_bol; pos_cnum; _ } : Lexing.position)
     =
-  (pos_lnum, pos_cnum - pos_bol + 1)
+  (pos_lnum, pos_cnum - pos_bol + 2)
 
 let make (lexbuf : Sedlexing.lexbuf) tok =
   let start, fin = Sedlexing.lexing_positions lexbuf in

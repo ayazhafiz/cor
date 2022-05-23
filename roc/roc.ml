@@ -30,4 +30,5 @@ module Roc : LANGUAGE = struct
 
   let parse = parse
   let print = string_of_expr
+  let type_at _ = failwith "unimplemented"
 end

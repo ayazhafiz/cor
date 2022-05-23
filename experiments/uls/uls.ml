@@ -43,4 +43,5 @@ module Uls : LANGUAGE = struct
 
   let parse = parse
   let print = string_of_program
+  let type_at = type_at
 end
