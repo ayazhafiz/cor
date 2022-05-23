@@ -112,19 +112,19 @@ let pp_ty tctx f =
   in
   go `Free
 
-let string_of_ty ty =
-  with_buffer (fun f -> pp_ty [] f (noloc, ty)) default_width
+let string_of_ty tctx ty =
+  with_buffer (fun f -> pp_ty tctx f (noloc, ty)) default_width
 
 let type_at loc program =
   let or_else o f = match o with Some a -> Some a | None -> f () in
-  let pat (l, ty, _) = if l = loc then Some ty else None in
+  let pat (l, ty, _) = if l = loc then Some ([], ty) else None in
   let rec expr (l, ty, e) =
-    if l = loc then Some ty
+    if l = loc then Some ([], ty)
     else
       match e with
       | Val _ | Var _ -> None
       | Let ((l, _), e1, e2) ->
-          if l = loc then Some (xty e1)
+          if l = loc then Some ([], xty e1)
           else or_else (expr e1) (fun () -> expr e2)
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
       | Clos (p, _, e) -> or_else (pat p) (fun () -> expr e)
@@ -135,10 +135,12 @@ let type_at loc program =
             None branches
   in
   let def = function
-    | Proto ((l, _), _, (_, ty)) -> if l = loc then Some ty else None
-    | Def ((l, _), e) -> if l = loc then Some (xty e) else expr e
+    | Proto ((l, _), arg, (_, ty)) ->
+        if l = loc then Some ([ arg ], ty) else None
+    | Def ((l, _), e) -> if l = loc then Some ([], xty e) else expr e
   in
-  List.find_map def program |> Option.map string_of_ty
+  List.find_map def program
+  |> Option.map (fun (tctx, ty) -> string_of_ty tctx ty)
 
 let string_of_lambda = function Lam n -> "`F" ^ string_of_int n
 

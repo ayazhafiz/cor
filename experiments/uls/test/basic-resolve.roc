@@ -1,6 +1,7 @@
 # cor +parse -print
 # cor +parse -elab
 proto thunkDefault a : () -> () -> a
+#     ^^^^^^^^^^^^
 
 let thunkDefault = \() -> \() -> T3
 #   ^^^^^^^^^^^^
@@ -28,6 +29,7 @@ let main =
 
 # cor-out +parse -elab
 proto thunkDefault a : () -> () -> a
+#     ^^^^^^^^^^^^ () -[~2:a:thunkDefault]-> () -[~1:a:thunkDefault]-> a
 
 let thunkDefault = \() -> \() -> T3
 #   ^^^^^^^^^^^^ ?11
