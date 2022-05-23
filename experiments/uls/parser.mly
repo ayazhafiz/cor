@@ -5,7 +5,7 @@ let range (start, _) (_, fin) = (start, fin)
 
 type proto_ctx = {
   name: string;
-  uty: (string * ty);
+  uty: (string * int);
   fresh_region: unit -> int;
 }
 
@@ -26,6 +26,9 @@ let xv = Syntax.xv
 %token <Syntax.loc> UNIT
 %token <Syntax.loc> LPAREN
 %token <Syntax.loc> RPAREN
+%token <Syntax.loc> LBRACE
+%token <Syntax.loc> RBRACE
+%token <Syntax.loc> PIPE
 %token <Syntax.loc> EQ
 %token <Syntax.loc> COLON
 %token <Syntax.loc> ARROW
@@ -46,7 +49,7 @@ decl:
   | PROTO name=LOWER arg=LOWER COLON ty=ty { fun ctx ->
       let arg = snd arg in
       let aty = ctx.fresh_var () in
-      let uty = (arg, UVar aty) in
+      let uty = (arg, aty) in
       let fresh_region = let n = ref 0 in fun () -> incr n; !n in
       let ty = ty { name=snd name; uty; fresh_region } in
       Proto(name, (aty, arg), ty)
@@ -63,9 +66,9 @@ expr:
       let loc = range lam (xloc body) in
       (loc, fresh_var ctx, Clos(arg ctx, Lam (ctx.fresh_clos_name ()), body))
   }
-  | c=CHOICE rev_branches=branches { fun ctx ->
+  | c=CHOICE LBRACE rev_branches=branches r=RBRACE { fun ctx ->
       let rev_branches = rev_branches ctx in
-      let loc = range c (xloc @@ snd @@ List.hd rev_branches) in
+      let loc = range c r in
       (loc, fresh_var ctx, Choice(List.rev rev_branches))
   }
 
@@ -85,8 +88,8 @@ expr_lets:
   }
 
 branches:
-  | pat=pat ARROW body=expr { fun ctx -> [(pat ctx, body ctx)] }
-  | rest=branches pat=pat ARROW body=expr { fun ctx -> (pat ctx, body ctx)::(rest ctx) }
+  | body=expr { fun ctx -> [body ctx] }
+  | rest=branches PIPE body=expr { fun ctx -> body ctx::(rest ctx) }
 
 expr_atom:
   | x=LOWER { fun ctx -> (fst x, fresh_var ctx, Var (snd x)) }
@@ -110,9 +113,9 @@ ty_arrow:
   | head=ty_atom ARROW e=ty_arrow { fun ctx ->
       let head = head ctx in
       let e = e ctx in
-      let uls = TUls {
+      let uls = GUls {
         region = ctx.fresh_region ();
-        var = snd ctx.uty;
+        ty = snd ctx.uty;
         proto = ctx.name;
       } in
       (range (fst head) (fst e), TFn(head, uls, e))
@@ -123,5 +126,5 @@ ty_atom:
   | u=UPPER { fun _ -> (fst u, TVal(snd u)) }
   | u=LOWER { fun {uty; _} ->
       assert (snd u = fst uty);
-      (fst u, snd uty)
+      (fst u, UVar(snd uty))
   }

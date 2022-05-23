@@ -11,16 +11,19 @@ let noloc = ((0, 0), (0, 0))
 type loc_str = loc * string
 type lambda = Lam of int
 
+type 'a uls = { region : int; ty : 'a; proto : string }
+(** Unspecialized lambda set, like [~1:a:thunkDefault] *)
+
 type loc_ty = loc * ty
 
 and ty =
   | UVar of int  (** universally quantified type variable *)
   | TVar of tvar ref  (** non-quantified type variable *)
   | TVal of string  (** value-isomorphic type, e.g. TVal Unit for Val Unit *)
-  | TLSet of lambda list  (** lambda set *)
-  | TUls of { region : int; var : ty; proto : string }
-      (** unspecialized lambda set var in a prototype
-      for example,
+  | TLSet of lset  (** lambda set *)
+  | GUls of int uls
+      (** generalized unspecialized lambda set var in a prototype
+      For example,
 
       proto thunkDefault a : () -> () -> a
 
@@ -35,11 +38,35 @@ and ty =
       - deciding when to do the resolution seems tricky. after each
         unification?
       - maybe keep a lookaside table of unbound types "a"->ULS? when "a"
-        is solved, check all reached ULS
-  *)
+        is solved, check all reached ULS *)
   | TFn of loc_ty * ty * loc_ty  (** in, lambda set, out *)
 
-and tvar = Unbd of int  (** unbound *) | Subt of ty  (** substituted *)
+and tvar = Unbd of int  (** unbound *) | Link of ty  (** resolved *)
+
+and lset = {
+  mutable solved : lambda list;  (** the lambda set we know *)
+  mutable unspec : unspec ref list;
+      (** lambda sets we're waiting to specialize *)
+}
+
+(** an unspecialized lambda set *)
+and unspec =
+  | Solved of lambda list
+  | Pending of ty uls
+      (** instantiated unspecialized lambda set we're waiting to solve *)
+
+(** compacts a lambda set's specialized variable lists *)
+let compact_lset lset =
+  let extra_solved, new_unspec =
+    List.partition_map
+      (fun unspec ->
+        match !unspec with
+        | Solved lset -> Left lset
+        | Pending _ -> Right unspec)
+      lset.unspec
+  in
+  lset.solved <- List.sort_uniq compare (lset.solved @ List.flatten extra_solved);
+  lset.unspec <- new_unspec
 
 type e_pat = loc * ty * pat
 (** An elaborated pattern *)
@@ -55,7 +82,7 @@ and expr =
   | Let of loc_str * e_expr * e_expr  (** x = e in b *)
   | Call of e_expr * e_expr  (** fn arg *)
   | Clos of e_pat * lambda * e_expr  (** args -name-> body *)
-  | Choice of branch list
+  | Choice of e_expr list
 
 and branch = e_pat * e_expr
 and def = Proto of loc_str * (int * string) * loc_ty | Def of loc_str * e_expr
@@ -68,7 +95,23 @@ let xloc (l, _, _) = l
 let xty (_, t, _) = t
 let xv (_, _, v) = v
 
-let pp_ty tctx f =
+let pp_lambda_set f solved =
+  let open Format in
+  fprintf f "[%s]"
+    (String.concat ","
+       (List.map (function Lam n -> "`" ^ string_of_int n) solved))
+
+let pp_uls f print_ty p =
+  let open Format in
+  fprintf f "~%d:" p.region;
+  print_ty p.ty;
+  fprintf f ":%s" p.proto
+
+let rec pp_unspec f = function
+  | Solved solved -> pp_lambda_set f solved
+  | Pending lset -> pp_uls f (fun ty -> pp_ty [] f (noloc, ty)) lset
+
+and pp_ty tctx f =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `FnHead -> 2 in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
@@ -87,17 +130,19 @@ let pp_ty tctx f =
     | TVar v -> (
         match !v with
         | Unbd i -> fprintf f "?%d" i
-        | Subt t -> go parens (noloc, t))
+        | Link t -> go parens (noloc, t))
     | TVal "Unit" -> pp_print_string f "()"
     | TVal v -> pp_print_string f v
-    | TLSet set ->
-        fprintf f "[%s]"
-          (String.concat ","
-             (List.map (function Lam n -> "`" ^ string_of_int n) set))
-    | TUls { region; var; proto } ->
-        fprintf f "~%d:" region;
-        go `FnHead (noloc, var);
-        fprintf f ":%s" proto
+    | TLSet lset ->
+        compact_lset lset;
+        let { solved; unspec } = lset in
+        pp_lambda_set f solved;
+        List.iter
+          (fun unspec ->
+            fprintf f "+ ";
+            pp_unspec f !unspec)
+          unspec
+    | GUls uls -> pp_uls f (fun v -> go `FnHead (noloc, UVar v)) uls
     | TFn (l, set, r) ->
         fprintf f "@[<hov 2>";
         let pty () =
@@ -130,8 +175,7 @@ let type_at loc program =
       | Clos (p, _, e) -> or_else (pat p) (fun () -> expr e)
       | Choice branches ->
           List.fold_left
-            (fun res (p, e) ->
-              or_else res (fun () -> or_else (pat p) (fun () -> expr e)))
+            (fun res e -> or_else res (fun () -> expr e))
             None branches
   in
   let def = function
@@ -201,16 +245,14 @@ let pp_expr f =
         with_parens (parens >> `Free) expr;
         fprintf f "@]"
     | Choice branches ->
-        fprintf f "@[<v 2>choice@ ";
+        fprintf f "@[<v 2>choice {@ ";
         List.iter
-          (fun (pat, expr) ->
-            fprintf f "@[<hov 2>";
-            pp_pat f pat;
-            fprintf f " ->@ ";
+          (fun expr ->
+            fprintf f "@[| ";
             go `Free expr;
             fprintf f "@]")
           branches;
-        fprintf f "@]"
+        fprintf f "}@]"
   in
   go `Free
 
