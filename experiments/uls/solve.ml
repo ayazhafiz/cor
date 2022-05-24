@@ -169,7 +169,7 @@ let generalize venv =
                 if ty <> ty' then
                   failsolve
                     ("Generalization error: lsets can only be non-generalized \
-                      but a type was generalize: " ^ string_of_ty [] tlset))
+                      but a type was generalized: " ^ string_of_ty [] tlset))
           unspec;
         tlset
     | TFn ((l1, t1), c, (l2, t2)) -> TFn ((l1, go t1), go c, (l2, go t2))
