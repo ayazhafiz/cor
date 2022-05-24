@@ -117,17 +117,14 @@ let read_file f = read_chan @@ open_in f
 let read_stdin () = read_chan stdin
 
 (**)
-let infile = ref None
+let infiles = ref []
 let lang = ref None
 let inplace = ref false
 
 let handle_anon arg =
   match !lang with
   | None -> lang := Some arg
-  | Some _ -> (
-      match !infile with
-      | None -> infile := Some arg
-      | Some _ -> raise (Arg.Bad ("Too many args! Found " ^ arg)))
+  | Some _ -> infiles := arg :: !infiles
 
 let parse_args () =
   Arg.parse
@@ -195,21 +192,34 @@ let process_one (module Lang : LANGUAGE) input_lines queries (phase, emit) =
   in
   (phase, emit, output)
 
+type input = File of string | Stdin
+
+let input_lines = function Stdin -> read_stdin () | File f -> read_file f
+
 let main () =
   parse_args ();
-  let input_lines =
-    match !infile with Some f -> read_file f | None -> read_stdin ()
+  let inputs =
+    match !infiles with
+    | [] -> [ Stdin ]
+    | files -> List.map (fun f -> File f) files
   in
   let lang = find_lang () in
-  let raw_program, program_lines, queries, cmds = preprocess input_lines in
-  let cmd_out = List.map (process_one lang program_lines queries) cmds in
-  let output = postprocess raw_program cmd_out in
-  match (!inplace, !infile) with
-  | false, _ | true, None -> print_endline output
-  | true, Some file ->
-      let chan = open_out file in
-      output_string chan output;
-      close_out chan
+  let do1 input_source =
+    let input_lines = input_lines input_source in
+    let raw_program, program_lines, queries, cmds = preprocess input_lines in
+    let cmd_out = List.map (process_one lang program_lines queries) cmds in
+    let output = postprocess raw_program cmd_out in
+    match (!inplace, input_source) with
+    | _, Stdin -> print_endline output
+    | false, File f ->
+        print_string ("# " ^ f ^ "\n");
+        print_endline output
+    | true, File file ->
+        let chan = open_out file in
+        output_string chan output;
+        close_out chan
+  in
+  List.iter do1 inputs
 
 let () =
   try main ()
