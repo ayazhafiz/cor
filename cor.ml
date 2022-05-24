@@ -30,7 +30,7 @@ let preprocess lines =
   let re_cmds = Str.regexp {|# cor \+\([a-z]+\) -\([a-z]+\)|} in
   let re_query = Str.regexp {|\(\^+\)|} in
   let starts_command = String.starts_with ~prefix:"# cor " in
-  let starts_out = String.starts_with ~prefix:"# cor-out " in
+  let starts_out = String.starts_with ~prefix:"> " in
   (* commands in the header *)
   let commands =
     let rec parse = function
@@ -91,14 +91,17 @@ let preprocess lines =
   (raw_program, program_lines, queries, commands)
 
 let postprocess program commands =
+  let reflow_out s =
+    unlines @@ List.map (fun s -> "> " ^ s) @@ String.split_on_char '\n' s
+  in
   let cmd_out =
     List.map
       (fun (phase, emit, str) ->
         [
           "";
-          Printf.sprintf "# cor-out +%s -%s" (string_of_phase phase)
+          Printf.sprintf "> cor-out +%s -%s" (string_of_phase phase)
             (string_of_emit emit);
-          str;
+          reflow_out str;
         ])
       commands
   in
