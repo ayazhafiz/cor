@@ -8,19 +8,16 @@ module IntMap = struct
   end)
 end
 
-type spec_table = ((int * string * string) * (int * lset) list) list
+type spec_table = ((string * string) * (int * lset) list) list
 (** Specialization table : (general var, spec type, proto) -> (region -> spec lset) *)
 
-let add_spec (g_var, spec_type, proto, regions) (spec_table : spec_table) =
-  ((g_var, spec_type, proto), regions) :: spec_table
+let add_spec (spec_type, proto, regions) (spec_table : spec_table) =
+  ((spec_type, proto), regions) :: spec_table
 
-type gen_of_inst = (int * unspec ref list) IntMap.t
-(** specialization var -> (generalized var, unspecialized lambda sets) *)
+type gen_of_inst = unspec ref list IntMap.t
+(** specialization var -> (unspecialized lambda sets) *)
 
-let union_goi =
-  IntMap.union (fun _ (v1, unspec1) (v2, unspec2) ->
-      assert (v1 = v2);
-      Some (v1, unspec1 @ unspec2))
+let union_goi = IntMap.union (fun _ unspec1 unspec2 -> Some (unspec1 @ unspec2))
 
 exception Solve_err of string
 
@@ -60,7 +57,7 @@ let unify (spec_table : spec_table) (gen_of_inst : gen_of_inst) a b =
         | Unbd n -> (
             if occurs n t then error "occurs" else x := Link t;
             match (unlink t, IntMap.find_opt n gen_of_inst) with
-            | TVal spec_sym, Some (gen_n, unspec_lsets) ->
+            | TVal spec_sym, Some unspec_lsets ->
                 List.iter
                   (fun unspec ->
                     match !unspec with
@@ -68,7 +65,7 @@ let unify (spec_table : spec_table) (gen_of_inst : gen_of_inst) a b =
                     | Pending { region; ty; proto }
                       when unlink ty = TVal spec_sym ->
                         let spec_of_region =
-                          List.assoc (gen_n, spec_sym, proto) spec_table
+                          List.assoc (spec_sym, proto) spec_table
                         in
                         let lset = List.assoc region spec_of_region in
                         unspec := Solved lset
@@ -122,28 +119,52 @@ let inst ?(proto_spec = false)
             | TVar r -> ( match !r with Unbd n -> n | _ -> assert false)
             | _ -> assert false
           in
-          IntMap.singleton inst_n (ty, unspec) )
-    | TVar x -> (TVar x, IntMap.empty)
+          IntMap.singleton inst_n unspec )
+    | TVar x -> (
+        match !x with
+        | Unbd _ -> (TVar x, IntMap.empty)
+        | Link t ->
+            let t', goi = inst t in
+            (TVar (ref (Link t')), goi))
     | TVal v -> (TVal v, IntMap.empty)
     | TFn ((l1, t1), tclos, (l2, t2)) ->
-        let t1, goi1 = inst t1 in
-        let tclos, goi_clos = inst tclos in
-        let t2, goi2 = inst t2 in
-        ( TFn ((l1, t1), tclos, (l2, t2)),
+        let t1', goi1 = inst t1 in
+        let tclos', goi_clos = inst tclos in
+        let t2', goi2 = inst t2 in
+        ( TFn ((l1, t1'), tclos', (l2, t2')),
           union_goi goi2 @@ union_goi goi1 goi_clos )
-    | TLSet { unspec; solved = _ } as t ->
-        List.iter
-          (fun unspec ->
-            match !unspec with
-            | Solved _ -> ()
-            | Pending { ty; _ } ->
-                let ty', _ = inst ty in
-                if ty <> ty' then
-                  failsolve
-                    ("Inst error: found a generalized type in an \
-                      non-generalized lset: " ^ string_of_ty [] t))
-          unspec;
-        (t, IntMap.empty)
+    | TLSet lset ->
+        let lset', goi = inst_lset lset in
+        (TLSet lset', goi)
+  and inst_lset { solved; unspec } =
+    let unspec', gois =
+      List.split
+      @@ List.map
+           (fun unspec ->
+             match !unspec with
+             | Solved lset ->
+                 let lset', goi = inst_lset lset in
+                 (ref (Solved lset'), goi)
+             | Pending { region; ty; proto } ->
+                 let ty', goi = inst ty in
+                 let unspec' = ref (Pending { region; ty = ty'; proto }) in
+                 let goi' =
+                   if List.exists (fun (_, b) -> b = ty') !tenv then
+                     (* instantiated generalized *)
+                     let inst_n =
+                       match ty' with
+                       | TVar r -> (
+                           match !r with Unbd n -> n | _ -> assert false)
+                       | _ -> assert false
+                     in
+                     IntMap.singleton inst_n [ unspec' ]
+                   else IntMap.empty
+                 in
+                 (unspec', union_goi goi goi'))
+           unspec
+    in
+    let goi = List.fold_left union_goi IntMap.empty gois in
+    ({ solved; unspec = unspec' }, goi)
   in
   inst t
 
@@ -159,20 +180,20 @@ let generalize venv =
     | TVal v -> TVal v
     | UVar n -> UVar n (* stays generalized *)
     | GUls uls -> GUls uls (* stays generalized *)
-    | TLSet { solved = _; unspec } as tlset ->
-        List.iter
-          (fun spec ->
-            match !spec with
-            | Solved _ -> ()
-            | Pending { ty; _ } ->
-                let ty' = go ty in
-                if ty <> ty' then
-                  failsolve
-                    ("Generalization error: lsets can only be non-generalized \
-                      but a type was generalized: " ^ string_of_ty [] tlset))
-          unspec;
-        tlset
+    | TLSet lset -> TLSet (go_lset lset)
     | TFn ((l1, t1), c, (l2, t2)) -> TFn ((l1, go t1), go c, (l2, go t2))
+  and go_lset { solved; unspec } =
+    let unspec' =
+      List.map
+        (fun unspec ->
+          ref
+            (match !unspec with
+            | Solved lset -> Solved (go_lset lset)
+            | Pending { region; ty; proto } ->
+                Pending { region; ty = go ty; proto }))
+        unspec
+    in
+    { solved; unspec = unspec' }
   in
   go
 
@@ -296,9 +317,7 @@ let infer_program fresh program =
                     let spec_a, specializations =
                       resolve_specialization t_proto t_a t_x
                     in
-                    ( venv,
-                      add_spec (t_a, spec_a, proto, specializations) spec_table
-                    )
+                    (venv, add_spec (spec_a, proto, specializations) spec_table)
                 | None ->
                     (* non-specialization def, no spec update *)
                     ((x, t_x) :: venv, spec_table)

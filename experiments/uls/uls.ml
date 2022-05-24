@@ -41,10 +41,8 @@ let parse s =
 
 let solve p fresh_var =
   let fresh_ty () = TVar (ref (Unbd (fresh_var ()))) in
-  try
-    infer_program fresh_ty p;
-    Ok (p, fresh_var)
-  with Solve_err e -> Error e
+  infer_program fresh_ty p;
+  Ok (p, fresh_var)
 
 module Uls : LANGUAGE = struct
   let name = "uls"
