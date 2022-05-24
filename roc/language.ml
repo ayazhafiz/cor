@@ -1,3 +1,5 @@
+let default_width = 80
+
 type lineco = int * int
 (** line * col *)
 

@@ -1,5 +1,31 @@
 open Syntax
 
+module IntMap = struct
+  include Map.Make (struct
+    type t = int
+
+    let compare = compare
+  end)
+end
+
+type spec_table = ((int * string * string) * (int * lset) list) list
+(** Specialization table : (general var, spec type, proto) -> (region -> spec lset) *)
+
+let add_spec (g_var, spec_type, proto, regions) (spec_table : spec_table) =
+  ((g_var, spec_type, proto), regions) :: spec_table
+
+type gen_of_inst = (int * unspec ref list) IntMap.t
+(** specialization var -> (generalized var, unspecialized lambda sets) *)
+
+let union_goi =
+  IntMap.union (fun _ (v1, unspec1) (v2, unspec2) ->
+      assert (v1 = v2);
+      Some (v1, unspec1 @ unspec2))
+
+exception Solve_err of string
+
+let failsolve s = raise (Solve_err s)
+
 (** resolve a linked type *)
 let rec unlink = function
   | TVar v as t -> ( match !v with Unbd _ -> t | Link t -> unlink t)
@@ -20,72 +46,104 @@ let occurs x =
   in
   go
 
-let rec unify a b =
+let unify (spec_table : spec_table) (gen_of_inst : gen_of_inst) a b =
   let error prefix =
-    failwith
+    failsolve
       ("Unify error: " ^ prefix ^ " at " ^ string_of_ty [] a ^ " ~ "
      ^ string_of_ty [] b)
   in
-  match (unlink a, unlink b) with
-  | TVar x, t | t, TVar x -> (
-      match !x with
-      | Link _ -> error "found a link where none was expected"
-      | Unbd n -> if occurs n t then error "occurs" else x := Link t)
-  | TFn ((_, t11), c1, (_, t12)), TFn ((_, t21), c2, (_, t22)) ->
-      unify t11 t21;
-      unify t12 t22;
-      unify c1 c2
-  | UVar _, _ | _, UVar _ -> error "attempting to unify generalization"
-  | TVal v1, TVal v2 -> if v1 <> v2 then error "differing values"
-  | TLSet ls1, TLSet ls2 ->
-      let new_lset =
-        {
-          solved = ls1.solved @ ls2.solved;
-          unspec = List.sort_uniq compare @@ ls1.unspec @ ls2.unspec;
-        }
-      in
-      compact_lset new_lset;
-      (* commit the new solved to the respective lsets *)
-      let commit lset =
-        lset.solved <- new_lset.solved;
-        lset.unspec <- new_lset.unspec
-      in
-      commit ls1;
-      commit ls2
-  | GUls _, _ | _, GUls _ -> error "attempting to unify generalized lambda sets"
-  | _ -> error "incompatible types"
+  let rec unify a b =
+    match (unlink a, unlink b) with
+    | TVar x, t | t, TVar x -> (
+        match !x with
+        | Link _ -> error "found a link where none was expected"
+        | Unbd n -> (
+            if occurs n t then error "occurs" else x := Link t;
+            match (unlink t, IntMap.find_opt n gen_of_inst) with
+            | TVal spec_sym, Some (gen_n, unspec_lsets) ->
+                List.iter
+                  (fun unspec ->
+                    match !unspec with
+                    | Solved _ -> ()
+                    | Pending { region; ty; proto }
+                      when unlink ty = TVal spec_sym ->
+                        let spec_of_region =
+                          List.assoc (gen_n, spec_sym, proto) spec_table
+                        in
+                        let lset = List.assoc region spec_of_region in
+                        unspec := Solved lset
+                    | Pending _ -> ())
+                  unspec_lsets
+            | _ -> ()))
+    | TFn ((_, t11), c1, (_, t12)), TFn ((_, t21), c2, (_, t22)) ->
+        unify t11 t21;
+        unify t12 t22;
+        unify c1 c2
+    | UVar _, _ | _, UVar _ -> error "attempting to unify generalization"
+    | TVal v1, TVal v2 -> if v1 <> v2 then error "differing values"
+    | TLSet ls1, TLSet ls2 ->
+        let new_lset =
+          {
+            solved = ls1.solved @ ls2.solved;
+            unspec = List.sort_uniq compare @@ ls1.unspec @ ls2.unspec;
+          }
+        in
+        compact_lset new_lset;
+        (* commit the new solved to the respective lsets *)
+        let commit lset =
+          lset.solved <- new_lset.solved;
+          lset.unspec <- new_lset.unspec
+        in
+        commit ls1;
+        commit ls2
+    | GUls _, _ | _, GUls _ ->
+        error "attempting to unify generalized lambda sets"
+    | _ -> error "incompatible types"
+  in
+  unify a b
 
-let inst fresh t =
+let inst ?(proto_spec = false)
+    (* whether we're instantiating for proto specialization *) fresh t :
+    ty * gen_of_inst =
   let tenv = ref [] in
   let rec inst = function
     | UVar x ->
         if not (List.mem_assoc x !tenv) then tenv := (x, fresh ()) :: !tenv;
-        List.assoc x !tenv
+        (List.assoc x !tenv, IntMap.empty)
+    | GUls _ when proto_spec ->
+        (TLSet { solved = []; unspec = [] }, IntMap.empty)
     | GUls { region; ty; proto } ->
         if not (List.mem_assoc ty !tenv) then tenv := (ty, fresh ()) :: !tenv;
         let ty' = List.assoc ty !tenv in
-        TLSet
-          {
-            solved = [];
-            unspec = [ ref (Pending { region; ty = ty'; proto }) ];
-          }
-    | TVar x -> TVar x
-    | TVal v -> TVal v
+        let unspec = [ ref (Pending { region; ty = ty'; proto }) ] in
+        ( TLSet { solved = []; unspec },
+          let inst_n =
+            match ty' with
+            | TVar r -> ( match !r with Unbd n -> n | _ -> assert false)
+            | _ -> assert false
+          in
+          IntMap.singleton inst_n (ty, unspec) )
+    | TVar x -> (TVar x, IntMap.empty)
+    | TVal v -> (TVal v, IntMap.empty)
     | TFn ((l1, t1), tclos, (l2, t2)) ->
-        TFn ((l1, inst t1), inst tclos, (l2, inst t2))
+        let t1, goi1 = inst t1 in
+        let tclos, goi_clos = inst tclos in
+        let t2, goi2 = inst t2 in
+        ( TFn ((l1, t1), tclos, (l2, t2)),
+          union_goi goi2 @@ union_goi goi1 goi_clos )
     | TLSet { unspec; solved = _ } as t ->
         List.iter
           (fun unspec ->
             match !unspec with
             | Solved _ -> ()
             | Pending { ty; _ } ->
-                let ty' = inst ty in
+                let ty', _ = inst ty in
                 if ty <> ty' then
-                  failwith
+                  failsolve
                     ("Inst error: found a generalized type in an \
                       non-generalized lset: " ^ string_of_ty [] t))
           unspec;
-        t
+        (t, IntMap.empty)
   in
   inst t
 
@@ -109,7 +167,7 @@ let generalize venv =
             | Pending { ty; _ } ->
                 let ty' = go ty in
                 if ty <> ty' then
-                  failwith
+                  failsolve
                     ("Generalization error: lsets can only be non-generalized \
                       but a type was generalize: " ^ string_of_ty [] tlset))
           unspec;
@@ -118,58 +176,135 @@ let generalize venv =
   in
   go
 
-let infer fresh =
+let infer spec_table fresh =
   let noloc ty = (noloc, ty) in
+  let gen_of_inst = ref IntMap.empty in
   let rec infer venv (_, t, e) =
-    match e with
-    | Val v ->
-        unify t (TVal v);
-        t
-    | Var x -> (
-        match List.assoc_opt x venv with
-        | Some t -> inst fresh t
-        | None -> failwith ("Variable " ^ x ^ " not in scope"))
-    | Let ((_, x), e, b) ->
-        let t_x = generalize venv @@ infer venv e in
-        infer ((x, t_x) :: venv) b
-    | Call (fn, arg) ->
-        let t_ret = fresh () in
-        let t_clos = fresh () in
-        let t_arg = infer venv arg in
-        let t_fn = infer venv fn in
-        unify (TFn (noloc t_arg, t_clos, noloc t_ret)) t_fn;
-        t_ret
-    | Clos ((_, t_x, x), lam, body) ->
-        let venv' =
-          match x with PVal _ -> venv | PVar x -> (x, t_x) :: venv
-        in
-        let t_body = infer venv' body in
-        let lset = { solved = [ lam ]; unspec = [] } in
-        let t_clos = TLSet lset in
-        TFn (noloc t_x, t_clos, noloc t_body)
-    | Choice choices ->
-        let t = fresh () in
-        List.iter
-          (fun e ->
-            let t_e = infer venv e in
-            unify t t_e)
-          choices;
-        t
+    let ty =
+      match e with
+      | Val v ->
+          unify spec_table !gen_of_inst t (TVal v);
+          t
+      | Var x -> (
+          match List.assoc_opt x venv with
+          | Some t ->
+              let t, gen_of_inst1 = inst fresh t in
+              gen_of_inst := union_goi !gen_of_inst gen_of_inst1;
+              t
+          | None -> failsolve ("Variable " ^ x ^ " not in scope"))
+      | Let ((_, x), e, b) ->
+          let t_x = generalize venv @@ infer venv e in
+          infer ((x, t_x) :: venv) b
+      | Call (fn, arg) ->
+          let t_ret = fresh () in
+          let t_clos = fresh () in
+          let t_arg = infer venv arg in
+          let t_fn = infer venv fn in
+          unify spec_table !gen_of_inst
+            (TFn (noloc t_arg, t_clos, noloc t_ret))
+            t_fn;
+          t_ret
+      | Clos ((_, t_x, x), lam, body) ->
+          let venv' =
+            match x with PVal _ -> venv | PVar x -> (x, t_x) :: venv
+          in
+          let t_body = infer venv' body in
+          let lset = { solved = [ lam ]; unspec = [] } in
+          let t_clos = TLSet lset in
+          TFn (noloc t_x, t_clos, noloc t_body)
+      | Choice choices ->
+          let t = fresh () in
+          List.iter
+            (fun e ->
+              let t_e = infer venv e in
+              unify spec_table !gen_of_inst t t_e)
+            choices;
+          t
+    in
+    unify spec_table !gen_of_inst t ty;
+    ty
   in
   infer
 
+(** [resolve_specialization p a s] takes a prototype [p], its specialization
+    variable [a], a specialization [s]. It finds what value-type [s] is
+    specialized for, and the lambda sets in [s] associated
+    with the generalized lambda sets present in the prototype [p]. *)
+let resolve_specialization p a s =
+  let assoc_lset = function
+    | GUls { region; ty = _; proto = _ }, TLSet spec -> (region, spec)
+    | proto, spec ->
+        failsolve
+          ("something weird ended up in proto, spec lsets. Proto: "
+         ^ string_of_ty [] proto ^ " Spec: " ^ string_of_ty [] spec)
+  in
+  let spec_a = ref None in
+  let rec go p s =
+    if unlink p <> p then failsolve "p has links";
+    match (p, unlink s) with
+    | TFn ((_, t11), c1, (_, t12)), TFn ((_, t21), c2, (_, t22)) ->
+        (* By construction in parsing: we expect this closure to be regioned first,
+           then the LHS, then the RHS *)
+        assoc_lset (c1, c2) :: (go t11 t21 @ go t12 t22)
+    | UVar b, TVal v when a = b ->
+        spec_a := Some v;
+        []
+    | UVar b, spec when a = b ->
+        failsolve
+          ("found specialization for non-value type " ^ string_of_ty [] spec)
+    | _, TVar _ | UVar _, _ -> []
+    | TVal _, _ | _, TVal _ -> []
+    | TFn _, _ | _, TFn _ -> failsolve "don't unify"
+    | TVar _, _ -> failsolve "var ended up in proto"
+    | TLSet _, _ | GUls _, _ ->
+        failsolve "should always be covered in assoc_lset"
+  in
+  let table = go p s in
+  let sorted_table =
+    List.sort_uniq (fun (r1, _) (r2, _) -> compare r1 r2) table
+  in
+  if table <> sorted_table then
+    failsolve "Created lset table has duplicates or is unsorted!";
+  match !spec_a with
+  | None -> failsolve "proto is not specialized!"
+  | Some spec_a -> (spec_a, table)
+
 let infer_program fresh program =
-  let rec go venv = function
+  let rec go venv proto_table (spec_table : spec_table) = function
     | [] -> ()
     | it :: rest ->
-        let venv' =
+        let venv', proto_table', spec_table' =
           match it with
-          | Proto (_, (t_a, a), (_, t_proto)) -> venv
+          | Proto ((_, x), (t_a, a), (_, t_proto)) ->
+              let venv' = (x, t_proto) :: venv in
+              let proto_table' = (x, ((t_a, a), t_proto)) :: proto_table in
+              (venv', proto_table', spec_table)
           | Def ((_, x), e) ->
-              (* two cases: matches a proto, or it doesn't *)
-              let t_x = generalize venv @@ infer fresh venv e in
-              (x, t_x) :: venv
+              let t_x = generalize venv @@ infer spec_table fresh venv e in
+              let venv', spec_table' =
+                match List.assoc_opt x proto_table with
+                | Some ((t_a, _a), t_proto) ->
+                    (* specialization def; first unify with an instantiated
+                       version of the proto so we know the shape is correct *)
+                    let proto = x in
+                    let inst_proto, gen_of_inst =
+                      inst ~proto_spec:true fresh t_proto
+                    in
+                    unify spec_table gen_of_inst t_x inst_proto;
+                    (* now, line up all the generalized lambda sets with the
+                       specialized ones *)
+                    let spec_a, specializations =
+                      resolve_specialization t_proto t_a t_x
+                    in
+                    ( venv,
+                      add_spec (t_a, spec_a, proto, specializations) spec_table
+                    )
+                | None ->
+                    (* non-specialization def, no spec update *)
+                    ((x, t_x) :: venv, spec_table)
+              in
+              (venv', proto_table, spec_table')
         in
-        go venv' rest
+        go venv' proto_table' spec_table' rest
   in
-  go [] program
+  go [] [] [] program

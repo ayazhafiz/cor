@@ -111,13 +111,13 @@ ty:
 ty_arrow:
   | e=ty_atom { fun ctx -> e ctx }
   | head=ty_atom ARROW e=ty_arrow { fun ctx ->
-      let head = head ctx in
-      let e = e ctx in
       let uls = GUls {
         region = ctx.fresh_region ();
         ty = snd ctx.uty;
         proto = ctx.name;
       } in
+      let head = head ctx in
+      let e = e ctx in
       (range (fst head) (fst e), TFn(head, uls, e))
   }
 

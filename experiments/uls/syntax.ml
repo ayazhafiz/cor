@@ -1,4 +1,5 @@
 open Util
+open Language
 
 type lineco = int * int
 (** line * col *)
@@ -51,22 +52,25 @@ and lset = {
 
 (** an unspecialized lambda set *)
 and unspec =
-  | Solved of lambda list
+  | Solved of lset
   | Pending of ty uls
       (** instantiated unspecialized lambda set we're waiting to solve *)
 
 (** compacts a lambda set's specialized variable lists *)
-let compact_lset lset =
-  let extra_solved, new_unspec =
-    List.partition_map
-      (fun unspec ->
+let rec compact_lset lset =
+  let rec part = function
+    | [] -> ([], [])
+    | unspec :: rest -> (
+        let rest_extra_solved, rest_new_unspec = part rest in
         match !unspec with
-        | Solved lset -> Left lset
-        | Pending _ -> Right unspec)
-      lset.unspec
+        | Pending _ -> (rest_extra_solved, unspec :: rest_new_unspec)
+        | Solved lset ->
+            compact_lset lset;
+            (lset.solved @ rest_extra_solved, lset.unspec @ rest_new_unspec))
   in
-  lset.solved <- List.sort_uniq compare (lset.solved @ List.flatten extra_solved);
-  lset.unspec <- new_unspec
+  let extra_solved, new_unspec = part lset.unspec in
+  lset.solved <- List.sort_uniq compare (lset.solved @ extra_solved);
+  lset.unspec <- List.sort_uniq compare new_unspec
 
 type e_pat = loc * ty * pat
 (** An elaborated pattern *)
@@ -108,8 +112,19 @@ let pp_uls f print_ty p =
   fprintf f ":%s" p.proto
 
 let rec pp_unspec f = function
-  | Solved solved -> pp_lambda_set f solved
+  | Solved solved -> pp_lset f solved
   | Pending lset -> pp_uls f (fun ty -> pp_ty [] f (noloc, ty)) lset
+
+and pp_lset f lset =
+  let open Format in
+  compact_lset lset;
+  let { solved; unspec } = lset in
+  pp_lambda_set f solved;
+  List.iter
+    (fun unspec ->
+      fprintf f " + ";
+      pp_unspec f !unspec)
+    unspec
 
 and pp_ty tctx f =
   let open Format in
@@ -133,15 +148,7 @@ and pp_ty tctx f =
         | Link t -> go parens (noloc, t))
     | TVal "Unit" -> pp_print_string f "()"
     | TVal v -> pp_print_string f v
-    | TLSet lset ->
-        compact_lset lset;
-        let { solved; unspec } = lset in
-        pp_lambda_set f solved;
-        List.iter
-          (fun unspec ->
-            fprintf f "+ ";
-            pp_unspec f !unspec)
-          unspec
+    | TLSet lset -> pp_lset f lset
     | GUls uls -> pp_uls f (fun v -> go `FnHead (noloc, UVar v)) uls
     | TFn (l, set, r) ->
         fprintf f "@[<hov 2>";

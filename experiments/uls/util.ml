@@ -1,5 +1,3 @@
-let default_width = 80
-
 let with_buffer cb width =
   let open Format in
   let b = Buffer.create 32 in

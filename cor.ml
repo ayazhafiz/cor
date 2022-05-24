@@ -4,11 +4,11 @@ open Language
 let languages : (module LANGUAGE) list = [ (module Roc.Roc); (module Uls.Uls) ]
 
 (* Driver *)
-type phase = Parse
+type phase = Parse | Solve
 type emit = Print | Elab
 
 let assoc_flip l = List.map (fun (a, b) -> (b, a)) l
-let phase_list = [ (Parse, "parse") ]
+let phase_list = [ (Parse, "parse"); (Solve, "solve") ]
 let emit_list = [ (Print, "print"); (Elab, "elab"); (Elab, "elaborate") ]
 
 let phase_of_string s =
@@ -150,6 +150,7 @@ let find_lang () : (module LANGUAGE) =
 let process_one (module Lang : LANGUAGE) input_lines queries (phase, emit) =
   let input = unlines input_lines in
   let parse s = match Lang.parse s with Ok p -> p | Error e -> failwith e in
+  let solve s = match Lang.solve s with Ok p -> p | Error e -> failwith e in
   let print p = Lang.print p in
   let elab p =
     if List.length queries = 0 then
@@ -187,6 +188,9 @@ let process_one (module Lang : LANGUAGE) input_lines queries (phase, emit) =
     match phase with
     | Parse -> (
         let program = parse input in
+        match emit with Print -> print program | Elab -> elab program)
+    | Solve -> (
+        let program = solve @@ parse input in
         match emit with Print -> print program | Elab -> elab program)
   in
   (phase, emit, output)
