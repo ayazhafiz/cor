@@ -29,6 +29,7 @@ module Roc : LANGUAGE = struct
   type program = loc_expr
 
   let parse = parse
+  let solve _ = failwith "unimplemented"
   let print = string_of_expr
   let type_at _ = failwith "unimplemented"
 end

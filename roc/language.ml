@@ -19,6 +19,7 @@ module type LANGUAGE = sig
   (*** Stages ***)
 
   val parse : string -> (program, string) result
+  val solve : program -> (program, string) result
 
   (*** Emit ***)
   val print : ?width:int -> program -> string

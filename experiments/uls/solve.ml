@@ -118,7 +118,7 @@ let generalize venv =
   in
   go
 
-let infer fresh e =
+let infer fresh =
   let noloc ty = (noloc, ty) in
   let rec infer venv (_, t, e) =
     match e with
@@ -156,4 +156,20 @@ let infer fresh e =
           choices;
         t
   in
-  infer [] e
+  infer
+
+let infer_program fresh program =
+  let rec go venv = function
+    | [] -> ()
+    | it :: rest ->
+        let venv' =
+          match it with
+          | Proto (_, (t_a, a), (_, t_proto)) -> venv
+          | Def ((_, x), e) ->
+              (* two cases: matches a proto, or it doesn't *)
+              let t_x = generalize venv @@ infer fresh venv e in
+              (x, t_x) :: venv
+        in
+        go venv' rest
+  in
+  go [] program

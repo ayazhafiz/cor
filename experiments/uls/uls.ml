@@ -42,6 +42,7 @@ module Uls : LANGUAGE = struct
   type program = Syntax.program
 
   let parse = parse
+  let solve _ = failwith "unimplemented"
   let print = string_of_program
   let type_at = type_at
 end
