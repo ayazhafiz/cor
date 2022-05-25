@@ -2,6 +2,8 @@ open Language
 open Syntax
 open Solve
 open Mono
+open Eval
+open Util
 
 let string_of_position ({ pos_lnum; pos_cnum; pos_bol; _ } : Lexing.position) =
   Printf.sprintf "%d:%d" pos_lnum (pos_cnum - pos_bol + 1)
@@ -47,24 +49,58 @@ let solve p fresh_var =
     Ok (p, spec_table)
   with Solve_err e -> Error e
 
-let mono p spec_table =
-  try
-    let program = mono p spec_table in
-    Ok program
-  with Mono_error e -> Error e
-
 module Uls : LANGUAGE = struct
   let name = "uls"
 
   type parsed_program = Syntax.program * fresh_var
   type solved_program = Syntax.program * spec_table
-  type mono_program = Syntax.program
+
+  type mono_program = {
+    defs : (string * e_expr) list;
+    entry_points : string list;
+  }
+
+  type evaled_program = (string * expr list) list
 
   let parse = parse
   let solve (p, fresh_var) = solve p fresh_var
-  let mono (p, spec_table) = mono p spec_table
+
+  let mono (p, spec_table) =
+    try
+      let defs, entry_points = mono p spec_table in
+      Ok { defs; entry_points }
+    with Mono_error e -> Error e
+
+  let eval { defs; entry_points } =
+    try Ok (eval defs entry_points) with Eval_error e -> Error e
+
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
   let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
-  let print_mono = string_of_program
+
+  let print_mono ?(width = default_width) { defs; _ } =
+    string_of_program ~width (List.map (fun (x, e) -> Def ((noloc, x), e)) defs)
+
+  let print_evaled ?(width = default_width) evaled =
+    let open Format in
+    with_buffer
+      (fun f ->
+        fprintf f "@[<v 0>";
+        List.iteri
+          (fun i (s, es) ->
+            if i > 0 then fprintf f "@,@,";
+            fprintf f "@[<hov 2>%s =" s;
+            List.iteri
+              (fun i e ->
+                fprintf f "@ ";
+                if i > 0 then fprintf f "| ";
+                fprintf f "@[";
+                pp_expr f (noloc, TVal "?", e);
+                fprintf f "@]")
+              es;
+            fprintf f "@]")
+          evaled;
+        fprintf f "@]")
+      width
+
   let type_at loc (p, _) = type_at loc p
 end

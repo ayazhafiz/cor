@@ -244,15 +244,21 @@ let rec lift =
       let body', lifted = lift_e real_name body in
       (real_name, (human_name, body')) :: lift (lifted @ rest)
 
-let mono program spec_table : program =
+let mono program spec_table =
   let defs = lift program in
   let ctx = { spec_table; var_specializations = []; defs; mono_defs = [] } in
-  List.iter
-    (fun (x, (_, e)) ->
-      if concrete_type (xty e) then
-        let _x' = mono_def ctx x (xty e) in
-        ())
-    defs;
+  let entry_points =
+    List.filter_map
+      (fun (x, (_, e)) ->
+        if concrete_type (xty e) then
+          let x' = mono_def ctx x (xty e) in
+          Some x'
+        else None)
+      defs
+  in
   let mono_defs = ctx.mono_defs in
   if List.length mono_defs = 0 then fail "No monomorphized roots found!";
-  List.map (fun ((_, _), (x', e)) -> Def ((noloc, x'), e)) @@ List.rev mono_defs
+  let mono_program =
+    List.map (fun ((_, _), (x', e)) -> (x', e)) @@ List.rev mono_defs
+  in
+  (mono_program, entry_points)

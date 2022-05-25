@@ -29,12 +29,15 @@ module Roc : LANGUAGE = struct
   type parsed_program = loc_expr
   type solved_program = loc_expr
   type mono_program = loc_expr
+  type evaled_program = loc_expr
 
   let parse = parse
   let solve _ = failwith "unimplemented"
   let mono _ = failwith "unimplemented"
+  let eval _ = failwith "unimplemented"
   let print_parsed = string_of_expr
   let print_solved = string_of_expr
   let print_mono = string_of_expr
+  let print_evaled = string_of_expr
   let type_at _ = failwith "unimplemented"
 end

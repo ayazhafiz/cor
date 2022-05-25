@@ -4,11 +4,14 @@ open Language
 let languages : (module LANGUAGE) list = [ (module Roc.Roc); (module Uls.Uls) ]
 
 (* Driver *)
-type phase = Parse | Solve | Mono
+type phase = Parse | Solve | Mono | Eval
 type emit = Print | Elab
 
 let assoc_flip l = List.map (fun (a, b) -> (b, a)) l
-let phase_list = [ (Parse, "parse"); (Solve, "solve"); (Mono, "mono") ]
+
+let phase_list =
+  [ (Parse, "parse"); (Solve, "solve"); (Mono, "mono"); (Eval, "eval") ]
+
 let emit_list = [ (Print, "print"); (Elab, "elab"); (Elab, "elaborate") ]
 
 let phase_of_string s =
@@ -152,6 +155,7 @@ let process_one (module Lang : LANGUAGE) input_lines queries (phase, emit) =
   let parse s = match Lang.parse s with Ok p -> p | Error e -> failwith e in
   let solve s = match Lang.solve s with Ok p -> p | Error e -> failwith e in
   let mono s = match Lang.mono s with Ok p -> p | Error e -> failwith e in
+  let eval s = match Lang.eval s with Ok p -> p | Error e -> failwith e in
   let elab p =
     if List.length queries = 0 then
       failwith "Asked for elaboration, but there are no queries";
@@ -201,6 +205,11 @@ let process_one (module Lang : LANGUAGE) input_lines queries (phase, emit) =
         match emit with
         | Print -> Lang.print_mono program
         | Elab -> failwith "Cannot elaborate mono")
+    | Eval -> (
+        let program = eval @@ mono @@ solve @@ parse input in
+        match emit with
+        | Print -> Lang.print_evaled program
+        | Elab -> failwith "Cannot elaborate eval")
   in
   (phase, emit, output)
 
