@@ -1,5 +1,6 @@
 # cor +solve -elab
 # cor +mono -print
+# cor +eval -print
 proto thunkDefault a : () -> () -> a
 #     ^^^^^^^^^^^^
 
@@ -200,3 +201,30 @@ let test3 =
 >   `5(useT1)~4 (choice {
 >                  | `1~4
 >                  | `8~7 } ())
+
+> cor-out +eval -print
+> `9(thunkDefault)~1 = \() -> `8~1
+> 
+> `8~2 = \() -> T1
+> 
+> `7(uut1)~1 = \() -> `6~1
+> 
+> `6~2 = \() -> T1
+> 
+> `5(useT1)~1 = \T1 -> ()
+> 
+> test1~1 = () | () | () | ()
+> 
+> `4~2 = \() -> choice {
+>                 | `3~3
+>                 | `8~5 }
+> 
+> `3~4 = \() -> T1
+> 
+> `2(thunkDefault2)~1 = \() -> `1~1
+> 
+> `1~2 = \() -> T1
+> 
+> test2~1 = () | () | ()
+> 
+> test3~1 = () | ()
