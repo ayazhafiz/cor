@@ -88,7 +88,7 @@ expr_lets:
   }
 
 branches:
-  | body=expr { fun ctx -> [body ctx] }
+  | PIPE body=expr { fun ctx -> [body ctx] }
   | rest=branches PIPE body=expr { fun ctx -> body ctx::(rest ctx) }
 
 expr_atom:

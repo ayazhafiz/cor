@@ -149,10 +149,10 @@ let inst ?(proto_spec = false)
                  let ty', goi = inst ty in
                  let unspec' = ref (Pending { region; ty = ty'; proto }) in
                  let goi' =
-                   if List.exists (fun (_, b) -> b = ty') !tenv then
+                   if List.exists (fun (_, b) -> b = unlink ty') !tenv then
                      (* instantiated generalized *)
                      let inst_n =
-                       match ty' with
+                       match unlink ty' with
                        | TVar r -> (
                            match !r with Unbd n -> n | _ -> assert false)
                        | _ -> assert false
