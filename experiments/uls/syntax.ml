@@ -126,7 +126,7 @@ and pp_lset f lset =
       pp_unspec f !unspec)
     unspec
 
-and pp_ty tctx f =
+and pp_ty ?(print_uls = true) tctx f =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `FnHead -> 2 in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
@@ -154,9 +154,11 @@ and pp_ty tctx f =
         fprintf f "@[<hov 2>";
         let pty () =
           go `FnHead l;
-          fprintf f " -[";
-          go `Free (noloc, set);
-          fprintf f "]->@ ";
+          if print_uls then (
+            fprintf f " -[";
+            go `Free (noloc, set);
+            fprintf f "]->@ ")
+          else fprintf f " ->@ ";
           go `Free r
         in
         with_parens (parens >> `Free) pty;
@@ -241,25 +243,25 @@ let pp_expr f =
         in
         with_parens (parens >> `CallHead) expr;
         fprintf f "@]"
-    | Clos (arg, lam, body) ->
+    | Clos (arg, _lam, body) ->
         fprintf f "@[<hov 2>";
         let expr () =
           fprintf f "\\";
           pp_pat f arg;
-          fprintf f " -%s->@ " (string_of_lambda lam);
+          fprintf f " ->@ ";
           go `Free body
         in
         with_parens (parens >> `Free) expr;
         fprintf f "@]"
     | Choice branches ->
-        fprintf f "@[<v 2>choice {@ ";
+        fprintf f "@[<v 2>choice {";
         List.iter
           (fun expr ->
-            fprintf f "@[| ";
+            fprintf f "@ @[| ";
             go `Free expr;
             fprintf f "@]")
           branches;
-        fprintf f "}@]"
+        fprintf f " }@]"
   in
   go `Free
 
@@ -268,7 +270,7 @@ let pp_decl f =
   function
   | Proto (name, arg, ty) ->
       fprintf f "@[<v 2>proto %s %s :@ " (snd name) (snd arg);
-      pp_ty [ arg ] f ty;
+      pp_ty ~print_uls:false [ arg ] f ty;
       fprintf f "@]"
   | Def (name, e) ->
       fprintf f "@[<v 2>let %s =@ " (snd name);
