@@ -302,7 +302,7 @@ let infer_program fresh program =
               let venv' = (x, t_proto) :: venv in
               let proto_table' = (x, ((t_a, a), t_proto)) :: proto_table in
               (venv', proto_table', spec_table)
-          | Def ((_, x), e) ->
+          | Def ((_, x), e, _) ->
               let t_x = generalize venv @@ infer spec_table fresh venv e in
               let venv', spec_table' =
                 match List.assoc_opt x proto_table with

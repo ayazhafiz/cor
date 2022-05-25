@@ -9,12 +9,12 @@ let thunkDefault = \() -> \() -> T1
 let thunkDefault = \() -> \() -> T2
 #   ^^^^^^^^^^^^
 
-let test1 =
+entry test1 =
   let useT1 = \T1 -> () in
   useT1 (thunkDefault () ())
   #      ^^^^^^^^^^^^
 
-let test2 =
+entry test2 =
   let useT2 = \T2 -> () in
   useT2 (thunkDefault () ())
   #      ^^^^^^^^^^^^
@@ -28,12 +28,12 @@ let test2 =
 > let thunkDefault = \() -> \() -> T2
 > #   ^^^^^^^^^^^^ () -[[`4]]-> () -[[`3]]-> T2
 > 
-> let test1 =
+> entry test1 =
 >   let useT1 = \T1 -> () in
 >   useT1 (thunkDefault () ())
 > #        ^^^^^^^^^^^^ () -[[`6]]-> () -[[`5]]-> T1
 > 
-> let test2 =
+> entry test2 =
 >   let useT2 = \T2 -> () in
 >   useT2 (thunkDefault () ())
 > #        ^^^^^^^^^^^^ () -[[`4]]-> () -[[`3]]-> T2
@@ -46,8 +46,11 @@ let test2 =
 > let `6(thunkDefault)~1 =
 >   \() -> `5~1
 > 
-> let `5~2 =
->   \() -> T1
+> let `2~1 =
+>   \T1 -> ()
+> 
+> entry test1~1 =
+>   `2~1 (`6(thunkDefault)~1 () ())
 > 
 > let `3~1 =
 >   \() -> T2
@@ -55,52 +58,13 @@ let test2 =
 > let `4(thunkDefault)~1 =
 >   \() -> `3~1
 > 
-> let `3~2 =
->   \() -> T2
-> 
-> let `5~3 =
->   \() -> T1
-> 
-> let `6(thunkDefault)~2 =
->   \() -> `5~3
-> 
-> let `2~1 =
->   \T1 -> ()
-> 
-> let test1~1 =
->   `2~1 (`6(thunkDefault)~2 () ())
-> 
-> let `2~2 =
->   \T1 -> ()
-> 
-> let `3~3 =
->   \() -> T2
-> 
-> let `4(thunkDefault)~2 =
->   \() -> `3~3
-> 
 > let `1~1 =
 >   \T2 -> ()
 > 
-> let test2~1 =
->   `1~1 (`4(thunkDefault)~2 () ())
-> 
-> let `1~2 =
->   \T2 -> ()
+> entry test2~1 =
+>   `1~1 (`4(thunkDefault)~1 () ())
 
 > cor-out +eval -print
-> `6(thunkDefault)~1 = \() -> `5~1
-> 
-> `5~2 = \() -> T1
-> 
-> `4(thunkDefault)~1 = \() -> `3~1
-> 
-> `3~2 = \() -> T2
-> 
 > test1~1 = ()
 > 
-> `2~2 = \T1 -> ()
-> 
 > test2~1 = ()
-> 
-> `1~2 = \T2 -> ()

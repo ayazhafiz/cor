@@ -91,7 +91,10 @@ and expr =
   | Choice of e_expr list
 
 and branch = e_pat * e_expr
-and def = Proto of loc_str * (int * string) * loc_ty | Def of loc_str * e_expr
+
+and def =
+  | Proto of loc_str * (int * string) * loc_ty
+  | Def of loc_str * e_expr * bool (* name * body * is entry *)
 
 type program = def list
 type parse_ctx = { fresh_var : unit -> int; fresh_clos_name : unit -> int }
@@ -190,7 +193,7 @@ let type_at loc program =
   let def = function
     | Proto ((l, _), arg, (_, ty)) ->
         if l = loc then Some ([ arg ], ty) else None
-    | Def ((l, _), e) -> if l = loc then Some ([], xty e) else expr e
+    | Def ((l, _), e, _) -> if l = loc then Some ([], xty e) else expr e
   in
   List.find_map def program
   |> Option.map (fun (tctx, ty) -> string_of_ty tctx ty)
@@ -274,8 +277,9 @@ let pp_decl f =
       fprintf f "@[<v 2>proto %s %s :@ " (snd name) (snd arg);
       pp_ty ~print_uls:false [ arg ] f ty;
       fprintf f "@]"
-  | Def (name, e) ->
-      fprintf f "@[<v 2>let %s =@ " (snd name);
+  | Def (name, e, entry) ->
+      let prefix = if entry then "entry" else "let" in
+      fprintf f "@[<v 2>%s %s =@ " prefix (snd name);
       pp_expr f e;
       fprintf f "@]"
 

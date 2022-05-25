@@ -9,18 +9,18 @@ let thunkDefault = \() -> \() -> T1
 
 let useT1 = \T1 -> ()
 
-let test =
+entry test =
   let alias = thunkDefault in
   #   ^^^^^
   useT1 (alias () ())
   #      ^^^^^
 
-let test2 =
+entry test2 =
   let alias = thunkDefault () in
   useT1 (alias ())
   #      ^^^^^
 
-let test3 =
+entry test3 =
   let alias = thunkDefault () in
   let alias2 = alias in
   useT1 (alias2 ())
@@ -35,18 +35,18 @@ let test3 =
 > 
 > let useT1 = \T1 -> ()
 > 
-> let test =
+> entry test =
 >   let alias = thunkDefault in
 > #     ^^^^^ () -[[] + ~1:?29:thunkDefault]-> () -[[] + ~2:?29:thunkDefault]-> ?29
 >   useT1 (alias () ())
 > #        ^^^^^ () -[[`3]]-> () -[[`2]]-> T1
 > 
-> let test2 =
+> entry test2 =
 >   let alias = thunkDefault () in
 >   useT1 (alias ())
 > #        ^^^^^ () -[[`2]]-> T1
 > 
-> let test3 =
+> entry test3 =
 >   let alias = thunkDefault () in
 >   let alias2 = alias in
 >   useT1 (alias2 ())
@@ -60,49 +60,31 @@ let test3 =
 > let `3(thunkDefault)~1 =
 >   \() -> `2~1
 > 
-> let `2~2 =
->   \() -> T1
-> 
 > let `1(useT1)~1 =
 >   \T1 -> ()
 > 
-> let `2~3 =
->   \() -> T1
+> entry test~1 =
+>   `1(useT1)~1 (`3(thunkDefault)~1 () ())
 > 
-> let `3(thunkDefault)~2 =
->   \() -> `2~3
+> let `2~2 =
+>   \() -> T1
 > 
 > let `1(useT1)~2 =
 >   \T1 -> ()
 > 
-> let test~1 =
->   `1(useT1)~2 (`3(thunkDefault)~2 () ())
+> entry test2~1 =
+>   `1(useT1)~2 (`2~2 ())
 > 
-> let `2~4 =
+> let `2~3 =
 >   \() -> T1
 > 
 > let `1(useT1)~3 =
 >   \T1 -> ()
 > 
-> let test2~1 =
->   `1(useT1)~3 (`2~4 ())
-> 
-> let `2~5 =
->   \() -> T1
-> 
-> let `1(useT1)~4 =
->   \T1 -> ()
-> 
-> let test3~1 =
->   `1(useT1)~4 (`2~5 ())
+> entry test3~1 =
+>   `1(useT1)~3 (`2~3 ())
 
 > cor-out +eval -print
-> `3(thunkDefault)~1 = \() -> `2~1
-> 
-> `2~2 = \() -> T1
-> 
-> `1(useT1)~1 = \T1 -> ()
-> 
 > test~1 = ()
 > 
 > test2~1 = ()

@@ -20,6 +20,7 @@ let xv = Syntax.xv
 %token <Syntax.loc * string> LOWER
 %token <Syntax.loc * string> UPPER
 
+%token <Syntax.loc> ENTRY
 %token <Syntax.loc> LET
 %token <Syntax.loc> IN
 %token <Syntax.loc> LAM
@@ -54,8 +55,11 @@ decl:
       let ty = ty { name=snd name; uty; fresh_region } in
       Proto(name, (aty, arg), ty)
   }
+  | ENTRY name=LOWER EQ e=expr { fun ctx ->
+      Def(name, e ctx, true)
+  }
   | LET name=LOWER EQ e=expr { fun ctx ->
-      Def(name, e ctx)
+      Def(name, e ctx, false)
   }
 
 expr:

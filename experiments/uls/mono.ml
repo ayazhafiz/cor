@@ -222,7 +222,7 @@ let rec lift =
             let clos' = Clos (p, lam, body') in
             if lam_name = def_name then (* keep around for the def *) (clos', l)
             else
-              let lifted = Def ((noloc, lam_name), (noloc, t, clos')) in
+              let lifted = Def ((noloc, lam_name), (noloc, t, clos'), false) in
               (Var lam_name, lifted :: l)
         | Choice es ->
             let es', l = List.split @@ List.map go es in
@@ -235,7 +235,7 @@ let rec lift =
   function
   | [] -> []
   | Proto _ :: rest -> lift rest
-  | Def ((_, human_name), body) :: rest ->
+  | Def ((_, human_name), body, _) :: rest ->
       let real_name =
         match xv body with
         | Clos (_, lam, _) -> string_of_lam lam
@@ -249,12 +249,13 @@ let mono program spec_table =
   let ctx = { spec_table; var_specializations = []; defs; mono_defs = [] } in
   let entry_points =
     List.filter_map
-      (fun (x, (_, e)) ->
-        if concrete_type (xty e) then
-          let x' = mono_def ctx x (xty e) in
-          Some x'
-        else None)
-      defs
+      (function
+        | Def ((_, x), e, true) ->
+            assert (concrete_type (xty e));
+            let x' = mono_def ctx x (xty e) in
+            Some x'
+        | _ -> None)
+      program
   in
   let mono_defs = ctx.mono_defs in
   if List.length mono_defs = 0 then fail "No monomorphized roots found!";

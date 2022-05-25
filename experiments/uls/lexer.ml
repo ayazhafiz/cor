@@ -28,6 +28,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   match%sedlex lexbuf with
   | whitespace -> read lexbuf
   | newline -> read lexbuf
+  | "entry" -> make lexbuf (fun i -> ENTRY i)
   | "let" -> make lexbuf (fun i -> LET i)
   | "in" -> make lexbuf (fun i -> IN i)
   | "\\" -> make lexbuf (fun i -> LAM i)

@@ -77,8 +77,11 @@ module Uls : LANGUAGE = struct
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
   let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
 
-  let print_mono ?(width = default_width) { defs; _ } =
-    string_of_program ~width (List.map (fun (x, e) -> Def ((noloc, x), e)) defs)
+  let print_mono ?(width = default_width) { defs; entry_points } =
+    string_of_program ~width
+      (List.map
+         (fun (x, e) -> Def ((noloc, x), e, List.mem x entry_points))
+         defs)
 
   let print_evaled ?(width = default_width) evaled =
     let open Format in
