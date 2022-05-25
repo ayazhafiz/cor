@@ -1,4 +1,5 @@
 # cor +solve -elab
+# cor +mono -print
 proto thunkDefault a : () -> () -> a
 #     ^^^^^^^^^^^^
 
@@ -50,3 +51,46 @@ let test3 =
 >   useT1 (alias2 ())
 > #        ^^^^^^ () -[[`2]]-> T1
 > 
+
+> cor-out +mono -print
+> let `2~1 =
+>   \() -> T1
+> 
+> let `3(thunkDefault)~1 =
+>   \() -> `2~1
+> 
+> let `2~2 =
+>   \() -> T1
+> 
+> let `1(useT1)~1 =
+>   \T1 -> ()
+> 
+> let `2~3 =
+>   \() -> T1
+> 
+> let `3(thunkDefault)~2 =
+>   \() -> `2~3
+> 
+> let `1(useT1)~2 =
+>   \T1 -> ()
+> 
+> let test~1 =
+>   `1(useT1)~2 (`3(thunkDefault)~2 () ())
+> 
+> let `2~4 =
+>   \() -> T1
+> 
+> let `1(useT1)~3 =
+>   \T1 -> ()
+> 
+> let test2~1 =
+>   `1(useT1)~3 (`2~4 ())
+> 
+> let `2~5 =
+>   \() -> T1
+> 
+> let `1(useT1)~4 =
+>   \T1 -> ()
+> 
+> let test3~1 =
+>   `1(useT1)~4 (`2~5 ())

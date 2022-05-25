@@ -195,7 +195,7 @@ let type_at loc program =
   List.find_map def program
   |> Option.map (fun (tctx, ty) -> string_of_ty tctx ty)
 
-let string_of_lambda = function Lam n -> "`F" ^ string_of_int n
+let string_of_lambda = function Lam n -> "`" ^ string_of_int n
 
 let pp_pat f (_, _, p) =
   let open Format in
