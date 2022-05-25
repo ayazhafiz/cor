@@ -14,21 +14,11 @@ Has:
 that should be enough to emulate how unspecialized lambda sets, and their
 specialization, would work in Roc.
 
-Examples:
+[See the tests](./test/) for examples.
 
-```
-# equivalent to ability member signature
-sig thunkDefault a : () -> () -> a
+Target phases: `parse`, `solve`, `mono`
+Target emit: `print`, `elab`
 
-thunkDefault = \() -> \() -> T1
-thunkDefault = \() -> \() -> T2
+## Idea
 
-main =
-  useT1 = \T1 -> ()
-  useT1 (thunkDefault () ())
-        #^^^^^^^^^^^^^^^^^^ lambda sets should be resolved during unification
-```
-
-Target emit:
-
-- `print`, `elab`, `mono`
+TODO: enumerate the algorithm
