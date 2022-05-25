@@ -12,6 +12,8 @@ let noloc = ((0, 0), (0, 0))
 type loc_str = loc * string
 type lambda = Lam of int
 
+let string_of_lam (Lam n) = "`" ^ string_of_int n
+
 type 'a uls = { region : int; ty : 'a; proto : string }
 (** Unspecialized lambda set, like [~1:a:thunkDefault] *)
 
@@ -85,7 +87,7 @@ and expr =
   | Var of string
   | Let of loc_str * e_expr * e_expr  (** x = e in b *)
   | Call of e_expr * e_expr  (** fn arg *)
-  | Clos of e_pat * lambda * e_expr  (** args -name-> body *)
+  | Clos of e_pat * lambda * e_expr  (** arg -name-> body *)
   | Choice of e_expr list
 
 and branch = e_pat * e_expr
@@ -101,9 +103,7 @@ let xv (_, _, v) = v
 
 let pp_lambda_set f solved =
   let open Format in
-  fprintf f "[%s]"
-    (String.concat ","
-       (List.map (function Lam n -> "`" ^ string_of_int n) solved))
+  fprintf f "[%s]" (String.concat "," (List.map string_of_lam solved))
 
 let pp_uls f print_ty p =
   let open Format in
@@ -264,6 +264,8 @@ let pp_expr f =
         fprintf f " }@]"
   in
   go `Free
+
+let string_of_expr e = with_buffer (fun f -> pp_expr f e) default_width
 
 let pp_decl f =
   let open Format in

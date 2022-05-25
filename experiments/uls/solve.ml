@@ -14,10 +14,12 @@ type spec_table = ((string * string) * (int * lset) list) list
 let add_spec (spec_type, proto, regions) (spec_table : spec_table) =
   ((spec_type, proto), regions) :: spec_table
 
-type gen_of_inst = unspec ref list IntMap.t
+type uls_of_var = unspec ref list IntMap.t
 (** specialization var -> (unspecialized lambda sets) *)
 
-let union_goi = IntMap.union (fun _ unspec1 unspec2 -> Some (unspec1 @ unspec2))
+let union_uls_v =
+  IntMap.union (fun _ unspec1 unspec2 ->
+      Some (List.sort_uniq compare (unspec1 @ unspec2)))
 
 exception Solve_err of string
 
@@ -43,7 +45,7 @@ let occurs x =
   in
   go
 
-let unify (spec_table : spec_table) (gen_of_inst : gen_of_inst) a b =
+let unify (spec_table : spec_table) (gen_of_inst : uls_of_var) a b =
   let error prefix =
     failsolve
       ("Unify error: " ^ prefix ^ " at " ^ string_of_ty [] a ^ " ~ "
@@ -101,7 +103,7 @@ let unify (spec_table : spec_table) (gen_of_inst : gen_of_inst) a b =
 
 let inst ?(proto_spec = false)
     (* whether we're instantiating for proto specialization *) fresh t :
-    ty * gen_of_inst =
+    ty * uls_of_var =
   let tenv = ref [] in
   let rec inst = function
     | UVar x ->
@@ -124,31 +126,31 @@ let inst ?(proto_spec = false)
         match !x with
         | Unbd _ -> (TVar x, IntMap.empty)
         | Link t ->
-            let t', goi = inst t in
-            (TVar (ref (Link t')), goi))
+            let t', uls_v = inst t in
+            (TVar (ref (Link t')), uls_v))
     | TVal v -> (TVal v, IntMap.empty)
     | TFn ((l1, t1), tclos, (l2, t2)) ->
-        let t1', goi1 = inst t1 in
-        let tclos', goi_clos = inst tclos in
-        let t2', goi2 = inst t2 in
+        let t1', uls_v1 = inst t1 in
+        let tclos', uls_v_clos = inst tclos in
+        let t2', uls_v2 = inst t2 in
         ( TFn ((l1, t1'), tclos', (l2, t2')),
-          union_goi goi2 @@ union_goi goi1 goi_clos )
+          union_uls_v uls_v2 @@ union_uls_v uls_v1 uls_v_clos )
     | TLSet lset ->
-        let lset', goi = inst_lset lset in
-        (TLSet lset', goi)
+        let lset', uls_v = inst_lset lset in
+        (TLSet lset', uls_v)
   and inst_lset { solved; unspec } =
-    let unspec', gois =
+    let unspec', uls_vs =
       List.split
       @@ List.map
            (fun unspec ->
              match !unspec with
              | Solved lset ->
-                 let lset', goi = inst_lset lset in
-                 (ref (Solved lset'), goi)
+                 let lset', uls_v = inst_lset lset in
+                 (ref (Solved lset'), uls_v)
              | Pending { region; ty; proto } ->
-                 let ty', goi = inst ty in
+                 let ty', uls_v = inst ty in
                  let unspec' = ref (Pending { region; ty = ty'; proto }) in
-                 let goi' =
+                 let uls_v' =
                    if List.exists (fun (_, b) -> b = unlink ty') !tenv then
                      (* instantiated generalized *)
                      let inst_n =
@@ -160,11 +162,11 @@ let inst ?(proto_spec = false)
                      IntMap.singleton inst_n [ unspec' ]
                    else IntMap.empty
                  in
-                 (unspec', union_goi goi goi'))
+                 (unspec', union_uls_v uls_v uls_v'))
            unspec
     in
-    let goi = List.fold_left union_goi IntMap.empty gois in
-    ({ solved; unspec = unspec' }, goi)
+    let uls_v = List.fold_left union_uls_v IntMap.empty uls_vs in
+    ({ solved; unspec = unspec' }, uls_v)
   in
   inst t
 
@@ -210,7 +212,7 @@ let infer spec_table fresh =
           match List.assoc_opt x venv with
           | Some t ->
               let t, gen_of_inst1 = inst fresh t in
-              gen_of_inst := union_goi !gen_of_inst gen_of_inst1;
+              gen_of_inst := union_uls_v !gen_of_inst gen_of_inst1;
               t
           | None -> failsolve ("Variable " ^ x ^ " not in scope"))
       | Let ((_, x), e, b) ->
@@ -292,7 +294,7 @@ let resolve_specialization p a s =
 
 let infer_program fresh program =
   let rec go venv proto_table (spec_table : spec_table) = function
-    | [] -> ()
+    | [] -> spec_table
     | it :: rest ->
         let venv', proto_table', spec_table' =
           match it with

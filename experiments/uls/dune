@@ -4,7 +4,7 @@
 
 (library
  (name uls)
- (modules uls syntax lexer parser util solve)
+ (modules uls syntax lexer parser util solve mono)
  (libraries language sedlex menhirLib)
  (inline_tests)
  (preprocess

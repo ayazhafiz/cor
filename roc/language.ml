@@ -16,14 +16,19 @@ let within (lc11, lc12) (lc21, lc22) = deeper lc11 lc21 && shallower lc12 lc22
 module type LANGUAGE = sig
   val name : string
 
-  type program
+  type parsed_program
+  type solved_program
+  type mono_program
 
   (*** Stages ***)
 
-  val parse : string -> (program, string) result
-  val solve : program -> (program, string) result
+  val parse : string -> (parsed_program, string) result
+  val solve : parsed_program -> (solved_program, string) result
+  val mono : solved_program -> (mono_program, string) result
 
   (*** Emit ***)
-  val print : ?width:int -> program -> string
-  val type_at : loc -> program -> string option
+  val print_parsed : ?width:int -> parsed_program -> string
+  val print_solved : ?width:int -> solved_program -> string
+  val print_mono : ?width:int -> mono_program -> string
+  val type_at : loc -> solved_program -> string option
 end

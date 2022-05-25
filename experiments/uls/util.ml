@@ -6,3 +6,9 @@ let with_buffer cb width =
   cb f;
   pp_print_flush f ();
   Buffer.to_seq b |> String.of_seq
+
+module StringMap = Map.Make (struct
+  type t = string
+
+  let compare = compare
+end)
