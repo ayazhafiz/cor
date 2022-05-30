@@ -8,7 +8,7 @@ compiler features.
 
 ## Experiments to try
 
-- [ ] [Unspecialized lambda set variables](https://www.notion.so/rwx/Non-linear-monomorphization-0b26991a028949a285ca77a8ffcff3c5#1930c4eadf08465f9c7b96469f11f664) ([./experiments/uls](./experiments/uls))
+- [x] [Unspecialized lambda set variables](https://www.notion.so/rwx/Non-linear-monomorphization-0b26991a028949a285ca77a8ffcff3c5#1930c4eadf08465f9c7b96469f11f664) ([./experiments/uls](./experiments/uls))
 - [ ] Only open tag unions in output positions
 - [ ] Can -> x86 lowering
 
