@@ -1,10 +1,14 @@
+(library
+  (name libcor)
+  (modules libcor)
+  (libraries
+    str
+    language
+    roc
+    uls))
+
 (executable
- (public_name cor)
- (name cor)
- (modules cor)
- (libraries
-   str
-   language
-   roc
-   uls
-   ))
+  (public_name cor)
+  (name cor)
+  (modules cor)
+  (libraries libcor))
