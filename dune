@@ -1,6 +1,7 @@
 (library
   (name libcor)
   (modules libcor)
+  (js_of_ocaml)
   (libraries
     str
     language
@@ -12,3 +13,25 @@
   (name cor)
   (modules cor)
   (libraries libcor))
+
+(executable
+  (public_name corjs)
+  (name corjs)
+  (modules corjs)
+  (libraries libcor)
+  (modes byte)
+  (preprocess (pps js_of_ocaml-ppx)))
+
+(rule
+  (mode (promote (into js)))
+  (targets cor.js cor.d.ts)
+  (deps (glob_files js/prim.js))
+  (action
+    (progn
+      (run %{bin:js_of_ocaml}
+           js/prim.js
+           %{dep:corjs.bc}
+           -o cor.js)
+      (with-outputs-to cor.d.ts
+                       (bash "%{bin:dts_of_ocaml} $(find . -name '*js.cmt')")))))
+

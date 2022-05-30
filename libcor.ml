@@ -1,7 +1,8 @@
 open Language
 
 (*** All languages ***)
-let languages : (module LANGUAGE) list = [ (module Roc.Roc); (module Uls.Uls) ]
+let lang_mods : (module LANGUAGE) list = [ (module Roc.Roc); (module Uls.Uls) ]
+let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
 
 (* Driver *)
 type phase = Parse | Solve | Mono | Eval
@@ -13,51 +14,65 @@ let phase_list =
   [ (Parse, "parse"); (Solve, "solve"); (Mono, "mono"); (Eval, "eval") ]
 
 let emit_list = [ (Print, "print"); (Elab, "elab"); (Elab, "elaborate") ]
-
-let phase_of_string s =
-  match List.assoc_opt s @@ assoc_flip phase_list with
-  | Some e -> e
-  | _ -> failwith ("Invalid phase " ^ s)
-
+let phase_of_string s = List.assoc_opt s @@ assoc_flip phase_list
 let string_of_phase p = List.assoc p phase_list
-
-let emit_of_string s =
-  match List.assoc_opt s @@ assoc_flip emit_list with
-  | Some e -> e
-  | _ -> failwith ("Invalid emit " ^ s)
-
+let emit_of_string s = List.assoc_opt s @@ assoc_flip emit_list
 let string_of_emit e = List.assoc e emit_list
 let unlines = String.concat "\n"
 
-type raw_program = string
-type program_lines = string list
-type queries = loc list
+let phases =
+  List.map string_of_phase @@ List.sort_uniq compare @@ List.map fst phase_list
+
+let emits =
+  List.map string_of_emit @@ List.sort_uniq compare @@ List.map fst emit_list
+
 type command = phase * emit
+type command_err = string * [ `InvalidPhase | `InvalidEmit | `Unparseable ]
+
+let string_of_command_err (s, e) =
+  s ^ ": "
+  ^
+  match e with
+  | `InvalidPhase -> "invalid phase"
+  | `InvalidEmit -> "invalid emit"
+  | `Unparseable -> "cannot parse this command"
+
+type raw_program = string list
+
+let raw_program_of_string = String.split_on_char '\n'
+let raw_program_of_lines = Fun.id
+
+type queries = loc list
+type program = string list * queries
 
 type preprocessed = {
   raw_program : raw_program;
-  program_lines : program_lines;
-  queries : queries;
-  commands : command list;
+  program : program;
+  commands : (command, command_err) result list;
 }
 
-let preprocess lines : preprocessed =
-  let re_cmds = Str.regexp {|# cor \+\([a-z]+\) -\([a-z]+\)|} in
-  let re_query = Str.regexp {|\(\^+\)|} in
-  let starts_command = String.starts_with ~prefix:"# cor " in
-  let starts_out = String.starts_with ~prefix:"> " in
+let re_cmds = Str.regexp {|# cor \+\([a-z]+\) -\([a-z]+\)|}
+let re_query = Str.regexp {|\(\^+\)|}
+let starts_command = String.starts_with ~prefix:"# cor "
+let starts_out = String.starts_with ~prefix:"> "
+
+let parse_command line =
+  if Str.string_match re_cmds line 0 then
+    let phase = Str.matched_group 1 line in
+    let emit = Str.matched_group 2 line in
+    match (phase_of_string phase, emit_of_string emit) with
+    | Some p, Some e -> Ok (p, e)
+    | None, _ -> Error (line, `InvalidPhase)
+    | _, None -> Error (line, `InvalidEmit)
+  else Error (line, `Unparseable)
+
+let preprocess (lines : raw_program) : preprocessed =
   (* commands in the header *)
   let commands =
     let rec parse = function
       | [] -> []
       | line :: rest ->
-          if starts_command line then
-            if Str.string_match re_cmds line 0 then
-              let phase = Str.matched_group 1 line in
-              let emit = Str.matched_group 2 line in
-              (phase_of_string phase, emit_of_string emit) :: parse rest
-            else failwith ("Invalid command line `" ^ line ^ "`")
-          else []
+          if starts_command line then parse_command line :: parse rest else []
     in
     parse lines
   in
@@ -69,7 +84,7 @@ let preprocess lines : preprocessed =
       | "" :: line :: _ when starts_out line -> []
       | l :: rest -> l :: go rest
     in
-    unlines (go lines)
+    go lines
   in
   (* parse N queries on a single line *)
   let parse_line_queries lineno line : loc list =
@@ -103,7 +118,7 @@ let preprocess lines : preprocessed =
     in
     parse 1 lines
   in
-  { raw_program; program_lines; queries; commands }
+  { raw_program; program = (program_lines, queries); commands }
 
 type processed_command = command * string
 
@@ -123,73 +138,90 @@ let postprocess (raw_program : raw_program) (commands : processed_command list)
         ])
       commands
   in
-  String.concat "\n" @@ (raw_program :: List.flatten cmd_out)
+  String.concat "\n" @@ raw_program @ List.flatten cmd_out
 
 module type LANGUAGE = LANGUAGE
 
-let find_opt_lang lang : (module LANGUAGE) option =
-  List.find_opt (fun (module M : LANGUAGE) -> M.name = lang) languages
+let find_language lang : (module LANGUAGE) option =
+  List.find_opt (fun (module M : LANGUAGE) -> M.name = lang) lang_mods
 
-let process_one (module Lang : LANGUAGE) input_lines queries (phase, emit) :
-    processed_command =
-  let input = unlines input_lines in
-  let parse s = match Lang.parse s with Ok p -> p | Error e -> failwith e in
-  let solve s = match Lang.solve s with Ok p -> p | Error e -> failwith e in
-  let mono s = match Lang.mono s with Ok p -> p | Error e -> failwith e in
-  let eval s = match Lang.eval s with Ok p -> p | Error e -> failwith e in
+type compile_output = string
+
+let string_of_compile_output = Fun.id
+
+type compile_err =
+  | ParseErr of string
+  | SolveErr of string
+  | MonoErr of string
+  | EvalErr of string
+  | ElabErr of [ `NoQueries | `TypeNotFound of loc ]
+  | BadEmit of phase * emit
+
+let string_of_compile_err = function
+  | ParseErr s -> "Parse error: " ^ s
+  | SolveErr s -> "Solve error: " ^ s
+  | MonoErr s -> "Mono error: " ^ s
+  | EvalErr s -> "Eval error: " ^ s
+  | ElabErr e -> (
+      "Elab error: "
+      ^
+      match e with
+      | `NoQueries -> "no queries given!"
+      | `TypeNotFound loc -> "Type not found at " ^ string_of_loc loc)
+  | BadEmit (p, e) ->
+      "Commit do " ^ string_of_emit e ^ " for phase " ^ string_of_phase p
+
+type compile_result = (compile_output, compile_err) result
+
+let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
+    compile_result =
+  let input = unlines lines in
+  let open Lang in
+  let parse s = Result.map_error (fun s -> ParseErr s) @@ Lang.parse s in
+  let solve s = Result.map_error (fun s -> SolveErr s) @@ Lang.solve s in
+  let mono s = Result.map_error (fun s -> MonoErr s) @@ Lang.mono s in
+  let eval s = Result.map_error (fun s -> EvalErr s) @@ Lang.eval s in
   let elab p =
-    if List.length queries = 0 then
-      failwith "Asked for elaboration, but there are no queries";
-    let one_query program (((_, cstart), (_, cend)) as loc) =
-      let num_caret = cend - cstart in
-      let prefix =
-        "#"
-        (* - 1 because positions are 1-indexed *)
-        (* - 1 to make room for the starting `#` *)
-        ^ String.init (cstart - 1 - 1) (fun _ -> ' ')
-        ^ String.init num_caret (fun _ -> '^')
+    if List.length queries = 0 then Error (ElabErr `NoQueries)
+    else
+      let open Either in
+      let one_query program (((_, cstart), (_, cend)) as loc) =
+        let num_caret = cend - cstart in
+        let prefix =
+          "#"
+          (* - 1 because positions are 1-indexed *)
+          (* - 1 to make room for the starting `#` *)
+          ^ String.init (cstart - 1 - 1) (fun _ -> ' ')
+          ^ String.init num_caret (fun _ -> '^')
+        in
+        match Lang.type_at loc program with
+        | None -> Right (ElabErr (`TypeNotFound loc))
+        | Some ty -> Left (prefix ^ " " ^ ty)
       in
-      match Lang.type_at loc program with
-      | None -> failwith ("Elaborated type not found at " ^ string_of_loc loc)
-      | Some ty -> prefix ^ " " ^ ty
-    in
-    let rec recreate lineno lines =
-      let queries = List.filter (fun ((l, _), _) -> l == lineno) queries in
-      match (lines, queries) with
-      | [], _ -> []
-      | l :: rest, [] -> l :: recreate (lineno + 1) rest
-      | l :: rest, queries ->
-          let rest = recreate (lineno + 1) rest in
-          let queries =
-            List.rev queries
-            (* reverse because we want the last on the top of the output lines *)
-            |> List.map (one_query p)
-          in
-          l :: (queries @ rest)
-    in
-    unlines @@ recreate 1 input_lines
+      let rec recreate lineno lines =
+        let queries = List.filter (fun ((l, _), _) -> l == lineno) queries in
+        match (lines, queries) with
+        | [], _ -> []
+        | l :: rest, [] -> Left l :: recreate (lineno + 1) rest
+        | l :: rest, queries ->
+            let rest = recreate (lineno + 1) rest in
+            let queries =
+              List.rev queries
+              (* reverse because we want the last on the top of the output lines *)
+              |> List.map (one_query p)
+            in
+            Left l :: (queries @ rest)
+      in
+      let oks, errs = List.partition_map Fun.id @@ recreate 1 lines in
+      match errs with e :: _ -> Error e | [] -> Ok (unlines oks)
   in
-  let output =
-    match phase with
-    | Parse -> (
-        let program = parse input in
-        match emit with
-        | Print -> Lang.print_parsed program
-        | Elab -> failwith "Cannot elaborate parsed")
-    | Solve -> (
-        let program = solve @@ parse input in
-        match emit with
-        | Print -> Lang.print_solved program
-        | Elab -> elab program)
-    | Mono -> (
-        let program = mono @@ solve @@ parse input in
-        match emit with
-        | Print -> Lang.print_mono program
-        | Elab -> failwith "Cannot elaborate mono")
-    | Eval -> (
-        let program = eval @@ mono @@ solve @@ parse input in
-        match emit with
-        | Print -> Lang.print_evaled program
-        | Elab -> failwith "Cannot elaborate eval")
-  in
-  ((phase, emit), output)
+
+  let ( >>= ) = Result.bind in
+  let ( &> ) a b = Result.map b a in
+  match (phase, emit) with
+  | Parse, Print -> input |> parse &> print_parsed
+  | Solve, Print -> input |> parse >>= solve &> print_solved
+  | Solve, Elab -> input |> parse >>= solve >>= elab
+  | Mono, Print -> input |> parse >>= solve >>= mono &> print_mono
+  | Eval, Print -> input |> parse >>= solve >>= mono >>= eval &> print_evaled
+  | phase, emit -> Error (BadEmit (phase, emit))

@@ -34,9 +34,8 @@ let parse_args () =
 let find_lang () =
   match !lang with
   | Some lang -> (
-      let lang_mod = find_opt_lang lang in
-      match lang_mod with
-      | Some m -> m
+      match find_language lang with
+      | Some lang_mod -> lang_mod
       | None -> failwith ("No language " ^ lang))
   | None -> failwith "No language specified!"
 
@@ -50,10 +49,25 @@ let main () =
   let lang = find_lang () in
   let do1 input_source =
     let input_lines = input_lines input_source in
-    let { raw_program; program_lines; queries; commands } =
-      preprocess input_lines
+    let { raw_program; program; commands } =
+      preprocess @@ raw_program_of_lines input_lines
     in
-    let cmd_out = List.map (process_one lang program_lines queries) commands in
+    let commands =
+      List.filter_map
+        (function
+          | Error e -> failwith @@ string_of_command_err e | Ok e -> Some e)
+        commands
+    in
+    let cmd_out =
+      List.combine commands @@ List.map (process_one lang program) commands
+    in
+    let cmd_out =
+      List.filter_map
+        (function
+          | _, Error e -> failwith @@ string_of_compile_err e
+          | cmd, Ok out -> Some (cmd, out))
+        cmd_out
+    in
     let output = postprocess raw_program cmd_out in
     match (!inplace, input_source) with
     | _, Stdin -> print_endline output
