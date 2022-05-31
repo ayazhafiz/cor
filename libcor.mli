@@ -31,6 +31,9 @@ type raw_program
 val raw_program_of_string : string -> raw_program
 val raw_program_of_lines : string list -> raw_program
 
+val user_ann_program : raw_program -> string
+(** User annotated program: with queries, but without commands and outputs. *)
+
 type program
 (** Processed program. *)
 

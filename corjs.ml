@@ -41,6 +41,11 @@ let _ =
     ((Js.array @@ Array.of_list @@ List.map Js.string emits)
      [@jsdoc {|Compiler target emits|}])
 
+let _ =
+  Js.export "userProgram" (fun [@jsdoc {|Gets raw user program|}] prog ->
+      Js.string @@ user_ann_program @@ raw_program_of_string
+      @@ Js.to_string prog)
+
 let find_language l =
   find_language l |> Option.to_result ~none:("No language " ^ l)
 

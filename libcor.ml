@@ -66,6 +66,24 @@ let parse_command line =
     | _, None -> Error (line, `InvalidEmit)
   else Error (line, `Unparseable)
 
+let program_without_output =
+  let rec go = function
+    | [] -> []
+    | "" :: line :: _ when starts_out line -> []
+    | l :: rest -> l :: go rest
+  in
+  go
+
+let program_without_commands =
+  let rec go = function
+    | [] -> []
+    | line :: rest -> if starts_command line then go rest else line :: rest
+  in
+  go
+
+let user_ann_program (lines : raw_program) : string =
+  unlines @@ program_without_commands @@ program_without_output lines
+
 let preprocess (lines : raw_program) : preprocessed =
   (* commands in the header *)
   let commands =
@@ -78,14 +96,7 @@ let preprocess (lines : raw_program) : preprocessed =
   in
   (* raw user input including commands and queries but before the output; we
      need this for printing back *)
-  let raw_program =
-    let rec go = function
-      | [] -> []
-      | "" :: line :: _ when starts_out line -> []
-      | l :: rest -> l :: go rest
-    in
-    go lines
-  in
+  let raw_program = program_without_output lines in
   (* parse N queries on a single line *)
   let parse_line_queries lineno line : loc list =
     let rec search start =
