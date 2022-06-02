@@ -106,4 +106,5 @@ module Uls : LANGUAGE = struct
       width
 
   let type_at loc (p, _) = type_at loc p
+  let hover_info loc (p, _) = hover_info loc p
 end

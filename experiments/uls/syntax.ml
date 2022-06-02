@@ -172,16 +172,20 @@ and pp_ty ?(print_uls = true) tctx f =
 let string_of_ty tctx ty =
   with_buffer (fun f -> pp_ty tctx f (noloc, ty)) default_width
 
-let type_at loc program =
+let tightest_node_at loc program =
   let or_else o f = match o with Some a -> Some a | None -> f () in
-  let pat (l, ty, _) = if l = loc then Some ([], ty) else None in
+  let pat (l, ty, _) =
+    if within l loc then Some (l, [], ty, `Generic) else None
+  in
   let rec expr (l, ty, e) =
-    if l = loc then Some ([], ty)
+    if within l loc then
+      let kind = match e with Var x -> `Var x | _ -> `Generic in
+      Some (l, [], ty, kind)
     else
       match e with
       | Val _ | Var _ -> None
-      | Let ((l, _), e1, e2) ->
-          if l = loc then Some ([], xty e1)
+      | Let ((l, x), e1, e2) ->
+          if within l loc then Some (l, [], xty e1, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
       | Clos (p, _, e) -> or_else (pat p) (fun () -> expr e)
@@ -191,12 +195,40 @@ let type_at loc program =
             None branches
   in
   let def = function
-    | Proto ((l, _), arg, (_, ty)) ->
-        if l = loc then Some ([ arg ], ty) else None
-    | Def ((l, _), e, _) -> if l = loc then Some ([], xty e) else expr e
+    | Proto ((l, x), arg, (_, ty)) ->
+        if within l loc then Some (l, [ arg ], ty, `Proto x) else None
+    | Def ((l, x), e, is_entry) ->
+        if within l loc then
+          let kind = if is_entry then `Entry x else `Def x in
+          Some (l, [], xty e, kind)
+        else expr e
   in
   List.find_map def program
-  |> Option.map (fun (tctx, ty) -> string_of_ty tctx ty)
+
+let type_at loc program =
+  match tightest_node_at loc program with
+  | Some (l, tctx, ty, _) when l = loc -> Some (string_of_ty tctx ty)
+  | _ -> None
+
+let hover_info lineco program =
+  let open Printf in
+  let wrap_code code = sprintf "```uls\n%s\n```" code in
+  let gen_docs (range, tctx, ty, kind) =
+    let ty_str = string_of_ty tctx ty in
+    let prefix =
+      match kind with
+      | `Var x -> sprintf "(var) %s: " x
+      | `Def x -> sprintf "(def) %s: " x
+      | `Entry x -> sprintf "(entry) %s: " x
+      | `Proto x -> sprintf "(proto) %s: " x
+      | `Generic -> ""
+    in
+    let ty_doc = prefix ^ ty_str in
+    let md_docs = [ wrap_code ty_doc ] in
+    { range; md_docs }
+  in
+  let node = tightest_node_at (lineco, lineco) program in
+  Option.map gen_docs node
 
 let string_of_lambda = function Lam n -> "`" ^ string_of_int n
 

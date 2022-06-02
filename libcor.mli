@@ -63,3 +63,9 @@ val postprocess : raw_program -> (command * compile_output) list -> string
 (** Pretty-prints the raw program, all commands, and their output to a buffer.
     [postprocess] guarantees the invariant its output will be idempotent under
     [preprocess] and [process_one] of the commands in order. *)
+
+val hover_info :
+  (module LANGUAGE) ->
+  raw_program ->
+  Language.lineco ->
+  Language.hover_info option

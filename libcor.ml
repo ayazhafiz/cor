@@ -184,6 +184,8 @@ let string_of_compile_err = function
 
 type compile_result = (compile_output, compile_err) result
 
+let ( >>= ) = Result.bind
+
 let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
     compile_result =
   let input = unlines lines in
@@ -227,7 +229,6 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
       match errs with e :: _ -> Error e | [] -> Ok (unlines oks)
   in
 
-  let ( >>= ) = Result.bind in
   let ( &> ) a b = Result.map b a in
   match (phase, emit) with
   | Parse, Print -> input |> parse &> print_parsed
@@ -236,3 +237,7 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
   | Mono, Print -> input |> parse >>= solve >>= mono &> print_mono
   | Eval, Print -> input |> parse >>= solve >>= mono >>= eval &> print_evaled
   | phase, emit -> Error (BadEmit (phase, emit))
+
+let hover_info (module Lang : LANGUAGE) lines lineco =
+  let solved = unlines lines |> Lang.parse >>= Lang.solve |> Result.to_option in
+  Option.bind solved (fun solved -> Lang.hover_info lineco solved)

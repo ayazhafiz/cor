@@ -40,4 +40,5 @@ module Roc : LANGUAGE = struct
   let print_mono = string_of_expr
   let print_evaled = string_of_expr
   let type_at _ = failwith "unimplemented"
+  let hover_info _ = failwith "unimplemented"
 end

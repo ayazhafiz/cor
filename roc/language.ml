@@ -13,6 +13,13 @@ let deeper (l1, c1) (l2, c2) = l1 > l2 || (l1 = l2 && c1 >= c2)
 let shallower lc1 lc2 = deeper lc2 lc1
 let within (lc11, lc12) (lc21, lc22) = deeper lc11 lc21 && shallower lc12 lc22
 
+type hover_info = {
+  range : loc;
+  md_docs : string list;
+      (** Regions of markdown documentation.
+          Each region should roughly correspond to a paragraph. *)
+}
+
 module type LANGUAGE = sig
   val name : string
 
@@ -34,4 +41,5 @@ module type LANGUAGE = sig
   val print_mono : ?width:int -> mono_program -> string
   val print_evaled : ?width:int -> evaled_program -> string
   val type_at : loc -> solved_program -> string option
+  val hover_info : lineco -> solved_program -> hover_info option
 end
