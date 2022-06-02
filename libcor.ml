@@ -167,6 +167,7 @@ type compile_err =
   | EvalErr of string
   | ElabErr of [ `NoQueries | `TypeNotFound of loc ]
   | BadEmit of phase * emit
+  | NoHover
 
 let string_of_compile_err = function
   | ParseErr s -> "Parse error: " ^ s
@@ -181,6 +182,7 @@ let string_of_compile_err = function
       | `TypeNotFound loc -> "Type not found at " ^ string_of_loc loc)
   | BadEmit (p, e) ->
       "Commit do " ^ string_of_emit e ^ " for phase " ^ string_of_phase p
+  | NoHover -> "No hover location found"
 
 type compile_result = (compile_output, compile_err) result
 
@@ -239,5 +241,8 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
   | phase, emit -> Error (BadEmit (phase, emit))
 
 let hover_info (module Lang : LANGUAGE) lines lineco =
-  let solved = unlines lines |> Lang.parse >>= Lang.solve |> Result.to_option in
-  Option.bind solved (fun solved -> Lang.hover_info lineco solved)
+  let parse s = Result.map_error (fun s -> ParseErr s) @@ Lang.parse s in
+  let solve s = Result.map_error (fun s -> SolveErr s) @@ Lang.solve s in
+  let hover s = Lang.hover_info lineco s |> Option.to_result ~none:NoHover in
+  let hover_info = unlines lines |> parse >>= solve >>= hover in
+  hover_info

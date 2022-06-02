@@ -90,13 +90,22 @@ let compile prog lang phase emit =
   |> Result.map string_of_compile_output
 
 let hover_info prog lang lineco =
-  let f () =
-    let ( >>= ) = Option.bind in
-    let prog = raw_program_of_string prog in
-    find_language lang |> Result.to_option >>= fun lang ->
-    hover_info lang prog lineco
+  let err_hover e =
+    let range = (lineco, (fst lineco, snd lineco + 1)) in
+    { range; md_docs = [ e ] }
   in
-  wrap (fun () -> f () |> Option.to_result ~none:"") |> Result.to_option
+  let f () =
+    let ( >>= ) = Result.bind in
+    let prog = raw_program_of_string prog in
+    find_language lang >>= fun lang ->
+    let hover =
+      match hover_info lang prog lineco with
+      | Ok hover -> hover
+      | Error e -> err_hover (string_of_compile_err e)
+    in
+    Ok hover
+  in
+  match wrap (fun () -> f ()) with Ok hover -> hover | Error e -> err_hover e
 
 let _ =
   Js.export "compile"
@@ -122,7 +131,5 @@ let _ =
       let prog, lang, lineco =
         (Js.to_string prog, Js.to_string lang, (n line, n column))
       in
-      let opt_hover_info = hover_info prog lang lineco in
-      match opt_hover_info with
-      | Some hover_info -> Js.some @@ js_hover_info hover_info
-      | None -> Js.null)
+      let hover_info = hover_info prog lang lineco in
+      js_hover_info hover_info)

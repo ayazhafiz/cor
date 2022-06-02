@@ -175,17 +175,14 @@ let string_of_ty tctx ty =
 let tightest_node_at loc program =
   let or_else o f = match o with Some a -> Some a | None -> f () in
   let pat (l, ty, _) =
-    if within l loc then Some (l, [], ty, `Generic) else None
+    if within loc l then Some (l, [], ty, `Generic) else None
   in
   let rec expr (l, ty, e) =
-    if within l loc then
-      let kind = match e with Var x -> `Var x | _ -> `Generic in
-      Some (l, [], ty, kind)
-    else
+    let deeper =
       match e with
       | Val _ | Var _ -> None
       | Let ((l, x), e1, e2) ->
-          if within l loc then Some (l, [], xty e1, `Def x)
+          if within loc l then Some (l, [], xty e1, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
       | Clos (p, _, e) -> or_else (pat p) (fun () -> expr e)
@@ -193,12 +190,18 @@ let tightest_node_at loc program =
           List.fold_left
             (fun res e -> or_else res (fun () -> expr e))
             None branches
+    in
+    or_else deeper (fun () ->
+        if within loc l then
+          let kind = match e with Var x -> `Var x | _ -> `Generic in
+          Some (l, [], ty, kind)
+        else None)
   in
   let def = function
     | Proto ((l, x), arg, (_, ty)) ->
-        if within l loc then Some (l, [ arg ], ty, `Proto x) else None
+        if within loc l then Some (l, [ arg ], ty, `Proto x) else None
     | Def ((l, x), e, is_entry) ->
-        if within l loc then
+        if within loc l then
           let kind = if is_entry then `Entry x else `Def x in
           Some (l, [], xty e, kind)
         else expr e

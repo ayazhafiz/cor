@@ -68,4 +68,4 @@ val hover_info :
   (module LANGUAGE) ->
   raw_program ->
   Language.lineco ->
-  Language.hover_info option
+  (Language.hover_info, compile_err) result
