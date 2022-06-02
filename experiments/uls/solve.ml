@@ -40,7 +40,6 @@ let occurs x =
           (fun unspec ->
             match !unspec with Solved _ -> false | Pending { ty; _ } -> go ty)
           unspec
-    | GUls _ -> false
     | TFn ((_, t1), c, (_, t2)) -> go t1 || go c || go t2
   in
   go
@@ -95,8 +94,6 @@ let unify (spec_table : spec_table) (gen_of_inst : uls_of_var) a b =
         in
         commit ls1;
         commit ls2
-    | GUls _, _ | _, GUls _ ->
-        error "attempting to unify generalized lambda sets"
     | _ -> error "incompatible types"
   in
   unify a b
@@ -109,19 +106,6 @@ let inst ?(proto_spec = false)
     | UVar x ->
         if not (List.mem_assoc x !tenv) then tenv := (x, fresh ()) :: !tenv;
         (List.assoc x !tenv, IntMap.empty)
-    | GUls _ when proto_spec ->
-        (TLSet { solved = []; unspec = [] }, IntMap.empty)
-    | GUls { region; ty; proto } ->
-        if not (List.mem_assoc ty !tenv) then tenv := (ty, fresh ()) :: !tenv;
-        let ty' = List.assoc ty !tenv in
-        let unspec = [ ref (Pending { region; ty = ty'; proto }) ] in
-        ( TLSet { solved = []; unspec },
-          let inst_n =
-            match ty' with
-            | TVar r -> ( match !r with Unbd n -> n | _ -> assert false)
-            | _ -> assert false
-          in
-          IntMap.singleton inst_n unspec )
     | TVar x -> (
         match !x with
         | Unbd _ -> (TVar x, IntMap.empty)
@@ -135,6 +119,9 @@ let inst ?(proto_spec = false)
         let t2', uls_v2 = inst t2 in
         ( TFn ((l1, t1'), tclos', (l2, t2')),
           union_uls_v uls_v2 @@ union_uls_v uls_v1 uls_v_clos )
+    | TLSet lset when proto_spec ->
+        assert (lset.solved = [] && List.length lset.unspec = 1);
+        (TLSet { solved = []; unspec = [] }, IntMap.empty)
     | TLSet lset ->
         let lset', uls_v = inst_lset lset in
         (TLSet lset', uls_v)
@@ -181,7 +168,6 @@ let generalize venv =
             else UVar n (* variable is new, generalize *))
     | TVal v -> TVal v
     | UVar n -> UVar n (* stays generalized *)
-    | GUls uls -> GUls uls (* stays generalized *)
     | TLSet lset -> TLSet (go_lset lset)
     | TFn ((l1, t1), c, (l2, t2)) -> TFn ((l1, go t1), go c, (l2, go t2))
   and go_lset { solved; unspec } =
@@ -255,7 +241,10 @@ let infer spec_table fresh =
     with the generalized lambda sets present in the prototype [p]. *)
 let resolve_specialization p a s =
   let assoc_lset = function
-    | GUls { region; ty = _; proto = _ }, TLSet spec -> (region, spec)
+    | TLSet { solved = []; unspec = [ unspec ] }, TLSet spec -> (
+        match !unspec with
+        | Pending { region; ty = UVar _; _ } -> (region, spec)
+        | _ -> failsolve "unspec in proto is solved somehow")
     | proto, spec ->
         failsolve
           ("something weird ended up in proto, spec lsets. Proto: "
@@ -279,8 +268,7 @@ let resolve_specialization p a s =
     | TVal _, _ | _, TVal _ -> []
     | TFn _, _ | _, TFn _ -> failsolve "don't unify"
     | TVar _, _ -> failsolve "var ended up in proto"
-    | TLSet _, _ | GUls _, _ ->
-        failsolve "should always be covered in assoc_lset"
+    | TLSet _, _ -> failsolve "should always be covered in assoc_lset"
   in
   let table = go p s in
   let sorted_table =

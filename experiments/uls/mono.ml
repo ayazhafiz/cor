@@ -12,7 +12,6 @@ let concrete_type =
     match unlink t with
     | TVar _ -> false
     | TVal _ -> true
-    | GUls _ -> false
     | UVar _ -> false
     | TLSet lset ->
         compact_lset lset;
@@ -38,7 +37,6 @@ let clone_type t =
         let t2', uls_v2 = go t2 in
         let uls_v = union_uls_v uls_v2 @@ union_uls_v uls_v1 uls_v_clos in
         (TFn ((l1, t1'), tclos', (l2, t2')), uls_v)
-    | GUls { region; ty; proto } -> (GUls { region; ty; proto }, IntMap.empty)
     | TLSet lset ->
         let lset', uls_v = go_lset lset in
         (TLSet lset', uls_v)

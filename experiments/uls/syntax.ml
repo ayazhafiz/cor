@@ -24,24 +24,6 @@ and ty =
   | TVar of tvar ref  (** non-quantified type variable *)
   | TVal of string  (** value-isomorphic type, e.g. TVal Unit for Val Unit *)
   | TLSet of lset  (** lambda set *)
-  | GUls of int uls
-      (** generalized unspecialized lambda set var in a prototype
-      For example,
-
-      proto thunkDefault a : () -> () -> a
-
-      has the ULS vars
-
-      proto thunkDefault a : () -[ ~1:a:thunkDefault ]-> () -[ ~2:a:thunkDefault ]-> a
-
-      during solving or mono, when a is resolved, we also decide if these
-      are resolved.
-
-      IDEAS:
-      - deciding when to do the resolution seems tricky. after each
-        unification?
-      - maybe keep a lookaside table of unbound types "a"->ULS? when "a"
-        is solved, check all reached ULS *)
   | TFn of loc_ty * ty * loc_ty  (** in, lambda set, out *)
 
 and tvar = Unbd of int  (** unbound *) | Link of ty  (** resolved *)
@@ -114,11 +96,11 @@ let pp_uls f print_ty p =
   print_ty p.ty;
   fprintf f ":%s" p.proto
 
-let rec pp_unspec f = function
-  | Solved solved -> pp_lset f solved
-  | Pending lset -> pp_uls f (fun ty -> pp_ty [] f (noloc, ty)) lset
+let rec pp_unspec tctx f = function
+  | Solved solved -> pp_lset tctx f solved
+  | Pending lset -> pp_uls f (fun ty -> pp_ty tctx f (noloc, ty)) lset
 
-and pp_lset f lset =
+and pp_lset tctx f lset =
   let open Format in
   compact_lset lset;
   let { solved; unspec } = lset in
@@ -126,7 +108,7 @@ and pp_lset f lset =
   List.iter
     (fun unspec ->
       fprintf f " + ";
-      pp_unspec f !unspec)
+      pp_unspec tctx f !unspec)
     unspec
 
 and pp_ty ?(print_uls = true) tctx f =
@@ -151,8 +133,7 @@ and pp_ty ?(print_uls = true) tctx f =
         | Link t -> go parens (noloc, t))
     | TVal "Unit" -> pp_print_string f "()"
     | TVal v -> pp_print_string f v
-    | TLSet lset -> pp_lset f lset
-    | GUls uls -> pp_uls f (fun v -> go `FnHead (noloc, UVar v)) uls
+    | TLSet lset -> pp_lset tctx f lset
     | TFn (l, set, r) ->
         fprintf f "@[<hov 2>";
         let pty () =

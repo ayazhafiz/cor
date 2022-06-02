@@ -45,7 +45,7 @@ entry test3 =
 
 > cor-out +solve -elab
 > proto thunkDefault a : () -> () -> a
-> #     ^^^^^^^^^^^^ () -[~1:a:thunkDefault]-> () -[~2:a:thunkDefault]-> a
+> #     ^^^^^^^^^^^^ () -[[] + ~1:a:thunkDefault]-> () -[[] + ~2:a:thunkDefault]-> a
 > 
 > let thunkDefault = \() -> \() -> T1
 > #   ^^^^^^^^^^^^ () -[[`9]]-> () -[[`8]]-> T1
