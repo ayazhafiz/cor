@@ -188,6 +188,11 @@ type compile_result = (compile_output, compile_err) result
 
 let ( >>= ) = Result.bind
 
+let reflow_lines prefix lines =
+  String.split_on_char '\n' lines
+  |> List.map (( ^ ) prefix)
+  |> String.concat "\n"
+
 let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
     compile_result =
   let input = unlines lines in
@@ -208,10 +213,11 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
           (* - 1 to make room for the starting `#` *)
           ^ String.init (cstart - 1 - 1) (fun _ -> ' ')
           ^ String.init num_caret (fun _ -> '^')
+          ^ " "
         in
         match Lang.type_at loc program with
         | None -> Right (ElabErr (`TypeNotFound loc))
-        | Some ty -> Left (prefix ^ " " ^ ty)
+        | Some ty -> Left (reflow_lines prefix ty)
       in
       let rec recreate lineno lines =
         let queries = List.filter (fun ((l, _), _) -> l == lineno) queries in
