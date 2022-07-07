@@ -5,7 +5,8 @@ let range (start, _) (_, fin) = (start, fin)
 
 type proto_ctx = {
   name: string;
-  uty: (string * int);
+  var_of_named_ty: string -> int;
+  proto_arg: string;
   fresh_region: unit -> int;
 }
 
@@ -49,11 +50,17 @@ toplevel:
 decl:
   | PROTO name=LOWER arg=LOWER COLON ty=ty { fun ctx ->
       let arg = snd arg in
-      let aty = ctx.fresh_var () in
-      let uty = (arg, aty) in
+      let var_table = ref [] in
+      let var_of_named_ty =
+        fun name ->
+          (if not (List.mem_assoc name (!var_table)) then
+            var_table := ((name, ctx.fresh_var ())::(!var_table))
+          );
+          List.assoc name (!var_table)
+      in
       let fresh_region = let n = ref 0 in fun () -> incr n; !n in
-      let ty = ty { name=snd name; uty; fresh_region } in
-      Proto(name, (aty, arg), ty)
+      let ty = ty { name=snd name; var_of_named_ty; proto_arg=arg; fresh_region} in
+      Proto{name; arg; bound_vars=(!var_table); sig'=ty}
   }
   | ENTRY name=LOWER EQ e=expr { fun ctx ->
       Def(name, e ctx, true)
@@ -117,22 +124,29 @@ ty_arrow:
   | head=ty_atom ARROW e=ty_arrow { fun ctx ->
       let unspec = (Pending{
         region = ctx.fresh_region ();
-        ty = UVar (snd ctx.uty);
+        ty = UVar (ctx.var_of_named_ty ctx.proto_arg);
         proto = ctx.name;
       }) in
+      let t_fn = ref (TVal "") in
       let uls = TLSet {
         solved = [];
         unspec = [ref unspec];
+        ambient = t_fn;
       } in
       let head = head ctx in
       let e = e ctx in
-      (range (fst head) (fst e), TFn(head, uls, e))
+      t_fn := TFn(head, uls, e);
+      (range (fst head) (fst e), !t_fn)
   }
 
 ty_atom:
   | u=UNIT { fun _ -> (u, TVal("Unit")) }
   | u=UPPER { fun _ -> (fst u, TVal(snd u)) }
-  | u=LOWER { fun {uty; _} ->
-      assert (snd u = fst uty);
-      (fst u, UVar(snd uty))
+  | u=LOWER { fun {var_of_named_ty; _} ->
+      let ty_var = var_of_named_ty (snd u) in
+      (fst u, UVar(ty_var))
+  }
+  | l=LPAREN t=ty r=RPAREN { fun ctx ->
+      let t = t ctx in
+      (range l r, snd t)
   }

@@ -15,6 +15,7 @@ let fresh_int_generator () =
     !n
 
 type fresh_var = unit -> int
+type fresh_ty = unit -> ty
 
 let fresh_parse_ctx () : parse_ctx =
   {
@@ -46,14 +47,14 @@ let solve p fresh_var =
   let fresh_ty () = TVar (ref (Unbd (fresh_var ()))) in
   try
     let spec_table = infer_program fresh_ty p in
-    Ok (p, spec_table)
+    Ok (p, spec_table, fresh_ty)
   with Solve_err e -> Error e
 
 module Uls : LANGUAGE = struct
   let name = "uls"
 
   type parsed_program = Syntax.program * fresh_var
-  type solved_program = Syntax.program * spec_table
+  type solved_program = Syntax.program * spec_table * fresh_ty
 
   type mono_program = {
     defs : (string * e_expr) list;
@@ -65,9 +66,9 @@ module Uls : LANGUAGE = struct
   let parse = parse
   let solve (p, fresh_var) = solve p fresh_var
 
-  let mono (p, spec_table) =
+  let mono (p, spec_table, fresh_ty) =
     try
-      let defs, entry_points = mono p spec_table in
+      let defs, entry_points = mono fresh_ty p spec_table in
       Ok { defs; entry_points }
     with Mono_error e -> Error e
 
@@ -75,7 +76,9 @@ module Uls : LANGUAGE = struct
     try Ok (eval defs entry_points) with Eval_error e -> Error e
 
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
-  let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
+
+  let print_solved ?(width = default_width) (p, _, _) =
+    string_of_program ~width p
 
   let print_mono ?(width = default_width) { defs; entry_points } =
     string_of_program ~width
@@ -105,6 +108,6 @@ module Uls : LANGUAGE = struct
         fprintf f "@]")
       width
 
-  let type_at loc (p, _) = type_at loc p
-  let hover_info loc (p, _) = hover_info loc p
+  let type_at loc (p, _, _) = type_at loc p
+  let hover_info loc (p, _, _) = hover_info loc p
 end

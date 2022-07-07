@@ -32,6 +32,7 @@ and lset = {
   mutable solved : lambda list;  (** the lambda set we know *)
   mutable unspec : unspec ref list;
       (** lambda sets we're waiting to specialize *)
+  ambient : ty ref;
 }
 
 (** an unspecialized lambda set *)
@@ -75,7 +76,12 @@ and expr =
 and branch = e_pat * e_expr
 
 and def =
-  | Proto of loc_str * (int * string) * loc_ty
+  | Proto of {
+      name : loc_str;
+      arg : string;
+      sig' : loc_ty;
+      bound_vars : (string * int) list;
+    }
   | Def of loc_str * e_expr * bool (* name * body * is entry *)
 
 type program = def list
@@ -103,7 +109,7 @@ let rec pp_unspec tctx f = function
 and pp_lset tctx f lset =
   let open Format in
   compact_lset lset;
-  let { solved; unspec } = lset in
+  let { solved; unspec; ambient = _ } = lset in
   pp_lambda_set f solved;
   List.iter
     (fun unspec ->
@@ -179,8 +185,9 @@ let tightest_node_at loc program =
         else None)
   in
   let def = function
-    | Proto ((l, x), arg, (_, ty)) ->
-        if within loc l then Some (l, [ arg ], ty, `Proto x) else None
+    | Proto { name = l, x; sig'; bound_vars; _ } ->
+        if within loc l then Some (l, assoc_flip bound_vars, snd sig', `Proto x)
+        else None
     | Def ((l, x), e, is_entry) ->
         if within loc l then
           let kind = if is_entry then `Entry x else `Def x in
@@ -289,9 +296,9 @@ let string_of_expr e = with_buffer (fun f -> pp_expr f e) default_width
 let pp_decl f =
   let open Format in
   function
-  | Proto (name, arg, ty) ->
-      fprintf f "@[<v 2>proto %s %s :@ " (snd name) (snd arg);
-      pp_ty ~print_uls:false [ arg ] f ty;
+  | Proto { name; arg; sig'; bound_vars } ->
+      fprintf f "@[<v 2>proto %s %s :@ " (snd name) arg;
+      pp_ty ~print_uls:false (assoc_flip bound_vars) f sig';
       fprintf f "@]"
   | Def (name, e, entry) ->
       let prefix = if entry then "entry" else "let" in
