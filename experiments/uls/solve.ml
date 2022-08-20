@@ -136,12 +136,12 @@ let rec compact_lambda_set fresh uls_of_var spec_table spec_sym unspec_lsets =
     unspec_lsets
 
 and unify fresh (spec_table : spec_table) (uls_of_var : uls_of_var ref) a b =
-  let error prefix =
-    failsolve
-      ("Unify error: " ^ prefix ^ " at " ^ string_of_ty [] a ^ " ~ "
-     ^ string_of_ty [] b)
-  in
   let rec unify a b =
+    let error prefix =
+      failsolve
+        ("Unify error: " ^ prefix ^ " at " ^ string_of_ty [] a ^ " ~ "
+       ^ string_of_ty [] b)
+    in
     match (unlink a, unlink b) with
     | TVar x, t | t, TVar x -> (
         match !x with
