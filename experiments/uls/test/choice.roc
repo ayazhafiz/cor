@@ -71,7 +71,7 @@ entry test3 =
 > entry test2 =
 >   let f = choice {
 > #     ^ () -[[] + ~1:?51:thunkDefault2 + ~1:?51:thunkDefault]->
->   () -[[] + ~2:?51:thunkDefault2 + ~2:?51:thunkDefault]-> ?51
+> #     ^   () -[[] + ~2:?51:thunkDefault2 + ~2:?51:thunkDefault]-> ?51
 >       | thunkDefault
 >       | thunkDefault2
 >   } in

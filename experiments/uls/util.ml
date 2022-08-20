@@ -12,3 +12,5 @@ module StringMap = Map.Make (struct
 
   let compare = compare
 end)
+
+let assoc_flip l = List.map (fun (a, b) -> (b, a)) l

@@ -35,12 +35,14 @@ let clone_type t =
         let t1', uls_v1 = go t1 in
         let tclos', uls_v_clos = go tc in
         let t2', uls_v2 = go t2 in
-        let uls_v = union_uls_v uls_v2 @@ union_uls_v uls_v1 uls_v_clos in
+        let uls_v =
+          union_uls_of_vars uls_v2 @@ union_uls_of_vars uls_v1 uls_v_clos
+        in
         (TFn ((l1, t1'), tclos', (l2, t2')), uls_v)
     | TLSet lset ->
         let lset', uls_v = go_lset lset in
         (TLSet lset', uls_v)
-  and go_lset { solved; unspec } =
+  and go_lset { solved; unspec; ambient } =
     let unspec', uls_vs =
       List.split
       @@ List.map
@@ -54,8 +56,8 @@ let clone_type t =
                  (ref (Pending { region; ty = ty'; proto }), uls_v))
            unspec
     in
-    let uls_v = List.fold_left union_uls_v IntMap.empty uls_vs in
-    ({ solved; unspec = unspec' }, uls_v)
+    let uls_v = List.fold_left union_uls_of_vars IntMap.empty uls_vs in
+    ({ solved; unspec = unspec'; ambient }, uls_v)
   in
 
   go t
@@ -74,26 +76,27 @@ let clone_expr : e_expr -> e_expr * uls_of_var =
       | Let (x, e1, e2) ->
           let e1', uls_v1 = go e1 in
           let e2', uls_v2 = go e2 in
-          (Let (x, e1', e2'), union_uls_v uls_v1 uls_v2)
+          (Let (x, e1', e2'), union_uls_of_vars uls_v1 uls_v2)
       | Call (e1, e2) ->
           let e1', uls_v1 = go e1 in
           let e2', uls_v2 = go e2 in
-          (Call (e1', e2'), union_uls_v uls_v1 uls_v2)
+          (Call (e1', e2'), union_uls_of_vars uls_v1 uls_v2)
       | Clos (p, lam, e) ->
           let p', uls_p = go_pat p in
           let e', uls_e = go e in
-          (Clos (p', lam, e'), union_uls_v uls_p uls_e)
+          (Clos (p', lam, e'), union_uls_of_vars uls_p uls_e)
       | Choice es ->
           let es', uls_vs = List.split @@ List.map go es in
-          (Choice es', List.fold_left union_uls_v IntMap.empty uls_vs)
+          (Choice es', List.fold_left union_uls_of_vars IntMap.empty uls_vs)
     in
     let t', uls_v1 = clone_type t in
-    ((l, t', e'), union_uls_v uls_v uls_v1)
+    ((l, t', e'), union_uls_of_vars uls_v uls_v1)
   in
   go
 
 type ctx = {
   spec_table : spec_table;
+  fresh : unit -> ty;
   mutable var_specializations : ((string * ty) * string) list;
       (** original x, spec ty -> spec x *)
   mutable defs : (string * (string * e_expr)) list;
@@ -134,7 +137,7 @@ let rec mono_def ctx x spec_ty =
     ^ string_of_int (num_spec_for_x + 1)
   in
   let spec_body, uls_v = clone_expr body in
-  unify ctx.spec_table uls_v (xty body) spec_ty;
+  unify ctx.fresh ctx.spec_table (ref uls_v) (xty body) spec_ty;
   let rec go ((_, t, e) as eexpr) =
     let error s = fail ("Mono error: " ^ s ^ " at " ^ string_of_expr eexpr) in
     let e' =
@@ -176,7 +179,7 @@ let rec mono_def ctx x spec_ty =
           List.fold_right
             (fun ((_, ty), x') body'' ->
               let e', uls_of_var = clone_expr e in
-              unify ctx.spec_table uls_of_var (xty e') ty;
+              unify ctx.fresh ctx.spec_table (ref uls_of_var) (xty e') ty;
               let e' = go e' in
               (* wrap body as e_expr with type of the entire body [t] *)
               let body'' = (noloc, t, body'') in
@@ -242,9 +245,11 @@ let rec lift =
       let body', lifted = lift_e real_name body in
       (real_name, (human_name, body')) :: lift (lifted @ rest)
 
-let mono program spec_table =
+let mono fresh program spec_table =
   let defs = lift program in
-  let ctx = { spec_table; var_specializations = []; defs; mono_defs = [] } in
+  let ctx =
+    { fresh; spec_table; var_specializations = []; defs; mono_defs = [] }
+  in
   let entry_points =
     List.filter_map
       (function
