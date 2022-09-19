@@ -1,7 +1,9 @@
 open Language
 
 (*** All languages ***)
-let lang_mods : (module LANGUAGE) list = [ (module Roc.Roc); (module Uls.Uls) ]
+let lang_mods : (module LANGUAGE) list =
+  [ (module Roc.Roc); (module Uls.Uls); (module Refine.Refine) ]
+
 let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
 
 (* Driver *)
@@ -109,6 +111,8 @@ let preprocess (lines : raw_program) : preprocessed =
     in
     let ranges = search 0 in
     List.map (fun (start, fin) -> ((lineno, start), (lineno, fin))) ranges
+    |> List.rev
+    (* reverse because we want the last query to be processed first, and printed on the first line *)
   in
   (* program ignoring commands and removing query lines *)
   let program_lines, queries =
@@ -226,11 +230,7 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
         | l :: rest, [] -> Left l :: recreate (lineno + 1) rest
         | l :: rest, queries ->
             let rest = recreate (lineno + 1) rest in
-            let queries =
-              List.rev queries
-              (* reverse because we want the last on the top of the output lines *)
-              |> List.map (one_query p)
-            in
+            let queries = queries |> List.map (one_query p) in
             Left l :: (queries @ rest)
       in
       let oks, errs = List.partition_map Fun.id @@ recreate 1 lines in

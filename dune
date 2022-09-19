@@ -6,7 +6,8 @@
     str
     language
     roc
-    uls))
+    uls
+    refine))
 
 (executable
   (public_name cor)
