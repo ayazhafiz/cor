@@ -61,7 +61,6 @@ expr_app:
       let loc = range (fst head) (l_range xloc atom_list) in
       (loc, fresh_var ctx, Tag(snd head, atom_list))
   }
-  | head=UPPER { fun ctx -> (fst head, fresh_var ctx, Tag(snd head, [])) }
 
 expr_atom_list:
   | e=expr_atom { fun ctx -> [e ctx] }
@@ -104,6 +103,7 @@ expr_atom:
       let e = e ctx in
       (range l r, xty e, xv e)
   }
+  | head=UPPER { fun ctx -> (fst head, fresh_var ctx, Tag(snd head, [])) }
 
 pat_list:
   | p=pat PIPE rest=pat_list { fun ctx ->

@@ -57,7 +57,11 @@ let unify a b =
     | TVar x, t | t, TVar x -> (
         match !x with
         | Link _ -> error "found a link where none was expected"
-        | Unbd n -> if occurs n t then error "occurs" else x := Link t)
+        | Unbd n ->
+            if a <> b then
+              (* if unbound var is compared to the same unbound var, they are
+                 the same, and should remain unbound! *)
+              if occurs n t then error "occurs" else x := Link t)
     | TTag l_tags, TTag r_tags ->
         let sorted_l_tags = sort_tags !l_tags in
         let sorted_r_tags = sort_tags !r_tags in

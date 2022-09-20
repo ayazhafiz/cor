@@ -4,7 +4,7 @@
 
 (library
  (name refine)
- (modules refine syntax lexer parser util solve)
+ (modules refine syntax lexer parser util solve decision_tree)
  (libraries language sedlex menhirLib)
  (inline_tests)
  (preprocess

@@ -1,5 +1,4 @@
 # cor +solve -elab
-
 let x : [A, B, C] = A in
 #   ^
 let z : [A, B, C, D, E] = when x is
@@ -13,7 +12,6 @@ let z : [A, B, C, D, E] = when x is
 in z
 
 > cor-out +solve -elab
-> 
 > let x : [A, B, C] = A in
 > #   ^ [A, B, C]
 > let z : [A, B, C, D, E] = when x is
