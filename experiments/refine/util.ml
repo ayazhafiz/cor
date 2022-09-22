@@ -12,3 +12,17 @@ module StringMap = Map.Make (struct
 
   let compare = compare
 end)
+
+let index_of pred l =
+  let rec help n = function
+    | [] -> raise Not_found
+    | c :: rest -> if pred c then n else help (n + 1) rest
+  in
+  help 0 l
+
+let intersperse f between fn iter =
+  List.iteri
+    (fun i elt ->
+      if i <> 0 then Format.fprintf f "%s" between;
+      fn f i elt)
+    iter

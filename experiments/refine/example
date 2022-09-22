@@ -1,0 +1,8 @@
+>   | Add Z Z -> Z
+>   | Mul Z Q -> Z
+>   | Mul Q Z -> Z
+>   | Add (S Q) Z -> S
+>   | Add Z (S Q) -> S
+>   | Mul (S Q) Z -> S
+>   | Mul Z (S Q) -> S
+>   | Mul (S Q) (S Q) -> S2

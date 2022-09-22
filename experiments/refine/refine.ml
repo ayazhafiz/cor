@@ -42,22 +42,34 @@ let solve p =
     Ok p
   with Solve_err e -> Error e
 
+let lower ctx p =
+  let ty = xty p in
+  let ir = Lower.ir_of_expr ctx p in
+  Ok (ty, ir)
+
+let eval (ty, program) =
+  let var, memory = Eval.eval program in
+  Ok (ty, var, memory)
+
 module Refine : LANGUAGE = struct
   let name = "refine"
 
   type parsed_program = Syntax.program
-  type solved_program = Syntax.program
-  type mono_program = Syntax.program
-  type evaled_program = Syntax.program
+  type solved_program = Syntax.program * Ir.ctx
+  type mono_program = Syntax.ty * Ir.program
+  type evaled_program = Syntax.ty * Ir.var * Eval.memory
 
   let parse = parse
-  let solve p = solve p
-  let mono _p = failwith "unimplemented"
-  let eval _p = failwith "unimplemented"
+  let solve p = solve p |> Result.map (fun res -> (res, Ir.new_ctx ()))
+  let mono (p, ctx) = lower ctx p
+  let eval p = eval p
   let print_parsed ?(width = default_width) p = string_of_program ~width p
-  let print_solved ?(width = default_width) p = string_of_program ~width p
-  let print_mono ?(width = default_width) p = string_of_program ~width p
-  let print_evaled ?(width = default_width) p = string_of_program ~width p
-  let type_at loc p = type_at loc p
-  let hover_info loc p = hover_info loc p
+  let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
+  let print_mono ?(width = default_width) (_, p) = Ir.string_of_program ~width p
+
+  let print_evaled ?(width = default_width) (ty, var, memory) =
+    Eval.print_back width ty var memory
+
+  let type_at loc (p, _) = type_at loc p
+  let hover_info loc (p, _) = hover_info loc p
 end

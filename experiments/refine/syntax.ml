@@ -234,6 +234,7 @@ let pp_expr f =
   in
   go `Free
 
+let pp_e_expr = pp_expr
 let string_of_expr e = with_buffer (fun f -> pp_expr f e) default_width
 
 let string_of_program ?(width = default_width) (program : program) =
