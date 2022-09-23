@@ -55,7 +55,7 @@ and stmt_of_expr ctx expr : stmt list * var =
         let asgns = List.concat asgns in
         let build_asgns, expr =
           match layout with
-          | Void -> failwith "todo void"
+          | Void -> failwith "cannot create tags of void layout"
           | Int -> failwith "tag cannot have int layout"
           | Struct _ -> ([], BuildStruct arg_vars)
           | Union struct_layouts ->
