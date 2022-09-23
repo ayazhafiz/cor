@@ -55,13 +55,7 @@ let layout_of_type =
     | Link _ -> failwith "unreachable"
     | Content (TTag tags) -> (
         let tag_layouts = List.map (fun (_, args) -> List.map go args) tags in
-        match tag_layouts with
-        | [] -> Void
-        (*
-        | [ [ one ] ] -> one
-        | [ struct' ] -> Struct struct'
-        *)
-        | many -> Union many)
+        match tag_layouts with [] -> Void | many -> Union many)
   in
   go
 
