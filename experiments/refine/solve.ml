@@ -13,21 +13,23 @@ exception Solve_err of string
 let failsolve s = raise (Solve_err s)
 
 let occurs x =
-  let rec go = function
-    | TVar t -> ( match !t with Unbd n -> n = x | Link t -> go t)
-    | TTag tags -> List.exists (fun (_, tys) -> List.exists go tys) !tags
+  let rec go t =
+    match !t with
+    | Unbd n -> n = x
+    | Link t -> go t
+    | Content (TTag tags) ->
+        List.exists (fun (_, tys) -> List.exists go tys) tags
   in
   go
 
 let deep_copy =
-  let rec go = function
-    | TVar t -> (
-        match !t with
-        | Unbd _ -> failsolve "cannot deep copy unbound type"
-        | Link t -> go t)
-    | TTag tags ->
-        let tags = List.map (fun (s, pay) -> (s, List.map go pay)) !tags in
-        TTag (ref tags)
+  let rec go t =
+    match !t with
+    | Unbd _ -> failsolve "cannot deep copy unbound type"
+    | Link t -> go t
+    | Content (TTag tags) ->
+        let tags = List.map (fun (s, pay) -> (s, List.map go pay)) tags in
+        ref (Content (TTag tags))
   in
   go
 
@@ -53,23 +55,25 @@ let unify a b =
            with Invalid_argument _ -> error "tags have different sizes");
           unify_tags (l :: all) (l_rest, r_rest))
   and unify a b =
-    match (unlink a, unlink b) with
-    | TVar x, t | t, TVar x -> (
-        match !x with
-        | Link _ -> error "found a link where none was expected"
-        | Unbd n ->
-            if a <> b then
-              (* if unbound var is compared to the same unbound var, they are
-                 the same, and should remain unbound! *)
-              if occurs n t then error "occurs" else x := Link t)
-    | TTag l_tags, TTag r_tags ->
-        let sorted_l_tags = sort_tags !l_tags in
-        let sorted_r_tags = sort_tags !r_tags in
-        let combined_tags =
-          List.rev @@ unify_tags [] (sorted_l_tags, sorted_r_tags)
-        in
-        l_tags := combined_tags;
-        r_tags := combined_tags
+    let a, b = (unlink a, unlink b) in
+    if a != b then
+      match (!a, !b) with
+      | Link _, _ | _, Link _ -> failwith "found a link where none was expected"
+      | Unbd n, _ -> if occurs n b then error "occurs" else a := Link b
+      | _, Unbd n -> if occurs n a then error "occurs" else b := Link a
+      | Content l_content, Content r_content ->
+          let unified_content =
+            match (l_content, r_content) with
+            | TTag l_tags, TTag r_tags ->
+                let sorted_l_tags = sort_tags l_tags in
+                let sorted_r_tags = sort_tags r_tags in
+                let combined_tags =
+                  List.rev @@ unify_tags [] (sorted_l_tags, sorted_r_tags)
+                in
+                TTag combined_tags
+          in
+          a := Content unified_content;
+          b := Link a
   in
   unify a b
 
@@ -80,7 +84,7 @@ let infer =
       | PWild -> t
       | PTag ((_, name), atoms) ->
           let payload = List.map infer_pat atoms in
-          TTag (ref [ (name, payload) ])
+          ref @@ Content (TTag [ (name, payload) ])
     in
     unify t ty;
     ty
@@ -119,7 +123,7 @@ let infer =
           | None -> failsolve ("Variable " ^ x ^ " not in scope"))
       | Tag (name, pay) ->
           let payload_types = List.map (infer venv) pay in
-          TTag (ref [ (name, payload_types) ])
+          ref @@ Content (TTag [ (name, payload_types) ])
       | Let ((_, t_x, x), e, b) ->
           let t_x' = infer venv e in
           unify t_x t_x';

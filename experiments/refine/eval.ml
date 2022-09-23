@@ -6,15 +6,20 @@ type memory = (var * memory_cell) list
 
 let expr memory = function
   | Var x -> List.assoc x memory
-  | GetTagId x -> (
+  | GetUnionId x -> (
       match List.assoc x memory with
       | Block (Cell id :: _) -> Cell id
       | mem ->
           failwith
-            ("bad memory layout " ^ show_memory_cell mem ^ " " ^ show_var x))
-  | BuildTag (_lay, id, var) -> (
+            ("bad memory layout " ^ show_memory_cell mem ^ " "
+            ^ with_buffer (fun f -> pp_var f x) 80))
+  | BuildUnion (id, var) -> (
       match List.assoc var memory with
       | Block mem -> Block (Cell id :: mem)
+      | _ -> failwith "bad tag payload memory layout")
+  | GetUnionStruct var -> (
+      match List.assoc var memory with
+      | Block (Cell _ :: struct') -> Block struct'
       | _ -> failwith "bad tag payload memory layout")
   | BuildStruct vars -> Block (List.map (fun v -> List.assoc v memory) vars)
   | GetStructField (i, x) -> (
@@ -50,9 +55,8 @@ let pp_bot f = Format.fprintf f "⊥"
 
 let rec readback f ty layout data =
   let open Format in
-  match S.unlink ty with
-  | S.TTag tags -> (
-      let tags = !tags in
+  match !(S.unlink ty) with
+  | S.Content (S.TTag tags) -> (
       match layout with
       | Void -> pp_bot f
       | Int -> (
@@ -81,20 +85,22 @@ let rec readback f ty layout data =
               let payload_layouts = List.nth union id in
               fprintf f "%s " tag;
               readback f
-                (S.TTag (ref [ ("#struct", payload_types) ]))
+                (ref @@ S.Content (S.TTag [ ("#struct", payload_types) ]))
                 (Struct payload_layouts) (Block rest)
           | _ -> failwith "illegal type/memory for union"))
-  | S.TVar _ -> pp_bot f
+  | S.Unbd _ -> pp_bot f
+  | S.Link _ -> failwith "unreachable"
 
 let print_back width ty var memory =
   with_buffer
     (fun f ->
       let layout = fst var in
-      match S.unlink ty with
-      | S.TTag _ -> (
+      match !(S.unlink ty) with
+      | S.Content (S.TTag _) -> (
           match layout with
           | Void -> pp_bot f
           | Int | Struct _ | Union _ ->
               readback f ty layout (List.assoc var memory))
-      | S.TVar _ -> pp_bot f)
+      | S.Unbd _ -> pp_bot f
+      | S.Link _ -> failwith "unreachable")
     width

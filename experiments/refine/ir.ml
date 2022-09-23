@@ -26,8 +26,9 @@ type var = layout * string [@@deriving show]
 
 type expr =
   | Var of var
-  | GetTagId of var
-  | BuildTag of layout * int * var
+  | GetUnionId of var
+  | BuildUnion of int * var
+  | GetUnionStruct of var
   | BuildStruct of var list
   | GetStructField of int * var
 
@@ -42,20 +43,17 @@ type stmt =
 type program = Program of stmt list * var
 
 let tag_id ctor ty =
-  match unlink ty with
-  | TTag tags -> index_of (fun (name, _) -> name = ctor) !tags
+  match !(unlink ty) with
+  | Content (TTag tags) -> index_of (fun (name, _) -> name = ctor) tags
   | _ -> failwith "unreachable"
 
 let layout_of_type =
   let rec go t =
-    let t = unlink t in
+    let t = !(unlink t) in
     match t with
-    | TVar v -> (
-        match !v with
-        | Unbd _ -> Void (* unused, so we can compile as void *)
-        | Link _ -> failwith "unreachable")
-    | TTag tags -> (
-        let tags = !tags in
+    | Unbd _ -> Void (* unused, so we can compile as void *)
+    | Link _ -> failwith "unreachable"
+    | Content (TTag tags) -> (
         let tag_layouts = List.map (fun (_, args) -> List.map go args) tags in
         match tag_layouts with
         | [] -> Void
@@ -107,12 +105,15 @@ let pp_vs f (_, s) =
 let pp_expr f =
   let open Format in
   function
-  | Var var -> pp_var f var
-  | GetTagId v ->
+  | Var var -> pp_vs f var
+  | GetUnionId v ->
       fprintf f "@get_tag_id ";
       pp_vs f v
-  | BuildTag (_, id, var) ->
+  | BuildUnion (id, var) ->
       fprintf f "@build_tag %d " id;
+      pp_vs f var
+  | GetUnionStruct var ->
+      fprintf f "@get_union_struct ";
       pp_vs f var
   | BuildStruct vars ->
       fprintf f "@build_struct";

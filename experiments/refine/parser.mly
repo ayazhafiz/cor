@@ -5,7 +5,7 @@ let range (start, _) (_, fin) = (start, fin)
 
 let l_range x l = range (x (List.hd l)) (x (List.hd (List.rev l)))
 
-let fresh_var ctx = TVar (ref (Unbd (ctx.fresh_var ()))) 
+let fresh_var ctx = ref (Unbd (ctx.fresh_var ()))
 
 let xloc = Syntax.xloc
 let xty = Syntax.xty
@@ -47,9 +47,9 @@ toplevel:
 expr:
   | app=expr_app { app }
   | e=expr_lets { fun c -> e c }
-  | w=WHEN cond=expr IS branches=branch_seq { fun ctx ->
+  | w=WHEN cond=expr IS rev_branches=branch_seq { fun ctx ->
       let cond = cond ctx in
-      let branches = branches ctx in
+      let branches = List.rev @@ rev_branches ctx in
       let loc: Syntax.loc = range w (l_range (fun (_, e) -> xloc e) branches) in
       (loc, fresh_var ctx, When(cond, branches))
   }
@@ -134,7 +134,7 @@ pat_atom:
 ty:
   | LBRACKET tags=ty_tags RBRACKET { fun ctx ->
       let tags = tags ctx in
-      TTag (ref tags)
+      ref @@ Content (TTag tags)
   }
 
 ty_tags:

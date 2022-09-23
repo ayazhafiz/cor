@@ -12,16 +12,17 @@ let noloc = ((0, 0), (0, 0))
 type loc_str = loc * string
 
 type tag = string * ty list
+and ty_content = TTag of tag list  (** Concrete type content *)
 
-and ty =
-  | TVar of tvar ref  (** non-quantified type variable *)
-  | TTag of tag list ref
+and tvar =
+  | Unbd of int
+  | Link of ty
+  | Content of ty_content  (** Link of a type *)
 
-and tvar = Unbd of int | Link of ty
+and ty = tvar ref [@@deriving show]
+(** Mutable type cell *)
 
-let rec unlink = function
-  | TVar v as t -> ( match !v with Unbd _ -> t | Link t -> unlink t)
-  | t -> t
+let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
 
 type e_pat = loc * ty * pat
 (** An elaborated pattern *)
@@ -66,15 +67,16 @@ and pp_ty f =
         go p)
       payloads
   and go t =
-    match t with
-    | TVar v -> ( match !v with Unbd i -> fprintf f "'%d" i | Link t -> go t)
-    | TTag tags ->
+    match !t with
+    | Unbd i -> fprintf f "'%d" i
+    | Link t -> go t
+    | Content (TTag tags) ->
         fprintf f "@[<hov 2>[";
         List.iteri
           (fun i t ->
             if i > 0 then fprintf f ",@ ";
             go_tag t)
-          !tags;
+          tags;
         fprintf f "]@]"
   in
   go
