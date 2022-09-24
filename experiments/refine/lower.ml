@@ -76,7 +76,7 @@ and stmt_of_expr ctx expr : stmt list * var =
     | S.When (cond, branches) ->
         let cond_asgn, cond_var = help cond in
         let decision_tree =
-          Decision_tree.compile_branches ctx cond_var branches
+          Decision_tree.compile_branches ctx (S.xty cond) cond_var branches
         in
         let branches_asgns, branches_var =
           Option.get @@ convert_decision_tree ctx ty decision_tree

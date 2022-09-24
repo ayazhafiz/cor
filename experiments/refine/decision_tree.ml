@@ -48,7 +48,7 @@ and case = Case of ctor * var list * decision [@@deriving show]
 
 (** Translate a `when` expression, with condition lowered to a variable, to a
     list of [rows]. *)
-let rows_of_branches (cond_var : var) (branches : S.branch list) =
+let rows_of_branches cond_ty (cond_var : var) (branches : S.branch list) =
   let rec convert_pat (_, ty, pat) =
     match pat with
     | S.PTag ((_, ctor), args) ->
@@ -59,7 +59,7 @@ let rows_of_branches (cond_var : var) (branches : S.branch list) =
     | S.PWild -> Wild
   in
 
-  let pat_to_row cond_var body pat =
+  let pat_to_row body pat =
     match pat with
     | _, _, S.PTag _ ->
         let column = (cond_var, convert_pat pat) in
@@ -71,13 +71,19 @@ let rows_of_branches (cond_var : var) (branches : S.branch list) =
   in
 
   (* translate one branch to zero or more rows *)
-  let branch_to_rows cond_var ((_, _, pat), body) =
+  let branch_to_rows ((_, _, pat), body) =
     match pat with
-    | S.PAtom pats -> List.filter_map (pat_to_row cond_var body) pats
-    | S.PAs _ -> failwith "todo"
+    | S.PAtom pats -> List.filter_map (pat_to_row body) pats
+    | S.PAs (pats, (_, as_ty, as_var)) ->
+        let body =
+          As_conv.conv ~as_var:(as_ty, as_var)
+            ~o_var:(cond_ty, snd cond_var)
+            body
+        in
+        List.filter_map (pat_to_row body) pats
   in
 
-  List.concat_map (branch_to_rows cond_var) branches
+  List.concat_map branch_to_rows branches
 
 let filter_wildcard_columns (rows : row list) =
   let is_wild = function Wild -> true | _ -> false in
@@ -186,7 +192,10 @@ and compile_rows ctx rows =
      before we proceed. *)
   let rows = filter_wildcard_columns rows in
   match rows with
-  | [] -> failwith "empty rows!"
+  | [] ->
+      (* This is a condition that was never enumerated, hence, assume it to be
+         unreachable *)
+      Unreachable
   | ([], body) :: _redundant_rows ->
       (* A branch with no columns always matches, since there is nothing more
          to check - and that also means the rest of the rows, if there are any,
@@ -216,6 +225,7 @@ and compile_rows ctx rows =
 
           Switch (branch_var, compiled_cases))
 
-let compile_branches ctx (cond_var : var) (branches : S.branch list) =
-  let rows = rows_of_branches cond_var branches in
+let compile_branches ctx (cond_ty : S.ty) (cond_var : var)
+    (branches : S.branch list) =
+  let rows = rows_of_branches cond_ty cond_var branches in
   compile_rows ctx rows
