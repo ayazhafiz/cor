@@ -2,7 +2,12 @@ open Language
 
 (*** All languages ***)
 let lang_mods : (module LANGUAGE) list =
-  [ (module Roc.Roc); (module Uls.Uls); (module Refine.Refine) ]
+  [
+    (module Roc.Roc);
+    (module Uls.Uls);
+    (module Refine.Refine);
+    (module Easy_tags.Easy_tags);
+  ]
 
 let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
 
