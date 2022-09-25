@@ -28,6 +28,7 @@ let xv = Syntax.xv
 %token <Syntax.loc> COLON
 %token <Syntax.loc> ARROW
 %token <Syntax.loc> WILD
+%token <Syntax.loc> LAMBDA
 %token EOF
 
 %start toplevel
@@ -49,6 +50,12 @@ expr:
       let branches = List.rev @@ rev_branches ctx in
       let loc: Syntax.loc = range w (l_range (fun (_, e) -> xloc e) branches) in
       (loc, ctx.fresh_var (), When(cond, branches))
+  }
+  | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
+      let body = body ctx in
+      let loc = range lam (xloc body) in
+      let arg = (fst arg, ctx.fresh_var (), snd arg) in
+      (loc, ctx.fresh_var (), Clos(arg, body))
   }
 
 expr_app:
@@ -125,6 +132,17 @@ pat_atom:
   | hd=UPPER { fun ctx -> (fst hd, ctx.fresh_var (), PTag(hd, [])) }
 
 ty:
+  | arrow=ty_arrow { fun ctx -> arrow ctx }
+
+ty_arrow:
+  | e=ty_atom { fun ctx -> e ctx }
+  | head=ty_atom ARROW e=ty_arrow { fun ctx ->
+      let head = head ctx in
+      let e = e ctx in
+      ref @@ Content (TFn(head, e))
+  }
+
+ty_atom:
   | LBRACKET tags=ty_tags RBRACKET ext=ty { fun ctx ->
       let tags = tags ctx in
       let ext = ext ctx in

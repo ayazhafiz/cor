@@ -42,6 +42,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "[" -> make lexbuf (fun i -> LBRACKET i)
   | "]" -> make lexbuf (fun i -> RBRACKET i)
   | "_" -> make lexbuf (fun i -> WILD i)
+  | "\\" -> make lexbuf (fun i -> LAMBDA i)
   | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))
   | upper -> make lexbuf (fun i -> UPPER (i, Utf8.lexeme lexbuf))
   | "#" -> comment lexbuf

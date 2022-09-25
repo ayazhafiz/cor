@@ -20,6 +20,7 @@ let occurs x =
     | Content (TTag { tags; ext }) ->
         List.exists (fun (_, tys) -> List.exists go tys) tags || go ext
     | Content TTagEmpty -> false
+    | Content (TFn (in', out)) -> go in' || go out
   in
   go
 
@@ -111,7 +112,11 @@ let unify fresh a b =
           | TTagEmpty, TTag { tags; ext } ->
               if tags = [] then unify a ext else error "tags not empty"
           | TTag { tags; ext }, TTagEmpty ->
-              if tags = [] then unify ext b else error "tags not empty")
+              if tags = [] then unify ext b else error "tags not empty"
+          | TFn (in1, out1), TFn (in2, out2) ->
+              unify in1 in2;
+              unify out1 out2
+          | _ -> error "incompatible")
   in
   unify a b
 
@@ -125,6 +130,7 @@ let close_type =
         let tags, ext = chase_tags tags ext in
         ext := Content TTagEmpty;
         List.iter (fun (_, args) -> List.iter go args) tags
+    | Content (TFn _) -> ()
   in
   go
 
@@ -137,6 +143,7 @@ let open_type fresh_var =
     | Content (TTag { tags; ext }) ->
         let _, ext = chase_tags tags ext in
         ext := !(fresh_var ())
+    | Content (TFn _) -> ()
   in
   go
 
@@ -228,6 +235,9 @@ let infer fresh_var =
           List.iter (open_type fresh_var) open_adjusts;
           unify t_branches t_cond;
           t_body
+      | Clos ((_, t_x, x), e) ->
+          let t_res = infer ((x, t_x) :: venv) e in
+          ref @@ Content (TFn (t_x, t_res))
     in
     unify t ty;
     ty

@@ -15,6 +15,7 @@ type tag = string * ty list
 
 and ty_content =
   | TTag of { tags : tag list; ext : ty }  (** Concrete type content *)
+  | TFn of ty * ty
   | TTagEmpty
 
 and tvar =
@@ -34,6 +35,7 @@ let chase_tags tags ext =
     | Unbd _ -> (all_tags, ext)
     | Content TTagEmpty -> (all_tags, ext)
     | Content (TTag { tags; ext }) -> go (all_tags @ tags) ext
+    | Content (TFn _) -> failwith "not a tag"
   in
   go tags ext
 
@@ -52,6 +54,7 @@ and expr =
   | Tag of string * e_expr list
   | Let of (loc * ty * string) * e_expr * e_expr  (** let x = e in b *)
   | When of e_expr * branch list  (** when x is ... *)
+  | Clos of (loc * ty * string) * e_expr
 
 and branch = pat_set * e_expr
 
@@ -96,6 +99,12 @@ let pp_ty f =
         fprintf f "]";
         if not (is_empty_tag ext) then go ext;
         fprintf f "@]"
+    | Content (TFn (in', out)) ->
+        fprintf f "@[<hov 2>";
+        go in';
+        fprintf f "@ -> ";
+        go out;
+        fprintf f "@]"
   in
   go
 
@@ -129,6 +138,8 @@ let tightest_node_at loc program =
             or_else (pat_set pat') (fun () -> expr body)
           in
           or_else (expr e) (fun () -> List.find_map check_branch branches)
+      | Clos ((l, ty, x), e) ->
+          if within loc l then Some (l, ty, `Var x) else expr e
     in
     or_else deeper (fun () ->
         if within loc l then
@@ -244,6 +255,10 @@ let pp_expr f =
             go `Free body;
             fprintf f "@]")
           branches;
+        fprintf f "@]"
+    | Clos ((_, _, x), e) ->
+        fprintf f "@[<hov 2>\\%s ->@ " x;
+        go `Apply e;
         fprintf f "@]"
   in
   go `Free
