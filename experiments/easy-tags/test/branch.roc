@@ -11,7 +11,7 @@ in let y = \x -> when x is
   | B -> G
   | _ -> H
 
-in let y = \x -> when x is
+in let y: [A, B]_ -> [F, G]_ = \x -> when x is
 #      ^
   | A -> F
   | B -> G

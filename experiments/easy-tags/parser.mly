@@ -143,7 +143,9 @@ ty_arrow:
   }
 
 ty_atom:
-  | LBRACKET tags=ty_tags RBRACKET ext=ty { fun ctx ->
+  | LPAREN t=ty RPAREN { fun ctx -> t ctx }
+  | WILD { fun ctx -> ctx.fresh_var () }
+  | LBRACKET tags=ty_tags RBRACKET ext=ty_atom { fun ctx ->
       let tags = tags ctx in
       let ext = ext ctx in
       ref @@ Content (TTag {tags; ext})
