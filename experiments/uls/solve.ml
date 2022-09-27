@@ -1,4 +1,5 @@
 open Syntax
+open Language
 
 module IntMap = struct
   include Map.Make (struct
@@ -47,8 +48,10 @@ let occurs x =
 let unify (spec_table : spec_table) (gen_of_inst : uls_of_var) a b =
   let error prefix =
     failsolve
-      ("Unify error: " ^ prefix ^ " at " ^ string_of_ty [] a ^ " ~ "
-     ^ string_of_ty [] b)
+      ("Unify error: " ^ prefix ^ " at "
+      ^ string_of_ty default_width [] a
+      ^ " ~ "
+      ^ string_of_ty default_width [] b)
   in
   let rec unify a b =
     match (unlink a, unlink b) with
@@ -248,7 +251,9 @@ let resolve_specialization p a s =
     | proto, spec ->
         failsolve
           ("something weird ended up in proto, spec lsets. Proto: "
-         ^ string_of_ty [] proto ^ " Spec: " ^ string_of_ty [] spec)
+          ^ string_of_ty default_width [] proto
+          ^ " Spec: "
+          ^ string_of_ty default_width [] spec)
   in
   let spec_a = ref None in
   let rec go p s =
@@ -263,7 +268,8 @@ let resolve_specialization p a s =
         []
     | UVar b, spec when a = b ->
         failsolve
-          ("found specialization for non-value type " ^ string_of_ty [] spec)
+          ("found specialization for non-value type "
+          ^ string_of_ty default_width [] spec)
     | _, TVar _ | UVar _, _ -> []
     | TVal _, _ | _, TVal _ -> []
     | TFn _, _ | _, TFn _ -> failsolve "don't unify"

@@ -23,6 +23,7 @@ type hover_info = {
 module type LANGUAGE = sig
   val name : string
 
+  type ty
   type parsed_program
   type solved_program
   type mono_program
@@ -40,6 +41,7 @@ module type LANGUAGE = sig
   val print_solved : ?width:int -> solved_program -> string
   val print_mono : ?width:int -> mono_program -> string
   val print_evaled : ?width:int -> evaled_program -> string
-  val type_at : loc -> solved_program -> string option
+  val types_at : loc list -> solved_program -> (loc * ty option) list
+  val print_type : ?width:int -> solved_program * ty -> string
   val hover_info : lineco -> solved_program -> hover_info option
 end

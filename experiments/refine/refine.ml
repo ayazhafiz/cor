@@ -54,6 +54,7 @@ let eval (ty, program) =
 module Refine : LANGUAGE = struct
   let name = "refine"
 
+  type ty = Syntax.ty
   type parsed_program = Syntax.program
   type solved_program = Syntax.program * Ir.ctx
   type mono_program = Syntax.ty * Ir.program
@@ -70,6 +71,7 @@ module Refine : LANGUAGE = struct
   let print_evaled ?(width = default_width) (ty, var, memory) =
     Eval.print_back width ty var memory
 
-  let type_at loc (p, _) = type_at loc p
+  let print_type ?(width = default_width) (_, ty) = Syntax.string_of_ty width ty
+  let types_at locs (p, _) = List.map (fun l -> (l, type_at l p)) locs
   let hover_info loc (p, _) = hover_info loc p
 end

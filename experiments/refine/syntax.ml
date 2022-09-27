@@ -81,7 +81,7 @@ and pp_ty f =
   in
   go
 
-let string_of_ty ty = with_buffer (fun f -> pp_ty f ty) default_width
+let string_of_ty width ty = with_buffer (fun f -> pp_ty f ty) width
 
 let tightest_node_at loc program =
   let or_else o f = match o with Some a -> Some a | None -> f () in
@@ -125,14 +125,14 @@ let tightest_node_at loc program =
 
 let type_at loc program =
   match tightest_node_at loc program with
-  | Some (l, ty, _) when l = loc -> Some (string_of_ty ty)
+  | Some (l, ty, _) when l = loc -> Some ty
   | _ -> None
 
 let hover_info lineco program =
   let open Printf in
   let wrap_code code = sprintf "```refine\n%s\n```" code in
   let gen_docs (range, ty, kind) =
-    let ty_str = string_of_ty ty in
+    let ty_str = string_of_ty default_width ty in
     let prefix =
       match kind with
       | `Var x -> sprintf "(var) %s: " x

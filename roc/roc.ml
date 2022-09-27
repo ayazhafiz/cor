@@ -26,6 +26,7 @@ let parse s =
 module Roc : LANGUAGE = struct
   let name = "roc"
 
+  type ty = unit
   type parsed_program = loc_expr
   type solved_program = loc_expr
   type mono_program = loc_expr
@@ -39,6 +40,11 @@ module Roc : LANGUAGE = struct
   let print_solved = string_of_expr
   let print_mono = string_of_expr
   let print_evaled = string_of_expr
-  let type_at _ = failwith "unimplemented"
+
+  let print_type ?width _ =
+    let _ = width in
+    failwith "unimplemented"
+
+  let types_at _ _ = failwith "unimplemented"
   let hover_info _ = failwith "unimplemented"
 end

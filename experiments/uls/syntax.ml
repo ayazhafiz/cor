@@ -150,8 +150,8 @@ and pp_ty ?(print_uls = true) tctx f =
   in
   go `Free
 
-let string_of_ty tctx ty =
-  with_buffer (fun f -> pp_ty tctx f (noloc, ty)) default_width
+let string_of_ty width tctx ty =
+  with_buffer (fun f -> pp_ty tctx f (noloc, ty)) width
 
 let tightest_node_at loc program =
   let or_else o f = match o with Some a -> Some a | None -> f () in
@@ -191,14 +191,14 @@ let tightest_node_at loc program =
 
 let type_at loc program =
   match tightest_node_at loc program with
-  | Some (l, tctx, ty, _) when l = loc -> Some (string_of_ty tctx ty)
+  | Some (l, tctx, ty, _) when l = loc -> Some (tctx, ty)
   | _ -> None
 
 let hover_info lineco program =
   let open Printf in
   let wrap_code code = sprintf "```uls\n%s\n```" code in
   let gen_docs (range, tctx, ty, kind) =
-    let ty_str = string_of_ty tctx ty in
+    let ty_str = string_of_ty default_width tctx ty in
     let prefix =
       match kind with
       | `Var x -> sprintf "(var) %s: " x

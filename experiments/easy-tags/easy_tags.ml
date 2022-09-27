@@ -43,6 +43,7 @@ let solve (p, fresh_var) =
 module Easy_tags : LANGUAGE = struct
   let name = "easy_tags"
 
+  type ty = named_vars * Syntax.ty
   type parsed_program = Syntax.program * fresh_var
   type solved_program = Syntax.program
   type mono_program = unit
@@ -63,6 +64,13 @@ module Easy_tags : LANGUAGE = struct
     let _ = width in
     failwith "unimplemented"
 
-  let type_at loc p = type_at loc p
+  let print_type ?(width = default_width) (_, (names, t)) =
+    string_of_ty width names t
+
+  let types_at locs p =
+    let tys = List.map (fun l -> (l, type_at l p)) locs in
+    let names = name_vars @@ List.filter_map (fun (_, t) -> t) tys in
+    List.map (fun (l, t) -> (l, Option.map (fun t -> (names, t)) t)) tys
+
   let hover_info loc p = hover_info loc p
 end

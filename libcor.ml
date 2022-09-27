@@ -214,7 +214,8 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
     if List.length queries = 0 then Error (ElabErr `NoQueries)
     else
       let open Either in
-      let one_query program (((_, cstart), (_, cend)) as loc) =
+      let queries = Lang.types_at queries p in
+      let one_query (((_, cstart), (_, cend)) as loc) =
         let num_caret = cend - cstart in
         let prefix =
           "#"
@@ -224,18 +225,22 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
           ^ String.init num_caret (fun _ -> '^')
           ^ " "
         in
-        match Lang.type_at loc program with
+        match List.assoc loc queries with
         | None -> Right (ElabErr (`TypeNotFound loc))
-        | Some ty -> Left (reflow_lines prefix ty)
+        | Some ty ->
+            let s_ty = Lang.print_type (p, ty) in
+            Left (reflow_lines prefix s_ty)
       in
       let rec recreate lineno lines =
-        let queries = List.filter (fun ((l, _), _) -> l == lineno) queries in
+        let queries =
+          List.filter (fun (((l, _), _), _) -> l == lineno) queries
+        in
         match (lines, queries) with
         | [], _ -> []
         | l :: rest, [] -> Left l :: recreate (lineno + 1) rest
         | l :: rest, queries ->
             let rest = recreate (lineno + 1) rest in
-            let queries = queries |> List.map (one_query p) in
+            let queries = queries |> List.map fst |> List.map one_query in
             Left l :: (queries @ rest)
       in
       let oks, errs = List.partition_map Fun.id @@ recreate 1 lines in

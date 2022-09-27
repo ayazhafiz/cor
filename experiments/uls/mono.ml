@@ -142,7 +142,9 @@ let rec mono_def ctx x spec_ty =
       | Val v -> Val v
       | Var x -> (
           if not (concrete_type t) then
-            error ("unspecialized var type " ^ string_of_ty [] t);
+            error
+              ("unspecialized var type "
+              ^ string_of_ty Language.default_width [] t);
           match unlink t with
           | TFn (_, TLSet lset, _) -> (
               compact_lset lset;

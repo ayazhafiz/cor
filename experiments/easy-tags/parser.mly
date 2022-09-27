@@ -65,6 +65,11 @@ expr_app:
       let loc = range (fst head) (l_range xloc atom_list) in
       (loc, ctx.fresh_var (), Tag(snd head, atom_list))
   }
+  | head=LOWER e=expr_atom { fun c ->
+      let head = (fst head, c.fresh_var (), Var (snd head)) in
+      let e = e c in
+      (range (xloc head) (xloc e), c.fresh_var (), Call(head, e))
+  }
 
 expr_atom_list:
   | e=expr_atom { fun ctx -> [e ctx] }

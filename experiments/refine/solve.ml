@@ -1,4 +1,5 @@
 open Syntax
+open Language
 
 module IntMap = struct
   include Map.Make (struct
@@ -36,8 +37,10 @@ let deep_copy =
 let unify a b =
   let error prefix =
     failsolve
-      ("Unify error: " ^ prefix ^ " at " ^ string_of_ty a ^ " ~ "
-     ^ string_of_ty b)
+      ("Unify error: " ^ prefix ^ " at "
+      ^ string_of_ty default_width a
+      ^ " ~ "
+      ^ string_of_ty default_width b)
   in
   let sort_tags tags =
     List.sort (fun (tag1, _) (tag2, _) -> compare tag1 tag2) tags

@@ -1,4 +1,5 @@
 open Syntax
+open Language
 
 module IntMap = struct
   include Map.Make (struct
@@ -16,6 +17,7 @@ let occurs x =
   let rec go t =
     match !t with
     | Unbd n -> n = x
+    | ForA _ -> false
     | Link t -> go t
     | Content (TTag { tags; ext }) ->
         List.exists (fun (_, tys) -> List.exists go tys) tags || go ext
@@ -55,8 +57,10 @@ let separate_tags tags1 ext1 tags2 ext2 =
 let unify fresh a b =
   let error prefix =
     failsolve
-      ("Unify error: " ^ prefix ^ " at " ^ string_of_ty a ^ " ~ "
-     ^ string_of_ty b)
+      ("Unify error: " ^ prefix ^ " at "
+      ^ string_of_ty default_width [] a
+      ^ " ~ "
+      ^ string_of_ty default_width [] b)
   in
   let merge a b content =
     a := Content content;
@@ -67,6 +71,7 @@ let unify fresh a b =
     if a != b then
       match (!a, !b) with
       | Link _, _ | _, Link _ -> failwith "found a link where none was expected"
+      | ForA _, _ | _, ForA _ -> failwith "cannot unify generalized type"
       | Unbd n, _ -> if occurs n b then error "occurs" else a := Link b
       | _, Unbd n -> if occurs n a then error "occurs" else b := Link a
       | Content l_content, Content r_content -> (
@@ -125,6 +130,7 @@ let close_type =
     match !t with
     | Unbd _ -> ()
     | Link t -> go t
+    | ForA _ -> failwith "cannot close generalized type"
     | Content TTagEmpty -> ()
     | Content (TTag { tags; ext }) ->
         let tags, ext = chase_tags tags ext in
@@ -139,11 +145,50 @@ let open_type fresh_var =
     match !t with
     | Unbd _ -> ()
     | Link t -> go t
+    | ForA _ -> failwith "cannot open generalized type"
     | Content TTagEmpty -> t := !(fresh_var ())
     | Content (TTag { tags; ext }) ->
         let _, ext = chase_tags tags ext in
         ext := !(fresh_var ())
     | Content (TFn _) -> ()
+  in
+  go
+
+let inst fresh_var =
+  let tenv = ref [] in
+  let rec go t =
+    match !t with
+    | Unbd _ -> t
+    | Link t -> go t
+    | ForA (i, _) ->
+        if not (List.mem_assoc i !tenv) then tenv := (i, fresh_var ()) :: !tenv;
+        List.assoc i !tenv
+    | Content TTagEmpty -> t
+    | Content (TTag { tags; ext }) ->
+        let tags = List.map (fun (t, args) -> (t, List.map go args)) tags in
+        let ext = go ext in
+        ref @@ Content (TTag { tags; ext })
+    | Content (TFn (in', out')) -> ref @@ Content (TFn (go in', go out'))
+  in
+  go
+
+let gen venv =
+  let rec go t =
+    match !t with
+    | Unbd i ->
+        if List.exists (fun (_, t) -> occurs i t) venv then
+          (* variable bound by occurs; do not generalize *)
+          ()
+        else t := ForA (i, None)
+    | Link t -> go t
+    | ForA _ -> () (* keep as generalized *)
+    | Content TTagEmpty -> ()
+    | Content (TTag { tags; ext }) ->
+        List.iter (fun (_, args) -> List.iter go args) tags;
+        go ext
+    | Content (TFn (in', out')) ->
+        go in';
+        go out'
   in
   go
 
@@ -189,7 +234,7 @@ let infer fresh_var =
       match e with
       | Var x -> (
           match List.assoc_opt x venv with
-          | Some t -> t
+          | Some t -> inst fresh_var t
           | None -> failsolve ("Variable " ^ x ^ " not in scope"))
       | Tag (name, pay) ->
           let payload_types = List.map (infer venv) pay in
@@ -199,6 +244,7 @@ let infer fresh_var =
       | Let ((_, t_x, x), e, b) ->
           let t_x' = infer venv e in
           unify t_x t_x';
+          gen venv t_x;
           infer ((x, t_x) :: venv) b
       | When (cond, branches) ->
           let t_cond = infer venv cond in
@@ -238,6 +284,12 @@ let infer fresh_var =
       | Clos ((_, t_x, x), e) ->
           let t_res = infer ((x, t_x) :: venv) e in
           ref @@ Content (TFn (t_x, t_res))
+      | Call (e1, e2) ->
+          let t_fn = infer venv e1 in
+          let t_arg = infer venv e2 in
+          let t_ret = fresh_var () in
+          unify t_fn (ref @@ Content (TFn (t_arg, t_ret)));
+          t_ret
     in
     unify t ty;
     ty

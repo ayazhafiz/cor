@@ -49,9 +49,12 @@ let solve p fresh_var =
     Ok (p, spec_table)
   with Solve_err e -> Error e
 
+type tctx = (int * string) list
+
 module Uls : LANGUAGE = struct
   let name = "uls"
 
+  type ty = tctx * Syntax.ty
   type parsed_program = Syntax.program * fresh_var
   type solved_program = Syntax.program * spec_table
 
@@ -105,6 +108,9 @@ module Uls : LANGUAGE = struct
         fprintf f "@]")
       width
 
-  let type_at loc (p, _) = type_at loc p
+  let print_type ?(width = default_width) (_, (tctx, t)) =
+    string_of_ty width tctx t
+
+  let types_at locs (p, _) = List.map (fun l -> (l, type_at l p)) locs
   let hover_info loc (p, _) = hover_info loc p
 end
