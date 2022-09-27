@@ -197,11 +197,6 @@ type compile_result = (compile_output, compile_err) result
 
 let ( >>= ) = Result.bind
 
-let reflow_lines prefix lines =
-  String.split_on_char '\n' lines
-  |> List.map (( ^ ) prefix)
-  |> String.concat "\n"
-
 let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
     compile_result =
   let input = unlines lines in

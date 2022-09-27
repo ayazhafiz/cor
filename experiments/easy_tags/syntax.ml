@@ -91,8 +91,7 @@ let preprocess tys =
   let rec go_ty t =
     match !t with
     | ForA (i, Some name) -> replace claimed i name
-    | ForA (i, None) -> update hits i (fun h -> h + 1) 1
-    | Unbd _ -> ()
+    | ForA (i, None) | Unbd i -> update hits i (fun h -> h + 1) 1
     | Link t -> go_ty t
     | Content TTagEmpty -> ()
     | Content (TTag { tags; ext }) ->
@@ -127,16 +126,18 @@ let fresh_name_generator () =
     tbl := name :: !tbl;
     name
 
+type named_vars = (int * [ `Wild | `Name of string ]) list
+
 let name_vars tys =
   let claimed, hits = preprocess tys in
   let fresh_name = fresh_name_generator () in
   let names' =
-    List.map (fun (i, name) -> (i, fresh_name (Some name))) claimed
+    List.map (fun (i, name) -> (i, `Name (fresh_name (Some name)))) claimed
   in
   let names'' =
     List.map
       (fun (i, hits) ->
-        let name = if hits == 1 then "*" else fresh_name None in
+        let name = if hits == 1 then `Wild else `Name (fresh_name None) in
         (i, name))
       hits
   in
@@ -144,32 +145,42 @@ let name_vars tys =
 
 (* format *)
 
-type named_vars = (int * string) list
-
-let pp_ty (names : named_vars) f t =
+let pp_ty (names : named_vars) f t mode =
   let open Format in
   let wild t =
     match !(unlink t) with
-    | ForA (i, _) -> List.assoc i names == "*"
+    | ForA (i, _) | Unbd i -> (
+        match List.assoc i names with `Wild -> true | _ -> false)
     | _ -> false
+  in
+  let pp_named i c =
+    let name =
+      match List.assoc_opt i names with
+      | Some `Wild -> "*"
+      | Some (`Name n) -> n
+      | None -> Printf.sprintf "<%c%d>" c i
+    in
+    pp_print_string f name
+  in
+  let int_of_parens_ctx = function `Free -> 1 | `FnHead -> 2 in
+  let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
+  let with_parens needs_parens inside =
+    if needs_parens then pp_print_string f "(";
+    inside ();
+    if needs_parens then pp_print_string f ")"
   in
   let rec go_tag mode pol (tag_name, payloads) =
     fprintf f "%s" tag_name;
     List.iter
       (fun p ->
         fprintf f "@ ";
-        go mode pol p)
+        go `Free mode pol p)
       payloads
-  and go mode pol t =
+  and go parens mode pol t =
     match !t with
-    | Unbd i -> fprintf f "<?%d>" i
-    | ForA (i, _) ->
-        let name =
-          List.assoc_opt i names
-          |> Option.value ~default:(Printf.sprintf "<'%d>" i)
-        in
-        pp_print_string f name
-    | Link t -> go mode pol t
+    | Unbd i -> pp_named i '?'
+    | ForA (i, _) -> pp_named i '\''
+    | Link t -> go parens mode pol t
     | Content TTagEmpty -> fprintf f "[]"
     | Content (TTag { tags; ext }) ->
         let tags, ext = chase_tags tags ext in
@@ -180,7 +191,7 @@ let pp_ty (names : named_vars) f t =
             go_tag mode pol t)
           tags;
         fprintf f "]";
-        let print_ext () = go mode pol ext in
+        let print_ext () = go `Free mode pol ext in
         (if not (is_empty_tag ext) then
          match (mode, pol) with
          | `Roc, _ -> print_ext ()
@@ -190,23 +201,31 @@ let pp_ty (names : named_vars) f t =
         fprintf f "@]"
     | Content (TFn (in', out)) ->
         fprintf f "@[<hov 2>";
-        go mode `Neg in';
-        fprintf f "@ -> ";
-        go mode `Pos out;
+        let pty () =
+          go `FnHead mode `Neg in';
+          fprintf f "@ -> ";
+          go `Free mode `Pos out
+        in
+        with_parens (parens >> `Free) pty;
         fprintf f "@]"
   in
-  let modes = [ `Roc; `New ] in
-  let mode_pre = function `Roc -> "-" | `New -> "+" in
-  fprintf f "@[<v 0>";
-  List.iteri
-    (fun i mode ->
-      if i <> 0 then fprintf f "@,";
-      fprintf f "%s " (mode_pre mode);
-      go mode `Pos t)
-    modes;
-  fprintf f "@]"
+  go `Free mode `Pos t
 
-let string_of_ty width names ty = with_buffer (fun f -> pp_ty names f ty) width
+let string_of_ty width names ty =
+  let modes = [ `Roc; `New ] in
+  let results =
+    List.map
+      (fun mode -> with_buffer (fun f -> pp_ty names f ty mode) width)
+      modes
+  in
+  let mode_pre = function `Roc -> "- " | `New -> "+ " in
+  if List.for_all (fun s -> List.hd results = s) results then
+    reflow_lines ". " (List.hd results)
+  else
+    String.concat "\n"
+    @@ List.map2
+         (fun res mode -> reflow_lines (mode_pre mode) res)
+         results modes
 
 let tightest_node_at loc program =
   let or_else o f = match o with Some a -> Some a | None -> f () in
@@ -259,10 +278,13 @@ let hover_info lineco program =
   let gen_docs (range, ty, kind) =
     let names = name_vars [ ty ] in
     let ty_str = string_of_ty default_width names ty in
+    let split =
+      if List.length @@ String.split_on_char '\n' ty_str > 0 then "\n" else " "
+    in
     let prefix =
       match kind with
-      | `Var x -> sprintf "(var) %s: " x
-      | `Def x -> sprintf "(def) %s: " x
+      | `Var x -> sprintf "(var) %s:%s" x split
+      | `Def x -> sprintf "(def) %s:%s" x split
       | `Pat -> ""
       | `Generic -> ""
     in

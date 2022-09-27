@@ -68,9 +68,18 @@ module Easy_tags : LANGUAGE = struct
     string_of_ty width names t
 
   let types_at locs p =
-    let tys = List.map (fun l -> (l, type_at l p)) locs in
-    let names = name_vars @@ List.filter_map (fun (_, t) -> t) tys in
-    List.map (fun (l, t) -> (l, Option.map (fun t -> (names, t)) t)) tys
+    let tys =
+      List.map
+        (fun l ->
+          let res =
+            match type_at l p with
+            | Some t -> Some (name_vars [ t ], t)
+            | None -> None
+          in
+          (l, res))
+        locs
+    in
+    tys
 
   let hover_info loc p = hover_info loc p
 end

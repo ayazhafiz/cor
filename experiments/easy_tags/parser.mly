@@ -65,10 +65,13 @@ expr_app:
       let loc = range (fst head) (l_range xloc atom_list) in
       (loc, ctx.fresh_var (), Tag(snd head, atom_list))
   }
-  | head=LOWER e=expr_atom { fun c ->
-      let head = (fst head, c.fresh_var (), Var (snd head)) in
-      let e = e c in
-      (range (xloc head) (xloc e), c.fresh_var (), Call(head, e))
+  | head=LOWER atom_list=expr_atom_list { fun ctx ->
+      let head = (fst head, ctx.fresh_var (), Var (snd head)) in
+      let atom_list = atom_list ctx in
+      List.fold_left (fun whole e ->
+        let loc = (range (xloc whole) (xloc e)) in
+        (loc, ctx.fresh_var (), Call(whole, e))
+      ) head atom_list
   }
 
 expr_atom_list:

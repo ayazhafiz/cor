@@ -20,6 +20,11 @@ type hover_info = {
           Each region should roughly correspond to a paragraph. *)
 }
 
+let reflow_lines prefix lines =
+  String.split_on_char '\n' lines
+  |> List.map (( ^ ) prefix)
+  |> String.concat "\n"
+
 module type LANGUAGE = sig
   val name : string
 
