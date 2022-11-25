@@ -73,7 +73,7 @@ and stmt_of_expr ctx expr : stmt list * var =
         let x_var = (x_layout, x) in
         let asgns = body_asgns @ [ Let (x_var, Var body_var) ] @ rest_asgns in
         (asgns, rest_var)
-    | S.When (cond, branches) ->
+    | S.Match (cond, branches) ->
         let cond_asgn, cond_var = help cond in
         let decision_tree =
           Decision_tree.compile_branches ctx (S.xty cond) cond_var branches

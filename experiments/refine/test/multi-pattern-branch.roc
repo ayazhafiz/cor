@@ -2,8 +2,8 @@
 # cor +ir -print
 # cor +eval -print
 let x = A1 B2 in
-let result = when x is
-#                 ^
+let result = match x with
+#                  ^
   | A1 B1 | A2 B2 | A3 B3 -> R1
   | A1 B2 | A2 B1 -> R2
   | A1 B3 | A2 B3 -> R3
@@ -12,8 +12,8 @@ in result
 
 > cor-out +solve -elab
 > let x = A1 B2 in
-> let result = when x is
-> #                 ^ [A1 [B1, B2, B3], A2 [B1, B2, B3], A3 [B3]]
+> let result = match x with
+> #                  ^ [A1 [B1, B2, B3], A2 [B1, B2, B3], A3 [B3]]
 >   | A1 B1 | A2 B2 | A3 B3 -> R1
 >   | A1 B2 | A2 B1 -> R2
 >   | A1 B3 | A2 B3 -> R3

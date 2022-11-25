@@ -18,8 +18,8 @@ let xv = Syntax.xv
 
 %token <Syntax.loc> LET
 %token <Syntax.loc> IN
-%token <Syntax.loc> WHEN
-%token <Syntax.loc> IS
+%token <Syntax.loc> MATCH
+%token <Syntax.loc> WITH
 %token <Syntax.loc> COMMA
 %token <Syntax.loc> AS
 %token <Syntax.loc> LPAREN
@@ -47,11 +47,11 @@ toplevel:
 expr:
   | app=expr_app { app }
   | e=expr_lets { fun c -> e c }
-  | w=WHEN cond=expr IS rev_branches=branch_seq { fun ctx ->
+  | w=MATCH cond=expr WITH rev_branches=branch_seq { fun ctx ->
       let cond = cond ctx in
       let branches = List.rev @@ rev_branches ctx in
       let loc: Syntax.loc = range w (l_range (fun (_, e) -> xloc e) branches) in
-      (loc, fresh_var ctx, When(cond, branches))
+      (loc, fresh_var ctx, Match(cond, branches))
   }
 
 expr_app:

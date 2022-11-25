@@ -3,8 +3,8 @@
 # cor +eval -print
 let x = Add Zero (Mul N1 N2) Reals in
 #   ^
-let result = when x is
-#                 ^
+let result = match x with
+#                  ^
   | Add (Add _ _) Zero Reals -> B1
   | Add (Mul _ _) Zero Reals -> B2
   | Add _ (Mul _ _)    Reals -> B3
@@ -16,11 +16,13 @@ in result
 
 > cor-out +solve -elab
 > let x = Add Zero (Mul N1 N2) Reals in
-> #   ^ [Add [Add '8 '7, Mul '16 '15, Zero] [Add '31 '30, Mul [N1] [N2], Zero] 
-> #   ^   [Reals], Sub '45 '44 [Reals]]
-> let result = when x is
-> #                 ^ [Add [Add '8 '7, Mul '16 '15, Zero] [Add '31 '30, Mul [N1] [N2], Zero] 
-> #                 ^   [Reals], Sub '45 '44 [Reals]]
+> #   ^ [Add [Add '8 '7, Mul '16 '15, Zero]
+> #   ^   [Add '31 '30, Mul [N1] [N2], Zero] [Reals], Sub
+> #   ^   '45 '44 [Reals]]
+> let result = match x with
+> #                  ^ [Add [Add '8 '7, Mul '16 '15, Zero]
+> #                  ^   [Add '31 '30, Mul [N1] [N2], Zero] [Reals], Sub
+> #                  ^   '45 '44 [Reals]]
 >   | Add (Add _ _) Zero Reals -> B1
 >   | Add (Mul _ _) Zero Reals -> B2
 >   | Add _ (Mul _ _)    Reals -> B3

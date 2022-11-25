@@ -2,8 +2,8 @@
 # cor +ir -print
 # cor +eval -print
 let x : [A [M, N, Q], B [Q, R], C [N, Q, L]] = C L in
-let z = when x is
-#   ^        ^
+let z = match x with
+#   ^         ^
   | A M | B R | C Q | C L as y -> y
   | A Q -> G
   | A N -> H I
@@ -11,13 +11,14 @@ in z
 
 > cor-out +solve -elab
 > let x : [A [M, N, Q], B [Q, R], C [N, Q, L]] = C L in
-> let z = when x is
-> #            ^ [A [M, N, Q], B [Q, R], C [L, N, Q]]
+> let z = match x with
+> #             ^ [A [M, N, Q], B [Q, R], C [L, N, Q]]
 > #   ^ [A [M], B [R], C [L, Q], G, H [I]]
 >   | A M | B R | C Q | C L as y -> y
 >   | A Q -> G
 >   | A N -> H I
 > in z
+> 
 
 > cor-out +ir -print
 > let %1 : {} = @build_struct;

@@ -131,7 +131,7 @@ let infer =
           let t_x' = infer venv e in
           unify t_x t_x';
           infer ((x, t_x) :: venv) b
-      | When (cond, branches) ->
+      | Match (cond, branches) ->
           let t_cond = infer venv cond in
           let t_body =
             List.fold_left

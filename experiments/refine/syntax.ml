@@ -44,7 +44,7 @@ and expr =
   | Var of string
   | Tag of string * e_expr list
   | Let of (loc * ty * string) * e_expr * e_expr  (** let x = e in b *)
-  | When of e_expr * branch list  (** when x is ... *)
+  | Match of e_expr * branch list  (** match x with ... *)
 
 and branch = e_pat * e_expr
 
@@ -109,7 +109,7 @@ let tightest_node_at loc program =
           if within loc l then Some (l, ty, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
       | Tag (_, tags) -> List.find_map (fun tag -> expr tag) tags
-      | When (e, branches) ->
+      | Match (e, branches) ->
           let check_branch (pat', body) =
             or_else (pat pat') (fun () -> expr body)
           in
@@ -220,10 +220,10 @@ let pp_expr f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | When (cond, branches) ->
-        fprintf f "@[<v 2>@[<hov 2>when@ ";
+    | Match (cond, branches) ->
+        fprintf f "@[<v 2>@[<hov 2>match@ ";
         go `Free cond;
-        fprintf f " is@]";
+        fprintf f " with@]";
         List.iter
           (fun (pat, body) ->
             fprintf f "@,@[<hov 0>| ";

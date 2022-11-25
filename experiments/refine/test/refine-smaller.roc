@@ -3,7 +3,7 @@
 # cor +eval -print
 let x : [A, B, C] = B in
 #   ^
-let z = when x is
+let z = match x with
 #   ^
   | A | B as y -> y
 #            ^    ^
@@ -16,7 +16,7 @@ in z
 > cor-out +solve -elab
 > let x : [A, B, C] = B in
 > #   ^ [A, B, C]
-> let z = when x is
+> let z = match x with
 > #   ^ [A, B]
 >   | A | B as y -> y
 > #                 ^ [A, B]

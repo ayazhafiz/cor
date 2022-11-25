@@ -6,16 +6,16 @@
    In short, we want to take
 
    let x : [B, C, D, E] in
-   when x is
+   match x with
      | B | C as y -> y
      | D | E -> A
 
    to
 
    let x : [B, C, D, E] in
-   when x is
+   match x with
      | B | C ->
-         let y : [A, B, C] = when x is
+         let y : [A, B, C] = match x with
                | B -> B
                | C -> C
                | _ -> @proven_unreachable
@@ -100,8 +100,8 @@ let conv ~as_var ~o_var rest =
     ((noloc, o_ty, PAtom [ pat_atom ]), body)
   in
   let branches = List.map concretize_branch @@ conv_help as_ty o_ty in
-  let when_expr = When ((noloc, o_ty, Var o_var), branches) in
+  let match_expr = Match ((noloc, o_ty, Var o_var), branches) in
   let total_expr =
-    Let ((noloc, as_ty, as_var), (noloc, as_ty, when_expr), rest)
+    Let ((noloc, as_ty, as_var), (noloc, as_ty, match_expr), rest)
   in
   (noloc, xty rest, total_expr)

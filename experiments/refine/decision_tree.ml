@@ -33,7 +33,7 @@ type column = var * pat [@@deriving show]
 *)
 
 type row = column list * S.e_expr [@@deriving show]
-(** A single row (case) in a when expression. Contains the [columns] to test and
+(** A single row (case) in a match expression. Contains the [columns] to test and
     the body of the case. *)
 
 (** The decision tree. Subtrees are constructed with [case]. *)
@@ -46,7 +46,7 @@ type decision =
 (** constructor to match against, variables to bind arguments to and introduce, and the body *)
 and case = Case of ctor * var list * decision [@@deriving show]
 
-(** Translate a `when` expression, with condition lowered to a variable, to a
+(** Translate a `match` expression, with condition lowered to a variable, to a
     list of [rows]. *)
 let rows_of_branches cond_ty (cond_var : var) (branches : S.branch list) =
   let rec convert_pat (_, ty, pat) =
