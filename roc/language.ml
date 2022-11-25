@@ -31,20 +31,20 @@ module type LANGUAGE = sig
   type ty
   type parsed_program
   type solved_program
-  type mono_program
+  type ir_program
   type evaled_program
 
   (*** Stages ***)
 
   val parse : string -> (parsed_program, string) result
   val solve : parsed_program -> (solved_program, string) result
-  val mono : solved_program -> (mono_program, string) result
-  val eval : mono_program -> (evaled_program, string) result
+  val ir : solved_program -> (ir_program, string) result
+  val eval : ir_program -> (evaled_program, string) result
 
   (*** Emit ***)
   val print_parsed : ?width:int -> parsed_program -> string
   val print_solved : ?width:int -> solved_program -> string
-  val print_mono : ?width:int -> mono_program -> string
+  val print_ir : ?width:int -> ir_program -> string
   val print_evaled : ?width:int -> evaled_program -> string
   val types_at : loc list -> solved_program -> (loc * ty option) list
   val print_type : ?width:int -> solved_program * ty -> string

@@ -16,7 +16,7 @@ specialization, would work in Roc.
 
 [See the tests](./test/) for examples.
 
-Target phases: `parse`, `solve`, `mono`
+Target phases: `parse`, `solve`, `ir`
 Target emit: `print`, `elab`
 
 ## Idea

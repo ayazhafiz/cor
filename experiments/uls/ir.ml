@@ -1,11 +1,11 @@
-(** Monomorphizes ULS *)
+(** Irmorphizes ULS *)
 
 open Syntax
 open Solve
 
-exception Mono_error of string
+exception Ir_error of string
 
-let fail s = raise (Mono_error s)
+let fail s = raise (Ir_error s)
 
 let concrete_type =
   let rec go t =
@@ -99,8 +99,8 @@ type ctx = {
   mutable defs : (string * (string * e_expr)) list;
       (** source defs: real name -> (human name, body)
       "real name" is the lambda name if it exists, otherwise the human name *)
-  mutable mono_defs : ((string * ty) * (string * e_expr)) list;
-      (** monomorphized defs: original x, spec ty -> spec x, spec body *)
+  mutable ir_defs : ((string * ty) * (string * e_expr)) list;
+      (** irmorphized defs: original x, spec ty -> spec x, spec body *)
 }
 
 let specialize_var ctx x ty =
@@ -123,9 +123,9 @@ let remove_var_specializations ctx x =
   ctx.var_specializations <- other;
   spec
 
-let rec mono_def ctx x spec_ty =
+let rec ir_def ctx x spec_ty =
   let num_spec_for_x =
-    List.length @@ List.filter (fun ((y, _), _) -> x = y) ctx.mono_defs
+    List.length @@ List.filter (fun ((y, _), _) -> x = y) ctx.ir_defs
   in
   let human_name, body = List.assoc x ctx.defs in
   let x' =
@@ -136,7 +136,7 @@ let rec mono_def ctx x spec_ty =
   let spec_body, uls_v = clone_expr body in
   unify ctx.spec_table uls_v (xty body) spec_ty;
   let rec go ((_, t, e) as eexpr) =
-    let error s = fail ("Mono error: " ^ s ^ " at " ^ string_of_expr eexpr) in
+    let error s = fail ("Ir error: " ^ s ^ " at " ^ string_of_expr eexpr) in
     let e' =
       match e with
       | Val v -> Val v
@@ -155,7 +155,7 @@ let rec mono_def ctx x spec_ty =
                     let x = string_of_lambda lam in
                     if List.mem_assoc x ctx.defs then
                       (* a known def *)
-                      let x' = mono_def ctx x t in
+                      let x' = ir_def ctx x t in
                       Var x'
                     else
                       (* local var that needs specialization *)
@@ -192,10 +192,10 @@ let rec mono_def ctx x spec_ty =
   let spec_body' = go spec_body in
   if List.length ctx.var_specializations > 0 then
     fail
-      ("Mono error: leftover specializations for " ^ String.concat ", "
+      ("Ir error: leftover specializations for " ^ String.concat ", "
       @@ List.map (fun ((x, _), _) -> x) ctx.var_specializations);
   ctx.var_specializations <- specializations_before;
-  ctx.mono_defs <- ((x, spec_ty), (x', spec_body')) :: ctx.mono_defs;
+  ctx.ir_defs <- ((x, spec_ty), (x', spec_body')) :: ctx.ir_defs;
   x'
 
 (** Lifts closures to the toplevel, leaving their lambda name in their place.
@@ -244,22 +244,22 @@ let rec lift =
       let body', lifted = lift_e real_name body in
       (real_name, (human_name, body')) :: lift (lifted @ rest)
 
-let mono program spec_table =
+let ir program spec_table =
   let defs = lift program in
-  let ctx = { spec_table; var_specializations = []; defs; mono_defs = [] } in
+  let ctx = { spec_table; var_specializations = []; defs; ir_defs = [] } in
   let entry_points =
     List.filter_map
       (function
         | Def ((_, x), e, true) ->
             assert (concrete_type (xty e));
-            let x' = mono_def ctx x (xty e) in
+            let x' = ir_def ctx x (xty e) in
             Some x'
         | _ -> None)
       program
   in
-  let mono_defs = ctx.mono_defs in
-  if List.length mono_defs = 0 then fail "No monomorphized roots found!";
-  let mono_program =
-    List.map (fun ((_, _), (x', e)) -> (x', e)) @@ List.rev mono_defs
+  let ir_defs = ctx.ir_defs in
+  if List.length ir_defs = 0 then fail "No irmorphized roots found!";
+  let ir_program =
+    List.map (fun ((_, _), (x', e)) -> (x', e)) @@ List.rev ir_defs
   in
-  (mono_program, entry_points)
+  (ir_program, entry_points)

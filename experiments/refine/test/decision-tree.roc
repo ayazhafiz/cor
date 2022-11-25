@@ -1,5 +1,5 @@
 # cor +solve -elab
-# cor +mono -print
+# cor +ir -print
 # cor +eval -print
 let x = Add Zero (Mul N1 N2) Reals in
 #   ^
@@ -31,7 +31,7 @@ in result
 > #  ^^^^^^ [B1, B2, B3, B4, B5, B6]
 > 
 
-> cor-out +mono -print
+> cor-out +ir -print
 > let %1 : {} = @build_struct;
 > let %2 : [ `0 void void, `1 void void, `2 ] = @build_tag 2 %1;
 > let %3 : {} = @build_struct;

@@ -1,7 +1,7 @@
 open Language
 open Syntax
 open Solve
-open Mono
+open Ir
 open Eval
 open Util
 
@@ -58,7 +58,7 @@ module Uls : LANGUAGE = struct
   type parsed_program = Syntax.program * fresh_var
   type solved_program = Syntax.program * spec_table
 
-  type mono_program = {
+  type ir_program = {
     defs : (string * e_expr) list;
     entry_points : string list;
   }
@@ -68,11 +68,11 @@ module Uls : LANGUAGE = struct
   let parse = parse
   let solve (p, fresh_var) = solve p fresh_var
 
-  let mono (p, spec_table) =
+  let ir (p, spec_table) =
     try
-      let defs, entry_points = mono p spec_table in
+      let defs, entry_points = ir p spec_table in
       Ok { defs; entry_points }
-    with Mono_error e -> Error e
+    with Ir_error e -> Error e
 
   let eval { defs; entry_points } =
     try Ok (eval defs entry_points) with Eval_error e -> Error e
@@ -80,7 +80,7 @@ module Uls : LANGUAGE = struct
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
   let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
 
-  let print_mono ?(width = default_width) { defs; entry_points } =
+  let print_ir ?(width = default_width) { defs; entry_points } =
     string_of_program ~width
       (List.map
          (fun (x, e) -> Def ((noloc, x), e, List.mem x entry_points))

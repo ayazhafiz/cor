@@ -12,13 +12,13 @@ let lang_mods : (module LANGUAGE) list =
 let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
 
 (* Driver *)
-type phase = Parse | Solve | Mono | Eval
+type phase = Parse | Solve | Ir | Eval
 type emit = Print | Elab
 
 let assoc_flip l = List.map (fun (a, b) -> (b, a)) l
 
 let phase_list =
-  [ (Parse, "parse"); (Solve, "solve"); (Mono, "mono"); (Eval, "eval") ]
+  [ (Parse, "parse"); (Solve, "solve"); (Ir, "ir"); (Eval, "eval") ]
 
 let emit_list = [ (Print, "print"); (Elab, "elab"); (Elab, "elaborate") ]
 let phase_of_string s = List.assoc_opt s @@ assoc_flip phase_list
@@ -172,7 +172,7 @@ let string_of_compile_output = Fun.id
 type compile_err =
   | ParseErr of string
   | SolveErr of string
-  | MonoErr of string
+  | IrErr of string
   | EvalErr of string
   | ElabErr of [ `NoQueries | `TypeNotFound of loc ]
   | BadEmit of phase * emit
@@ -181,7 +181,7 @@ type compile_err =
 let string_of_compile_err = function
   | ParseErr s -> "Parse error: " ^ s
   | SolveErr s -> "Solve error: " ^ s
-  | MonoErr s -> "Mono error: " ^ s
+  | IrErr s -> "Ir error: " ^ s
   | EvalErr s -> "Eval error: " ^ s
   | ElabErr e -> (
       "Elab error: "
@@ -203,7 +203,7 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
   let open Lang in
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Lang.parse s in
   let solve s = Result.map_error (fun s -> SolveErr s) @@ Lang.solve s in
-  let mono s = Result.map_error (fun s -> MonoErr s) @@ Lang.mono s in
+  let ir s = Result.map_error (fun s -> IrErr s) @@ Lang.ir s in
   let eval s = Result.map_error (fun s -> EvalErr s) @@ Lang.eval s in
   let elab p =
     if List.length queries = 0 then Error (ElabErr `NoQueries)
@@ -247,8 +247,8 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
   | Parse, Print -> input |> parse &> print_parsed
   | Solve, Print -> input |> parse >>= solve &> print_solved
   | Solve, Elab -> input |> parse >>= solve >>= elab
-  | Mono, Print -> input |> parse >>= solve >>= mono &> print_mono
-  | Eval, Print -> input |> parse >>= solve >>= mono >>= eval &> print_evaled
+  | Ir, Print -> input |> parse >>= solve >>= ir &> print_ir
+  | Eval, Print -> input |> parse >>= solve >>= ir >>= eval &> print_evaled
   | phase, emit -> Error (BadEmit (phase, emit))
 
 let hover_info (module Lang : LANGUAGE) lines lineco =

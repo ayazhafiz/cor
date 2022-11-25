@@ -46,17 +46,17 @@ module Easy_tags : LANGUAGE = struct
   type ty = named_vars * Syntax.ty
   type parsed_program = Syntax.program * fresh_var
   type solved_program = Syntax.program
-  type mono_program = unit
+  type ir_program = unit
   type evaled_program = unit
 
   let parse = parse
   let solve p = solve p
-  let mono _ = failwith "unimplemented"
+  let ir _ = failwith "unimplemented"
   let eval _ = failwith "unimplemented"
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
   let print_solved ?(width = default_width) p = string_of_program ~width p
 
-  let print_mono ?(width = default_width) _ =
+  let print_ir ?(width = default_width) _ =
     let _ = width in
     failwith "unimplemented"
 

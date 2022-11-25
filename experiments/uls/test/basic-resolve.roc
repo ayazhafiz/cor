@@ -1,5 +1,5 @@
 # cor +solve -elab
-# cor +mono -print
+# cor +ir -print
 # cor +eval -print
 proto thunkDefault a : () -> () -> a
 #     ^^^^^^^^^^^^
@@ -39,7 +39,7 @@ entry test2 =
 > #        ^^^^^^^^^^^^ () -[[`4]]-> () -[[`3]]-> T2
 > 
 
-> cor-out +mono -print
+> cor-out +ir -print
 > let `5~1 =
 >   \() -> T1
 > 

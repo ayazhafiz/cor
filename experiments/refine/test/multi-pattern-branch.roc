@@ -1,5 +1,5 @@
 # cor +solve -elab
-# cor +mono -print
+# cor +ir -print
 # cor +eval -print
 let x = A1 B2 in
 let result = when x is
@@ -21,7 +21,7 @@ in result
 > #  ^^^^^^ [R1, R2, R3]
 > 
 
-> cor-out +mono -print
+> cor-out +ir -print
 > let %1 : {} = @build_struct;
 > let %2 : [ `0, `1, `2 ] = @build_tag 1 %1;
 > let %3 : { [ `0, `1, `2 ] } = @build_struct %2;

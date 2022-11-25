@@ -1,5 +1,5 @@
 # cor +solve -elab
-# cor +mono -print
+# cor +ir -print
 # cor +eval -print
 let x : [A [M, N, Q], B [Q, R], C [N, Q, L]] = C L in
 let z = when x is
@@ -19,7 +19,7 @@ in z
 >   | A N -> H I
 > in z
 
-> cor-out +mono -print
+> cor-out +ir -print
 > let %1 : {} = @build_struct;
 > let %2 : [ `0, `1, `2 ] = @build_tag 0 %1;
 > let %3 : { [ `0, `1, `2 ] } = @build_struct %2;

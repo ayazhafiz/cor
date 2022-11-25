@@ -1,5 +1,5 @@
 # cor +solve -elab
-# cor +mono -print
+# cor +ir -print
 # cor +eval -print
 let x : [A, B, C] = B in
 #   ^
@@ -28,7 +28,7 @@ in z
 > in z
 > 
 
-> cor-out +mono -print
+> cor-out +ir -print
 > let %1 : {} = @build_struct;
 > let %2 : [ `0, `1, `2 ] = @build_tag 1 %1;
 > let x : [ `0, `1, `2 ] = %2;
