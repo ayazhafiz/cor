@@ -94,4 +94,4 @@ in result
 > ret result
 
 > cor-out +eval -print
-> R2 {}
+> R2

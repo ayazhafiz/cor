@@ -65,13 +65,13 @@ let rec readback f ty layout data =
           | _ -> failwith "illegal memory for int")
       | Struct layouts -> (
           match (tags, data) with
-          | _, Block [] -> fprintf f "{}"
+          | _, Block [] -> ()
           | [ ("#struct", payload_types) ], Block cells ->
-              fprintf f "{ ";
+              if List.length cells > 1 then fprintf f "{ ";
               intersperse f ", "
                 (fun f _ (ty, (lay, data)) -> readback f ty lay data)
                 (List.combine payload_types @@ List.combine layouts cells);
-              fprintf f " }"
+              if List.length cells > 1 then fprintf f "{ "
           | _ -> failwith "illegal memory for int")
       | Union union -> (
           match data with
@@ -83,7 +83,8 @@ let rec readback f ty layout data =
               in
               let tag, payload_types = List.nth tags id in
               let payload_layouts = List.nth union id in
-              fprintf f "%s " tag;
+              fprintf f "%s" tag;
+              if List.length payload_layouts > 0 then fprintf f " ";
               readback f
                 (ref @@ S.Content (S.TTag [ ("#struct", payload_types) ]))
                 (Struct payload_layouts) (Block rest)

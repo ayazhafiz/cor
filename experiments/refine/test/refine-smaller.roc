@@ -85,4 +85,4 @@ in z
 > ret z
 
 > cor-out +eval -print
-> B {}
+> B

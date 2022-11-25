@@ -273,4 +273,4 @@ in z
 > ret z
 
 > cor-out +eval -print
-> C { L {} }
+> C L

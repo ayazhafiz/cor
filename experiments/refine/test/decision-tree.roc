@@ -120,4 +120,4 @@ in result
 > ret result
 
 > cor-out +eval -print
-> B3 {}
+> B3
