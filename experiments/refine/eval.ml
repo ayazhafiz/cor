@@ -71,7 +71,7 @@ let rec readback f ty layout data =
               intersperse f ", "
                 (fun f _ (ty, (lay, data)) -> readback f ty lay data)
                 (List.combine payload_types @@ List.combine layouts cells);
-              if List.length cells > 1 then fprintf f "{ "
+              if List.length cells > 1 then fprintf f " }"
           | _ -> failwith "illegal memory for int")
       | Union union -> (
           match data with

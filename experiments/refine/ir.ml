@@ -76,12 +76,13 @@ let pp_layout f =
         fprintf f "[ ";
         intersperse f ", "
           (fun f i payloads ->
-            fprintf f "`%d" i;
+            fprintf f "`%d {" i;
             List.iter
               (fun l ->
                 fprintf f " ";
                 go l)
-              payloads)
+              payloads;
+            fprintf f "}")
           variants;
         fprintf f " ]"
   in
@@ -101,10 +102,10 @@ let pp_expr f =
   function
   | Var var -> pp_vs f var
   | GetUnionId v ->
-      fprintf f "@get_tag_id ";
+      fprintf f "@get_union_id ";
       pp_vs f v
   | BuildUnion (id, var) ->
-      fprintf f "@build_tag %d " id;
+      fprintf f "@build_union %d " id;
       pp_vs f var
   | GetUnionStruct var ->
       fprintf f "@get_union_struct ";
