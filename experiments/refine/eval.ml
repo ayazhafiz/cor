@@ -53,8 +53,14 @@ module S = Syntax
 
 let pp_bot f = Format.fprintf f "⊥"
 
-let rec readback f ty layout data =
+let rec readback f ty applied layout data =
   let open Format in
+  let maybe_paren n write_fmt =
+    let needs_wrap = applied && n > 1 in
+    if needs_wrap then fprintf f "(";
+    write_fmt ();
+    if needs_wrap then fprintf f ")"
+  in
   match !(S.unlink ty) with
   | S.Content (S.TTag tags) -> (
       match layout with
@@ -67,11 +73,9 @@ let rec readback f ty layout data =
           match (tags, data) with
           | _, Block [] -> ()
           | [ ("#struct", payload_types) ], Block cells ->
-              if List.length cells > 1 then fprintf f "{ ";
-              intersperse f ", "
-                (fun f _ (ty, (lay, data)) -> readback f ty lay data)
-                (List.combine payload_types @@ List.combine layouts cells);
-              if List.length cells > 1 then fprintf f " }"
+              intersperse f " "
+                (fun f _ (ty, (lay, data)) -> readback f ty true lay data)
+                (List.combine payload_types @@ List.combine layouts cells)
           | _ -> failwith "illegal memory for int")
       | Union union -> (
           match data with
@@ -83,11 +87,12 @@ let rec readback f ty layout data =
               in
               let tag, payload_types = List.nth tags id in
               let payload_layouts = List.nth union id in
-              fprintf f "%s" tag;
-              if List.length payload_layouts > 0 then fprintf f " ";
-              readback f
-                (ref @@ S.Content (S.TTag [ ("#struct", payload_types) ]))
-                (Struct payload_layouts) (Block rest)
+              maybe_paren (List.length payload_layouts) (fun () ->
+                  fprintf f "%s" tag;
+                  if List.length payload_layouts > 0 then fprintf f " ";
+                  readback f
+                    (ref @@ S.Content (S.TTag [ ("#struct", payload_types) ]))
+                    true (Struct payload_layouts) (Block rest))
           | _ -> failwith "illegal type/memory for union"))
   | S.Unbd _ -> pp_bot f
   | S.Link _ -> failwith "unreachable"
@@ -101,7 +106,7 @@ let print_back width ty var memory =
           match layout with
           | Void -> pp_bot f
           | Int | Struct _ | Union _ ->
-              readback f ty layout (List.assoc var memory))
+              readback f ty false layout (List.assoc var memory))
       | S.Unbd _ -> pp_bot f
       | S.Link _ -> failwith "unreachable")
     width
