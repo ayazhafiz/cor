@@ -1,10 +1,7 @@
 {
   "name": "cor",
-  "packageManager": "yarn@3.2.1",
+  "version": "0.0.0",
   "main": "cor.js",
   "module": "cor",
-  "types": "cor.d.ts",
-  "devDependencies": {
-    "www": "workspace:www"
-  }
+  "types": "cor.d.ts"
 }
