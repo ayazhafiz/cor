@@ -236,9 +236,9 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
     | Alias { alias = head, args; real = _ } -> (
         let rec go_args = function
           | [] -> ()
-          | [ (_, arg) ] -> go `Free arg
+          | [ (_, arg) ] -> go `AppHead arg
           | (_, arg) :: args ->
-              go `FnHead arg;
+              go `AppHead arg;
               fprintf f "@ ";
               go_args args
         in

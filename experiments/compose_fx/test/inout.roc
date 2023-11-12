@@ -65,7 +65,7 @@ run main = await lineIn (\s -> lineOut s)
 >      Done 'a2
 >   ]'b2
 > 
-> sig lineIn : Task Str OpIn '* '*
+> sig lineIn : Task Str (OpIn '* '*)
 > let lineIn =
 >   \toNext -> (StdinLine \s -> toNext s)
 > 
@@ -75,7 +75,7 @@ run main = await lineIn (\s -> lineOut s)
 >      Done 'a2
 >   ]'b2
 > 
-> sig lineOut : Str -> Task {} OpOut '* '*
+> sig lineOut : Str -> Task {} (OpOut '* '*)
 > let lineOut =
 >   \s -> \toNext -> (StdoutLine s \x -> toNext x)
 > 
@@ -86,5 +86,5 @@ run main = await lineIn (\s -> lineOut s)
 >      Done 'a3
 >   ]
 > 
-> sig main : Task {} Op '*
+> sig main : Task {} (Op '*)
 > run main = await lineIn \s -> lineOut s
