@@ -23,6 +23,7 @@ module Compose_fx : LANGUAGE = struct
 
   type ty = Syntax.ty
   type parsed_program = Syntax.program
+  type canonicalized_program = Syntax.program
   type solved_program = unit
   type ir_program = unit
   type evaled_program = unit
@@ -47,10 +48,17 @@ module Compose_fx : LANGUAGE = struct
           (Printf.sprintf "Parse error at %s"
              (string_of_position (Lexer.position lexbuf)))
 
+  let canonicalize program =
+    try
+      Canonical.canonicalize program;
+      Ok program
+    with Canonical.Can_error e -> Error e
+
   let solve _p = failwith "todo"
   let ir _ = failwith "todo"
   let eval _ = failwith "todo"
   let print_parsed ?(width = default_width) p = string_of_program ~width p
+  let print_canonicalized = print_parsed
 
   let print_solved ?(width = default_width) _ =
     let _ = width in

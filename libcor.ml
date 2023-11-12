@@ -13,13 +13,19 @@ let lang_mods : (module LANGUAGE) list =
 let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
 
 (* Driver *)
-type phase = Parse | Solve | Ir | Eval
+type phase = Parse | Canonicalize | Solve | Ir | Eval
 type emit = Print | Elab
 
 let assoc_flip l = List.map (fun (a, b) -> (b, a)) l
 
 let phase_list =
-  [ (Parse, "parse"); (Solve, "solve"); (Ir, "ir"); (Eval, "eval") ]
+  [
+    (Parse, "parse");
+    (Canonicalize, "can");
+    (Solve, "solve");
+    (Ir, "ir");
+    (Eval, "eval");
+  ]
 
 let emit_list = [ (Print, "print"); (Elab, "elab"); (Elab, "elaborate") ]
 let phase_of_string s = List.assoc_opt s @@ assoc_flip phase_list
@@ -172,6 +178,7 @@ let string_of_compile_output = Fun.id
 
 type compile_err =
   | ParseErr of string
+  | CanErr of string
   | SolveErr of string
   | IrErr of string
   | EvalErr of string
@@ -181,6 +188,7 @@ type compile_err =
 
 let string_of_compile_err = function
   | ParseErr s -> "Parse error: " ^ s
+  | CanErr s -> "Canonicalize error: " ^ s
   | SolveErr s -> "Solve error: " ^ s
   | IrErr s -> "Ir error: " ^ s
   | EvalErr s -> "Eval error: " ^ s
@@ -203,6 +211,9 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
   let input = unlines lines in
   let open Lang in
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Lang.parse s in
+  let canonicalize s =
+    Result.map_error (fun s -> CanErr s) @@ Lang.canonicalize s
+  in
   let solve s = Result.map_error (fun s -> SolveErr s) @@ Lang.solve s in
   let ir s = Result.map_error (fun s -> IrErr s) @@ Lang.ir s in
   let eval s = Result.map_error (fun s -> EvalErr s) @@ Lang.eval s in
@@ -246,15 +257,23 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
   let ( &> ) a b = Result.map b a in
   match (phase, emit) with
   | Parse, Print -> input |> parse &> print_parsed
-  | Solve, Print -> input |> parse >>= solve &> print_solved
-  | Solve, Elab -> input |> parse >>= solve >>= elab
-  | Ir, Print -> input |> parse >>= solve >>= ir &> print_ir
-  | Eval, Print -> input |> parse >>= solve >>= ir >>= eval &> print_evaled
+  | Canonicalize, Print ->
+      input |> parse >>= canonicalize &> print_canonicalized
+  | Solve, Print -> input |> parse >>= canonicalize >>= solve &> print_solved
+  | Solve, Elab -> input |> parse >>= canonicalize >>= solve >>= elab
+  | Ir, Print -> input |> parse >>= canonicalize >>= solve >>= ir &> print_ir
+  | Eval, Print ->
+      input |> parse >>= canonicalize >>= solve >>= ir >>= eval &> print_evaled
   | phase, emit -> Error (BadEmit (phase, emit))
 
 let hover_info (module Lang : LANGUAGE) lines lineco =
   let parse s = Result.map_error (fun s -> ParseErr s) @@ Lang.parse s in
+  let canonicalize s =
+    Result.map_error (fun s -> ParseErr s) @@ Lang.canonicalize s
+  in
   let solve s = Result.map_error (fun s -> SolveErr s) @@ Lang.solve s in
   let hover s = Lang.hover_info lineco s |> Option.to_result ~none:NoHover in
-  let hover_info = unlines lines |> parse >>= solve >>= hover in
+  let hover_info =
+    unlines lines |> parse >>= canonicalize >>= solve >>= hover
+  in
   hover_info

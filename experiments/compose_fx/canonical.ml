@@ -80,3 +80,8 @@ let can_alias { alias_type; name; args; real } =
           ("cannot reference an alias " ^ show_ty ty ^ " with a different type")
   in
   update_ty real
+
+let canonicalize : program -> unit =
+ fun program ->
+  let aliases = collect_aliases program in
+  List.iter can_alias aliases

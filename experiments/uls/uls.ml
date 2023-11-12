@@ -56,6 +56,7 @@ module Uls : LANGUAGE = struct
 
   type ty = tctx * Syntax.ty
   type parsed_program = Syntax.program * fresh_var
+  type canonicalized_program = parsed_program
   type solved_program = Syntax.program * spec_table
 
   type ir_program = {
@@ -66,6 +67,7 @@ module Uls : LANGUAGE = struct
   type evaled_program = (string * expr list) list
 
   let parse = parse
+  let canonicalize = Result.ok
   let solve (p, fresh_var) = solve p fresh_var
 
   let ir (p, spec_table) =
@@ -78,6 +80,7 @@ module Uls : LANGUAGE = struct
     try Ok (eval defs entry_points) with Eval_error e -> Error e
 
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
+  let print_canonicalized = print_parsed
   let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
 
   let print_ir ?(width = default_width) { defs; entry_points } =

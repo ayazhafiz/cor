@@ -56,15 +56,18 @@ module Refine : LANGUAGE = struct
 
   type ty = Syntax.ty
   type parsed_program = Syntax.program
+  type canonicalized_program = parsed_program
   type solved_program = Syntax.program * Ir.ctx
   type ir_program = Syntax.ty * Ir.program
   type evaled_program = Syntax.ty * Ir.var * Eval.memory
 
   let parse = parse
+  let canonicalize = Result.ok
   let solve p = solve p |> Result.map (fun res -> (res, Ir.new_ctx ()))
   let ir (p, ctx) = lower ctx p
   let eval p = eval p
   let print_parsed ?(width = default_width) p = string_of_program ~width p
+  let print_canonicalized = print_parsed
   let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
   let print_ir ?(width = default_width) (_, p) = Ir.string_of_program ~width p
 

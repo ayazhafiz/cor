@@ -28,15 +28,18 @@ module Roc : LANGUAGE = struct
 
   type ty = unit
   type parsed_program = loc_expr
+  type canonicalized_program = parsed_program
   type solved_program = loc_expr
   type ir_program = loc_expr
   type evaled_program = loc_expr
 
   let parse = parse
+  let canonicalize x = Ok x
   let solve _ = failwith "unimplemented"
   let ir _ = failwith "unimplemented"
   let eval _ = failwith "unimplemented"
   let print_parsed = string_of_expr
+  let print_canonicalized = print_parsed
   let print_solved = string_of_expr
   let print_ir = string_of_expr
   let print_evaled = string_of_expr
