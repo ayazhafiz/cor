@@ -10,35 +10,41 @@ type loc = lineco * lineco [@@deriving show]
 let noloc = ((0, 0), (0, 0))
 
 type loc_str = loc * string [@@deriving show]
+type variable = [ `Var of int ] [@@deriving show]
 
-type loc_ty = loc * ty
-and ty_tag = string * loc_ty list
+type loc_tvar = loc * tvar
+and ty_tag = string * loc_tvar list
 
 (** Concrete type content *)
 and ty_content =
-  | TFn of loc_ty * loc_ty
-  | TTag of { tags : ty_tag list; ext : loc_ty }
+  | TFn of loc_tvar * loc_tvar
+  | TTag of { tags : ty_tag list; ext : loc_tvar }
   | TTagEmpty
   | TPrim of [ `Str | `Unit ]
 
-and tvar =
-  | Unbd of int
-  | Link of ty  (** Link to a type *)
-  | ForA of int * string option  (** generalized type *)
+and ty =
+  | Unbd
+  | Link of tvar  (** Link to a type *)
+  | ForA of string option  (** generalized type *)
   | Content of ty_content
-  | Alias of { alias : loc_str * loc_ty list; real : ty }
+  | Alias of { alias : loc_str * loc_tvar list; real : tvar }
 
-and ty = tvar ref [@@deriving show]
+and tvar = { ty : ty ref; var : variable } [@@deriving show]
 (** Mutable type cell *)
 
-let rec unlink ty = match !ty with Link t -> unlink t | _ -> ty
+let tvar_deref tvar = !(tvar.ty)
+let tvar_set tvar ty = tvar.ty := ty
+let tvar_v tvar = tvar.var
 
-let chase_tags tags ext : ty_tag list * ty =
-  let rec go : ty_tag list -> ty -> _ =
+let rec unlink tvar =
+  match tvar_deref tvar with Link t -> unlink t | _ -> tvar
+
+let chase_tags tags ext : ty_tag list * tvar =
+  let rec go : ty_tag list -> tvar -> _ =
    fun all_tags ext ->
-    match !(unlink ext) with
+    match tvar_deref @@ unlink ext with
     | Link _ -> failwith "unreachable"
-    | Unbd _ -> (all_tags, ext)
+    | Unbd -> (all_tags, ext)
     | ForA _ -> (all_tags, ext)
     | Content TTagEmpty -> (all_tags, ext)
     | Content (TTag { tags; ext }) -> go (all_tags @ tags) (snd ext)
@@ -48,55 +54,54 @@ let chase_tags tags ext : ty_tag list * ty =
   in
   go tags ext
 
-type e_pat = loc * ty * pat
+type e_pat = loc * tvar * pat
 (** An elaborated pattern *)
 
 and pat = PVar of string
 
-type pat_set = loc * ty * e_pat list
+type pat_set = loc * tvar * e_pat list
 
-type e_expr = loc * ty * expr
+type e_expr = loc * tvar * expr
 (** An elaborated expression *)
 
 and expr =
   | Var of string
   | Tag of string * e_expr list
-  | Let of (loc * loc_ty * string) * e_expr * e_expr  (** let x = e in b *)
-  | Clos of (loc * loc_ty * string) * e_expr
+  | Let of (loc * loc_tvar * string) * e_expr * e_expr  (** let x = e in b *)
+  | Clos of (loc * loc_tvar * string) * e_expr
   | Call of e_expr * e_expr
 
 (** A top-level definition *)
 type def =
-  | TyAlias of loc_str * loc_ty list * loc_ty
-  | Sig of loc_str * loc_ty
+  | TyAlias of loc_str * loc_tvar list * loc_tvar
+  | Sig of loc_str * loc_tvar
   | Def of loc_str * e_expr
   | Run of loc_str * e_expr
 
-type e_def = loc * ty * def
+type e_def = loc * tvar * def
 (** An elaborated definition *)
 
 type program = e_def list
-type fresh_var = unit -> ty
-type fresh_fora = string option -> ty
-type parse_ctx = { fresh_var : fresh_var; fresh_fora : fresh_fora }
+type fresh_tvar = ty -> tvar
+type parse_ctx = { fresh_tvar : fresh_tvar }
 
 (* extractions *)
 let xloc (l, _, _) = l
 let xty (_, t, _) = t
 let xv (_, _, v) = v
 
-let is_empty_tag : ty -> bool =
+let is_empty_tag : tvar -> bool =
  fun t ->
-  match !(unlink t) with
+  match tvar_deref @@ unlink t with
   | Content (TTag { tags = []; _ }) | Content TTagEmpty -> true
   | _ -> false
 
 (* name *)
 
-type claimed_names = (int * string) list
-type type_hit_counts = (int * int) list
+type claimed_names = (variable * string) list
+type type_hit_counts = (variable * int) list
 
-let preprocess : ty list -> claimed_names * type_hit_counts =
+let preprocess : tvar list -> claimed_names * type_hit_counts =
  fun tys ->
   let replace tbl k v =
     let tbl' = List.remove_assoc k !tbl in
@@ -108,14 +113,17 @@ let preprocess : ty list -> claimed_names * type_hit_counts =
   in
   let claimed = ref [] in
   let hits = ref [] in
-  let rec go_ty visited t =
-    if List.memq t visited then ()
+  let rec go_ty : variable list -> tvar -> unit =
+   fun visited t ->
+    let t = unlink t in
+    let var = tvar_v t in
+    if List.mem var visited then ()
     else
-      let visited = t :: visited in
-      match !t with
-      | ForA (i, Some name) -> replace claimed i name
-      | ForA (i, None) | Unbd i -> update hits i (fun h -> h + 1) 1
-      | Link t -> go_ty visited t
+      let visited = var :: visited in
+      match tvar_deref t with
+      | Link _ -> failwith "unreachable"
+      | ForA (Some name) -> replace claimed var name
+      | ForA None | Unbd -> update hits var (fun h -> h + 1) 1
       | Content TTagEmpty -> ()
       | Content (TPrim _) -> ()
       | Content (TTag { tags; ext }) ->
@@ -155,9 +163,9 @@ let fresh_name_generator () =
     tbl := name :: !tbl;
     name
 
-type named_vars = (int * [ `Wild | `Name of string ]) list
+type named_vars = (variable * [ `Wild | `Name of string ]) list
 
-let name_vars : ty list -> named_vars =
+let name_vars : tvar list -> named_vars =
  fun tys ->
   let claimed, hits = preprocess tys in
   let fresh_name = fresh_name_generator () in
@@ -175,15 +183,17 @@ let name_vars : ty list -> named_vars =
 
 (* format *)
 
-let pp_ty : named_vars -> Format.formatter -> ty -> unit =
+let pp_tvar : named_vars -> Format.formatter -> tvar -> unit =
  fun names f t ->
   let open Format in
-  let pp_named i c =
+  let pp_named var c =
     let name =
-      match List.assoc_opt i names with
+      match List.assoc_opt var names with
       | Some `Wild -> Printf.sprintf "%c*" c
       | Some (`Name n) -> Printf.sprintf "%c%s" c n
-      | None -> Printf.sprintf "<%c%d>" c i
+      | None ->
+          let (`Var i) = var in
+          Printf.sprintf "<%c%d>" c i
     in
     pp_print_string f name
   in
@@ -198,7 +208,7 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
     inside ();
     if needs_parens then pp_print_string f ")"
   in
-  let rec go_tag : ty list -> ty_tag -> unit =
+  let rec go_tag : variable list -> ty_tag -> unit =
    fun visited (tag_name, payloads) ->
     fprintf f "@[<hov 2>%s" tag_name;
     List.iter
@@ -208,14 +218,16 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
       payloads;
     fprintf f "@]"
   and go visited parens t =
-    if List.memq t visited then
+    let t = unlink t in
+    let var = tvar_v t in
+    if List.mem var visited then
       (* This is a recursive type *)
       pp_print_string f "..."
     else
-      let visited = t :: visited in
-      match !t with
-      | Unbd i -> pp_named i '?'
-      | ForA (i, _) -> pp_named i '\''
+      let visited = var :: visited in
+      match tvar_deref t with
+      | Unbd -> pp_named var '?'
+      | ForA _ -> pp_named var '\''
       | Link t -> go visited parens t
       | Content TTagEmpty -> pp_print_string f "[]"
       | Content (TPrim `Str) -> pp_print_string f "Str"
@@ -262,10 +274,11 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
   in
   go [] `Free t
 
-let string_of_ty width names ty = with_buffer (fun f -> pp_ty names f ty) width
+let string_of_tvar width names tvar =
+  with_buffer (fun f -> pp_tvar names f tvar) width
 
 type node_kind = [ `Def of string | `Var of string | `Generic ]
-type found_node = (loc * ty * node_kind) option
+type found_node = (loc * tvar * node_kind) option
 
 let tightest_node_at : loc -> e_expr -> found_node =
  fun loc program ->
@@ -300,7 +313,7 @@ let hover_info lineco program =
   let wrap_code code = sprintf "```easy_tags\n%s\n```" code in
   let gen_docs (range, ty, kind) =
     let names = name_vars [ ty ] in
-    let ty_str = string_of_ty default_width names ty in
+    let ty_str = string_of_tvar default_width names ty in
     let split =
       if List.length @@ String.split_on_char '\n' ty_str > 0 then "\n" else " "
     in
@@ -396,15 +409,15 @@ let pp_def : Format.formatter -> e_def -> unit =
       List.iter
         (fun (_, ty) ->
           fprintf f " ";
-          pp_ty names f ty)
+          pp_tvar names f ty)
         args;
       fprintf f "@]@ :@ ";
-      pp_ty names f ty;
+      pp_tvar names f ty;
       fprintf f "@]"
   | Sig ((_, x), ty) ->
       let names = name_vars [ snd ty ] in
       fprintf f "@[<hov 2>@[<hv 2>sig %s :@ " x;
-      pp_ty names f @@ snd ty;
+      pp_tvar names f @@ snd ty;
       fprintf f "@]@]"
   | Def ((_, x), e) ->
       fprintf f "@[<hov 2>@[<hv 2>let %s =@ " x;

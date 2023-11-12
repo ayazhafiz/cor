@@ -10,9 +10,10 @@ let fresh_parse_ctx () : parse_ctx =
     incr n;
     !n
   in
-  let fresh_var : fresh_var = fun () -> ref (Unbd (fresh_int ())) in
-  let fresh_fora : fresh_fora = fun x -> ref (ForA (fresh_int (), x)) in
-  { fresh_var; fresh_fora }
+  let fresh_tvar : fresh_tvar =
+   fun ty -> { ty = ref ty; var = `Var (fresh_int ()) }
+  in
+  { fresh_tvar }
 
 let solve _p = failwith "todo"
 let lower _ctx _p = failwith "todo"

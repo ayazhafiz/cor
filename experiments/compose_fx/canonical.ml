@@ -4,17 +4,17 @@ exception Can_error of string
 
 let can_error f s = raise (Can_error (f ^ ": " ^ s))
 
-type alias_arg = string * ty
+type alias_arg = string * tvar
 
 type alias_definition = {
-  alias_type : ty;
+  alias_type : tvar;
   name : string;
   args : alias_arg list;
-  real : ty;
+  real : tvar;
 }
 
 let opt_extract_alias_arg ty =
-  match !ty with ForA (_, Some x) -> Some (x, ty) | _ -> None
+  match tvar_deref ty with ForA (Some x) -> Some (x, ty) | _ -> None
 
 let extract_alias_arg ty =
   match opt_extract_alias_arg ty with
@@ -25,7 +25,7 @@ let extract_alias_arg ty =
 let rec collect_aliases : program -> alias_definition list = function
   | [] -> []
   | (_, ty, TyAlias (((_, x) as loc_x), args, real)) :: rest ->
-      ty := Alias { alias = (loc_x, args); real = snd real };
+      tvar_set ty @@ Alias { alias = (loc_x, args); real = snd real };
 
       let args = List.map extract_alias_arg @@ List.map snd args in
       { alias_type = ty; name = x; args; real = snd real }
@@ -37,7 +37,7 @@ let can_alias { alias_type; name; args; real } =
      - References to a type argument name with the alias's type argument type
      - References to the same alias with a recursive pointer
   *)
-  let is_same_alias : loc_str * loc_ty list -> bool =
+  let is_same_alias : loc_str * loc_tvar list -> bool =
    fun ((_, other_name), other_args) ->
     let other_args =
       List.map opt_extract_alias_arg @@ List.map snd other_args
@@ -51,18 +51,18 @@ let can_alias { alias_type; name; args; real } =
     name = other_name && args_eq (args, other_args)
   in
 
-  let rec update_ty : ty -> unit =
-   fun ty ->
-    match !ty with
-    | Unbd _ ->
-        can_error "can_alias" ("did not expect unbound type" ^ show_ty ty)
+  let rec update_ty : tvar -> unit =
+   fun tvar ->
+    match tvar_deref tvar with
+    | Unbd ->
+        can_error "can_alias" ("did not expect unbound type" ^ show_tvar tvar)
     | Link ty -> update_ty ty
-    | ForA (_, Some x) -> (
+    | ForA (Some x) -> (
         match List.assoc_opt x args with
-        | Some arg -> ty := Link arg
+        | Some arg -> tvar_set tvar @@ Link arg
         | None ->
             can_error "can_alias" ("alias " ^ name ^ " does not have arg " ^ x))
-    | ForA (_, None) ->
+    | ForA None ->
         can_error "can_alias"
           ("alias " ^ name ^ " has a type argument without a name")
     | Content (TFn ((_, t1), (_, t2))) ->
@@ -74,10 +74,12 @@ let can_alias { alias_type; name; args; real } =
         update_ty @@ snd ext
     | Content TTagEmpty -> ()
     | Content (TPrim (`Str | `Unit)) -> ()
-    | Alias { alias; real } when is_same_alias alias -> real := Link alias_type
+    | Alias { alias; real } when is_same_alias alias ->
+        tvar_set real @@ Link alias_type
     | Alias _ ->
         can_error "can_alias"
-          ("cannot reference an alias " ^ show_ty ty ^ " with a different type")
+          ("cannot reference an alias " ^ show_tvar tvar
+         ^ " with a different type")
   in
   update_ty real
 
