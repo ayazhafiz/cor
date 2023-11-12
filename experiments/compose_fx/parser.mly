@@ -182,14 +182,6 @@ ty_atom:
   | s=STAR { fun ctx ->
       (s, ctx.fresh_fora @@ None)
   }
-  | h=UPPER { fun ctx -> 
-      let t = ref @@ Alias {
-        alias = (h, []);
-        real = ctx.fresh_var ();
-      } in
-      let l = fst h in
-      (l, t)
-  }
   | s=STR { fun _ ->
       (s, ref @@ Content (TPrim `Str))
   }
