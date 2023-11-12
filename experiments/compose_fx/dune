@@ -8,4 +8,4 @@
  (libraries language sedlex menhirLib)
  (inline_tests)
  (preprocess
-  (pps ppx_inline_test sedlex.ppx)))
+  (pps ppx_deriving.show ppx_inline_test sedlex.ppx)))

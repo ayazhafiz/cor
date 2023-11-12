@@ -69,8 +69,8 @@ def:
   }
 
 alias_vars:
-  | vars=alias_vars var=LOWER { fun ctx -> (vars ctx)@[var] }
-  | var=LOWER { fun _ -> [var] }
+  | vars=alias_vars var=LOWER { fun ctx -> (vars ctx)@[(fst var, ctx.fresh_fora @@ Some (snd var))] }
+  | var=LOWER { fun ctx -> [(fst var, ctx.fresh_fora @@ Some (snd var))] }
 
 expr:
   | app=expr_app { app }

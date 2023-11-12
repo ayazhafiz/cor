@@ -1,15 +1,15 @@
 open Util
 open Language
 
-type lineco = int * int
+type lineco = int * int [@@deriving show]
 (** line * col *)
 
-type loc = lineco * lineco
+type loc = lineco * lineco [@@deriving show]
 (** start * end *)
 
 let noloc = ((0, 0), (0, 0))
 
-type loc_str = loc * string
+type loc_str = loc * string [@@deriving show]
 
 type loc_ty = loc * ty
 and ty_tag = string * loc_ty list
@@ -65,7 +65,7 @@ and expr =
 
 (** A top-level definition *)
 type def =
-  | TyAlias of loc_str * loc_str list * loc_ty
+  | TyAlias of loc_str * loc_ty list * loc_ty
   | Sig of loc_str * loc_ty
   | Def of loc_str * e_expr
   | Run of loc_str * e_expr
@@ -119,7 +119,10 @@ let preprocess : ty list -> claimed_names * type_hit_counts =
     | Content (TFn (in', out')) ->
         go_ty @@ snd in';
         go_ty @@ snd out'
-    | Alias { real; _ } -> go_ty real
+    | Alias { real; alias = _name, vars } ->
+        let alias_vars = List.map snd vars in
+        List.iter go_ty alias_vars;
+        go_ty real
   in
   List.iter go_ty tys;
   (List.rev !claimed, List.rev !hits)
@@ -372,13 +375,19 @@ let pp_def : Format.formatter -> e_def -> unit =
   match def with
   | TyAlias ((_, x), args, (_, ty)) ->
       fprintf f "@[<hov 2>@[<hv 2>%s" x;
-      List.iter (fun (_, arg) -> fprintf f " %s" arg) args;
+      let names = name_vars @@ List.map snd args @ [ ty ] in
+      List.iter
+        (fun (_, ty) ->
+          fprintf f " ";
+          pp_ty names f ty)
+        args;
       fprintf f "@]@ :@ ";
-      pp_ty [] f ty;
+      pp_ty names f ty;
       fprintf f "@]"
   | Sig ((_, x), ty) ->
+      let names = name_vars [ snd ty ] in
       fprintf f "@[<hov 2>@[<hv 2>sig %s :@ " x;
-      pp_ty [] f @@ snd ty;
+      pp_ty names f @@ snd ty;
       fprintf f "@]@]"
   | Def ((_, x), e) ->
       fprintf f "@[<hov 2>@[<hv 2>let %s =@ " x;
