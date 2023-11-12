@@ -73,6 +73,7 @@ let can_alias { alias_type; name; args; real } =
         List.iter update_ty tag_args;
         update_ty @@ snd ext
     | Content TTagEmpty -> ()
+    | Content (TPrim (`Str | `Unit)) -> ()
     | Alias { alias; real } when is_same_alias alias -> real := Link alias_type
     | Alias _ ->
         can_error "can_alias"

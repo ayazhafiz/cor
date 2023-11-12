@@ -19,6 +19,7 @@ and ty_content =
   | TFn of loc_ty * loc_ty
   | TTag of { tags : ty_tag list; ext : loc_ty }
   | TTagEmpty
+  | TPrim of [ `Str | `Unit ]
 
 and tvar =
   | Unbd of int
@@ -42,6 +43,7 @@ let chase_tags tags ext : ty_tag list * ty =
     | Content TTagEmpty -> (all_tags, ext)
     | Content (TTag { tags; ext }) -> go (all_tags @ tags) (snd ext)
     | Content (TFn _) -> failwith "not a tag"
+    | Content (TPrim _) -> failwith "not a tag"
     | Alias { real; _ } -> go all_tags real
   in
   go tags ext
@@ -112,6 +114,7 @@ let preprocess : ty list -> claimed_names * type_hit_counts =
     | ForA (i, None) | Unbd i -> update hits i (fun h -> h + 1) 1
     | Link t -> go_ty t
     | Content TTagEmpty -> ()
+    | Content (TPrim _) -> ()
     | Content (TTag { tags; ext }) ->
         let tag_vars = List.map snd tags |> List.flatten |> List.map snd in
         List.iter go_ty tag_vars;
@@ -206,7 +209,9 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
     | Unbd i -> pp_named i '?'
     | ForA (i, _) -> pp_named i '\''
     | Link t -> go parens t
-    | Content TTagEmpty -> fprintf f "[]"
+    | Content TTagEmpty -> pp_print_string f "[]"
+    | Content (TPrim `Str) -> pp_print_string f "Str"
+    | Content (TPrim `Unit) -> pp_print_string f "{}"
     | Content (TTag { tags; ext }) ->
         let tags, ext = chase_tags tags @@ snd ext in
         fprintf f "@[<v 0>[@[<v 2>@,";

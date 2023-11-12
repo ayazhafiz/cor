@@ -17,6 +17,8 @@ let xv = Syntax.xv
 %token <Syntax.loc> LET
 %token <Syntax.loc> SIG
 %token <Syntax.loc> RUN
+%token <Syntax.loc> STR
+%token <Syntax.loc> UNIT
 %token <Syntax.loc> IN
 %token <Syntax.loc> COMMA
 %token <Syntax.loc> LPAREN
@@ -187,6 +189,12 @@ ty_atom:
       } in
       let l = fst h in
       (l, t)
+  }
+  | s=STR { fun _ ->
+      (s, ref @@ Content (TPrim `Str))
+  }
+  | s=UNIT { fun _ ->
+      (s, ref @@ Content (TPrim `Unit))
   }
 
 ty_tags:

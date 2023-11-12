@@ -23,12 +23,12 @@ let lineIn = \toNext -> StdinLine (\s -> toNext s)
 
 # StdoutEffect.roc
 OpOut a b : [
-    StdoutLine Str (Unit -> OpOut a b),
+    StdoutLine Str ({} -> OpOut a b),
     Done a,
 ]b
 
 # Stdout.roc
-sig lineOut : Str -> Task Unit (OpOut * *)
+sig lineOut : Str -> Task {} (OpOut * *)
 let lineOut = \s -> (\toNext -> StdoutLine s (\x -> toNext x))
 ;;
 
@@ -36,11 +36,11 @@ let lineOut = \s -> (\toNext -> StdoutLine s (\x -> toNext x))
 # really, we want a syntax like [Done a](OpIn a)(OpOut a) here
 Op a : [
     StdinLine (Str -> Op a),
-    StdoutLine Str (Unit -> Op a),
+    StdoutLine Str ({} -> Op a),
     Done a,
 ]
 
-sig main : Task Unit (Op *)
+sig main : Task {} (Op *)
 run main = await lineIn (\s -> lineOut s)
 ;;
 
@@ -71,20 +71,20 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > OpOut 'a 'b :
 >   [
->      StdoutLine (Str Unit -> OpOut 'a1 'b1),
+>      StdoutLine Str ({} -> OpOut 'a1 'b1),
 >      Done 'a2
 >   ]'b2
 > 
-> sig lineOut : Str -> Task Unit OpOut '* '*
+> sig lineOut : Str -> Task {} OpOut '* '*
 > let lineOut =
 >   \s -> \toNext -> (StdoutLine s \x -> toNext x)
 > 
 > Op 'a :
 >   [
 >      StdinLine (Str -> Op 'a1),
->      StdoutLine (Str Unit -> Op 'a2),
+>      StdoutLine Str ({} -> Op 'a2),
 >      Done 'a3
 >   ]
 > 
-> sig main : Task Unit Op '*
+> sig main : Task {} Op '*
 > run main = await lineIn \s -> lineOut s
