@@ -47,11 +47,11 @@ run main = await lineIn (\s -> lineOut s)
 > cor-out +parse -print
 > 
 > 
-> Task v op : (v1 -> op1) -> op2
+> Task 'v 'op : ('v1 -> 'op1) -> 'op2
 > 
 > sig await :
->   (Task a op)
->     -> (a1 -> Task b op1) -> Task b1 op2
+>   (Task 'a 'op)
+>     -> ('a1 -> Task 'b 'op1) -> Task 'b1 'op2
 > 
 > let await =
 >   \fromResult ->
@@ -62,35 +62,35 @@ run main = await lineIn (\s -> lineOut s)
 >             (let inner = next result in
 >             inner continue)
 > 
-> OpIn a b :
+> OpIn 'a 'b :
 >   [
->      StdinLine Str -> OpIn a1 b1,
->      Done a2
->   ]b2
+>      StdinLine Str -> OpIn 'a1 'b1,
+>      Done 'a2
+>   ]'b2
 > 
-> sig lineIn : Task Str OpIn * *
+> sig lineIn : Task Str OpIn '* '*
 > 
 > let lineIn =
 >   \toNext -> (StdinLine \s -> toNext s)
 > 
-> OpOut a b :
+> OpOut 'a 'b :
 >   [
->      StdoutLine Str Unit -> OpOut a1 b1,
->      Done a2
->   ]b2
+>      StdoutLine Str Unit -> OpOut 'a1 'b1,
+>      Done 'a2
+>   ]'b2
 > 
-> sig lineOut : Str -> Task Unit OpOut * *
+> sig lineOut : Str -> Task Unit OpOut '* '*
 > 
 > let lineOut =
 >   \s -> \toNext -> (StdoutLine s \x -> toNext x)
 > 
-> Op a :
+> Op 'a :
 >   [
->      StdinLine Str -> Op a1,
->      StdoutLine Str Unit -> Op a2,
->      Done a3
+>      StdinLine Str -> Op 'a1,
+>      StdoutLine Str Unit -> Op 'a2,
+>      Done 'a3
 >   ]
 > 
-> sig main : Task Unit Op *
+> sig main : Task Unit Op '*
 > 
 > run main = await lineIn \s -> lineOut s

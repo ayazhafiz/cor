@@ -175,8 +175,8 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
   let pp_named i c =
     let name =
       match List.assoc_opt i names with
-      | Some `Wild -> "*"
-      | Some (`Name n) -> n
+      | Some `Wild -> Printf.sprintf "%c*" c
+      | Some (`Name n) -> Printf.sprintf "%c%s" c n
       | None -> Printf.sprintf "<%c%d>" c i
     in
     pp_print_string f name
