@@ -74,8 +74,8 @@ let can_alias { alias_type; name; args; real } =
         update_ty @@ snd ext
     | Content TTagEmpty -> ()
     | Content (TPrim (`Str | `Unit)) -> ()
-    | Alias { alias; real } when is_same_alias alias ->
-        tvar_set real @@ Link alias_type
+    | Alias { alias; real = _ } when is_same_alias alias ->
+        tvar_set tvar @@ Link alias_type
     | Alias _ ->
         can_error "can_alias"
           ("cannot reference an alias " ^ show_tvar tvar

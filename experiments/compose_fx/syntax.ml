@@ -182,9 +182,10 @@ let name_vars : tvar list -> named_vars =
   names' @ names''
 
 (* format *)
+let ellipsis = ".."
 
-let pp_tvar : named_vars -> Format.formatter -> tvar -> unit =
- fun names f t ->
+let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
+ fun visited names f t ->
   let open Format in
   let pp_named var c =
     let name =
@@ -208,6 +209,70 @@ let pp_tvar : named_vars -> Format.formatter -> tvar -> unit =
     inside ();
     if needs_parens then pp_print_string f ")"
   in
+  let rec go_head deep parens t =
+    let var = tvar_v t in
+    match (tvar_deref @@ unlink t, deep) with
+    | Unbd, _ -> pp_named var '?'
+    | ForA _, _ -> pp_named var '\''
+    | Link _, _ -> failwith "unreachable"
+    | Content TTagEmpty, _ -> pp_print_string f "[]"
+    | Content (TPrim `Str), _ -> pp_print_string f "Str"
+    | Content (TPrim `Unit), _ -> pp_print_string f "{}"
+    | Content (TTag { tags; ext }), _ ->
+        let tags, ext = chase_tags tags @@ snd ext in
+        fprintf f "@[<v 0>[@[<v 2>@,";
+        List.iteri
+          (fun i (tag, args) ->
+            if i > 0 then fprintf f ",@,";
+            fprintf f "@[<hov 2>%s" tag;
+            List.iter (fun _ -> fprintf f "@ %s" ellipsis) args)
+          tags;
+        fprintf f "@]@,]";
+        let print_ext () = go_head deep `Free ext in
+        if not (is_empty_tag ext) then print_ext ();
+        fprintf f "@]"
+    | Content (TFn (in', out)), _ ->
+        fprintf f "@[<hov 2>";
+        let pty () =
+          go_head true `FnHead @@ snd in';
+          fprintf f "@ -> ";
+          go_head true `Free @@ snd out
+        in
+        with_parens (parens >> `Free) pty;
+        fprintf f "@]"
+    | Alias { alias = head, args; real = _ }, true -> (
+        match args with
+        | [] -> fprintf f "%s" @@ snd head
+        | _ ->
+            let pty () =
+              fprintf f "@[<hov 2>%s@ " @@ snd head;
+              List.iteri
+                (fun i _ ->
+                  if i > 0 then fprintf f "@ ";
+                  pp_print_string f ellipsis)
+                args;
+              fprintf f "@]"
+            in
+            with_parens (parens >> `Free) pty)
+    | Alias { alias = head, args; real = _ }, false -> (
+        let rec go_args = function
+          | [] -> ()
+          | [ (_, arg) ] -> go_head true `AppHead arg
+          | (_, arg) :: args ->
+              go_head true `AppHead arg;
+              fprintf f "@ ";
+              go_args args
+        in
+        match args with
+        | [] -> fprintf f "%s" @@ snd head
+        | _ ->
+            let pty () =
+              fprintf f "@[<hov 2>%s@ " @@ snd head;
+              go_args args;
+              fprintf f "@]"
+            in
+            with_parens (parens >> `Free) pty)
+  in
   let rec go_tag : variable list -> ty_tag -> unit =
    fun visited (tag_name, payloads) ->
     fprintf f "@[<hov 2>%s" tag_name;
@@ -220,9 +285,11 @@ let pp_tvar : named_vars -> Format.formatter -> tvar -> unit =
   and go visited parens t =
     let t = unlink t in
     let var = tvar_v t in
-    if List.mem var visited then
+    if List.mem var visited then (
       (* This is a recursive type *)
-      pp_print_string f "..."
+      fprintf f "@[<hov 2><%s" ellipsis;
+      go_head false `Free t;
+      fprintf f ">@]")
     else
       let visited = var :: visited in
       match tvar_deref t with
@@ -272,10 +339,10 @@ let pp_tvar : named_vars -> Format.formatter -> tvar -> unit =
               in
               with_parens (parens >> `Free) pty)
   in
-  go [] `Free t
+  go visited `Free t
 
 let string_of_tvar width names tvar =
-  with_buffer (fun f -> pp_tvar names f tvar) width
+  with_buffer (fun f -> pp_tvar [] names f tvar) width
 
 type node_kind = [ `Def of string | `Var of string | `Generic ]
 type found_node = (loc * tvar * node_kind) option
@@ -400,7 +467,7 @@ let pp_e_expr = pp_expr
 let string_of_expr e = with_buffer (fun f -> pp_expr f e) default_width
 
 let pp_def : Format.formatter -> e_def -> unit =
- fun f (_, _, def) ->
+ fun f (_, tvar, def) ->
   let open Format in
   match def with
   | TyAlias ((_, x), args, (_, ty)) ->
@@ -409,15 +476,15 @@ let pp_def : Format.formatter -> e_def -> unit =
       List.iter
         (fun (_, ty) ->
           fprintf f " ";
-          pp_tvar names f ty)
+          pp_tvar [] names f ty)
         args;
       fprintf f "@]@ :@ ";
-      pp_tvar names f ty;
+      pp_tvar [ tvar_v tvar ] names f ty;
       fprintf f "@]"
   | Sig ((_, x), ty) ->
       let names = name_vars [ snd ty ] in
       fprintf f "@[<hov 2>@[<hv 2>sig %s :@ " x;
-      pp_tvar names f @@ snd ty;
+      pp_tvar [] names f @@ snd ty;
       fprintf f "@]@]"
   | Def ((_, x), e) ->
       fprintf f "@[<hov 2>@[<hv 2>let %s =@ " x;

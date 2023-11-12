@@ -105,31 +105,31 @@ run main = await lineIn (\s -> lineOut s)
 >             (let inner = next result in
 >             inner continue)
 > 
-> OpIn 'a1 'b1 :
+> OpIn 'a 'b :
 >   [
->      StdinLine (Str -> OpIn 'a 'b),
->      Done 'a1
->   ]'b1
+>      StdinLine (Str -> <..OpIn 'a 'b>),
+>      Done 'a
+>   ]'b
 > 
 > sig lineIn : Task Str (OpIn '* '*)
 > let lineIn =
 >   \toNext -> (StdinLine \s -> toNext s)
 > 
-> OpOut 'a1 'b1 :
+> OpOut 'a 'b :
 >   [
->      StdoutLine Str ({} -> OpOut 'a 'b),
->      Done 'a1
->   ]'b1
+>      StdoutLine Str ({} -> <..OpOut 'a 'b>),
+>      Done 'a
+>   ]'b
 > 
 > sig lineOut : Str -> Task {} (OpOut '* '*)
 > let lineOut =
 >   \s -> \toNext -> (StdoutLine s \x -> toNext x)
 > 
-> Op 'a2 :
+> Op 'a :
 >   [
->      StdinLine (Str -> Op 'a),
->      StdoutLine Str ({} -> Op 'a1),
->      Done 'a2
+>      StdinLine (Str -> <..Op 'a>),
+>      StdoutLine Str ({} -> <..Op 'a>),
+>      Done 'a
 >   ]
 > 
 > sig main : Task {} (Op '*)
