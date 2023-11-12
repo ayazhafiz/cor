@@ -181,7 +181,11 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
     in
     pp_print_string f name
   in
-  let int_of_parens_ctx = function `Free -> 1 | `FnHead -> 2 in
+  let int_of_parens_ctx = function
+    | `Free -> 1
+    | `AppHead -> 2
+    | `FnHead -> 3
+  in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
   let with_parens needs_parens inside =
     if needs_parens then pp_print_string f "(";
@@ -194,7 +198,7 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
     List.iter
       (fun (_, p) ->
         fprintf f "@ ";
-        go `Free p)
+        go `AppHead p)
       payloads;
     fprintf f "@]"
   and go parens t =

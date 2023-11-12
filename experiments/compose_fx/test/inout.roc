@@ -61,7 +61,7 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > OpIn 'a 'b :
 >   [
->      StdinLine Str -> OpIn 'a1 'b1,
+>      StdinLine (Str -> OpIn 'a1 'b1),
 >      Done 'a2
 >   ]'b2
 > 
@@ -71,7 +71,7 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > OpOut 'a 'b :
 >   [
->      StdoutLine Str Unit -> OpOut 'a1 'b1,
+>      StdoutLine (Str Unit -> OpOut 'a1 'b1),
 >      Done 'a2
 >   ]'b2
 > 
@@ -81,8 +81,8 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > Op 'a :
 >   [
->      StdinLine Str -> Op 'a1,
->      StdoutLine Str Unit -> Op 'a2,
+>      StdinLine (Str -> Op 'a1),
+>      StdoutLine (Str Unit -> Op 'a2),
 >      Done 'a3
 >   ]
 > 
