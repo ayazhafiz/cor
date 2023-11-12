@@ -45,14 +45,11 @@ run main = await lineIn (\s -> lineOut s)
 ;;
 
 > cor-out +parse -print
-> 
-> 
 > Task 'v 'op : ('v1 -> 'op1) -> 'op2
 > 
 > sig await :
 >   (Task 'a 'op)
 >     -> ('a1 -> Task 'b 'op1) -> Task 'b1 'op2
-> 
 > let await =
 >   \fromResult ->
 >     \next ->
@@ -69,7 +66,6 @@ run main = await lineIn (\s -> lineOut s)
 >   ]'b2
 > 
 > sig lineIn : Task Str OpIn '* '*
-> 
 > let lineIn =
 >   \toNext -> (StdinLine \s -> toNext s)
 > 
@@ -80,7 +76,6 @@ run main = await lineIn (\s -> lineOut s)
 >   ]'b2
 > 
 > sig lineOut : Str -> Task Unit OpOut '* '*
-> 
 > let lineOut =
 >   \s -> \toNext -> (StdoutLine s \x -> toNext x)
 > 
@@ -92,5 +87,4 @@ run main = await lineIn (\s -> lineOut s)
 >   ]
 > 
 > sig main : Task Unit Op '*
-> 
 > run main = await lineIn \s -> lineOut s

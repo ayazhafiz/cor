@@ -402,11 +402,21 @@ let pp_defs : Format.formatter -> e_def list -> unit =
  fun f defs ->
   let open Format in
   fprintf f "@[<v 0>";
-  List.iter
-    (fun def ->
-      fprintf f "@,@,";
-      pp_def f def)
-    defs;
+  let rec go : e_def list -> unit = function
+    | [] -> ()
+    | [ def ] -> pp_def f def
+    | ((_, _, Sig ((_, x), _)) as sig_)
+      :: ((_, _, (Def ((_, y), _) | Run ((_, y), _))) :: _ as defs)
+      when x = y ->
+        pp_def f sig_;
+        fprintf f "@,";
+        go defs
+    | def :: defs ->
+        pp_def f def;
+        fprintf f "@,@,";
+        go defs
+  in
+  go defs;
   fprintf f "@]"
 
 let string_of_program ?(width = default_width) (program : program) =
