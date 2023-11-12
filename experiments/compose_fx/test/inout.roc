@@ -1,4 +1,5 @@
 # cor +parse -print
+# cor +can -print
 # Task.roc
 Task v op : (v -> op) -> op
 
@@ -84,6 +85,51 @@ run main = await lineIn (\s -> lineOut s)
 >      StdinLine (Str -> Op 'a1),
 >      StdoutLine Str ({} -> Op 'a2),
 >      Done 'a3
+>   ]
+> 
+> sig main : Task {} (Op '*)
+> run main = await lineIn \s -> lineOut s
+
+> cor-out +can -print
+> Task 'v 'op : ('v -> 'op) -> 'op
+> 
+> sig await :
+>   (Task 'a 'op)
+>     -> ('a1 -> Task 'b 'op1) -> Task 'b1 'op2
+> let await =
+>   \fromResult ->
+>     \next ->
+>       \continue ->
+>         fromResult
+>           \result ->
+>             (let inner = next result in
+>             inner continue)
+> 
+> OpIn 'a1 'b1 :
+>   [
+>      StdinLine (Str -> OpIn 'a 'b),
+>      Done 'a1
+>   ]'b1
+> 
+> sig lineIn : Task Str (OpIn '* '*)
+> let lineIn =
+>   \toNext -> (StdinLine \s -> toNext s)
+> 
+> OpOut 'a1 'b1 :
+>   [
+>      StdoutLine Str ({} -> OpOut 'a 'b),
+>      Done 'a1
+>   ]'b1
+> 
+> sig lineOut : Str -> Task {} (OpOut '* '*)
+> let lineOut =
+>   \s -> \toNext -> (StdoutLine s \x -> toNext x)
+> 
+> Op 'a2 :
+>   [
+>      StdinLine (Str -> Op 'a),
+>      StdoutLine Str ({} -> Op 'a1),
+>      Done 'a2
 >   ]
 > 
 > sig main : Task {} (Op '*)

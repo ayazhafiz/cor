@@ -108,26 +108,29 @@ let preprocess : ty list -> claimed_names * type_hit_counts =
   in
   let claimed = ref [] in
   let hits = ref [] in
-  let rec go_ty t =
-    match !t with
-    | ForA (i, Some name) -> replace claimed i name
-    | ForA (i, None) | Unbd i -> update hits i (fun h -> h + 1) 1
-    | Link t -> go_ty t
-    | Content TTagEmpty -> ()
-    | Content (TPrim _) -> ()
-    | Content (TTag { tags; ext }) ->
-        let tag_vars = List.map snd tags |> List.flatten |> List.map snd in
-        List.iter go_ty tag_vars;
-        go_ty @@ snd ext
-    | Content (TFn (in', out')) ->
-        go_ty @@ snd in';
-        go_ty @@ snd out'
-    | Alias { real; alias = _name, vars } ->
-        let alias_vars = List.map snd vars in
-        List.iter go_ty alias_vars;
-        go_ty real
+  let rec go_ty visited t =
+    if List.memq t visited then ()
+    else
+      let visited = t :: visited in
+      match !t with
+      | ForA (i, Some name) -> replace claimed i name
+      | ForA (i, None) | Unbd i -> update hits i (fun h -> h + 1) 1
+      | Link t -> go_ty visited t
+      | Content TTagEmpty -> ()
+      | Content (TPrim _) -> ()
+      | Content (TTag { tags; ext }) ->
+          let tag_vars = List.map snd tags |> List.flatten |> List.map snd in
+          List.iter (go_ty visited) tag_vars;
+          go_ty visited @@ snd ext
+      | Content (TFn (in', out')) ->
+          go_ty visited @@ snd in';
+          go_ty visited @@ snd out'
+      | Alias { real; alias = _name, vars } ->
+          let alias_vars = List.map snd vars in
+          List.iter (go_ty visited) alias_vars;
+          go_ty visited real
   in
-  List.iter go_ty tys;
+  List.iter (go_ty []) tys;
   (List.rev !claimed, List.rev !hits)
 
 let fresh_name_generator () =
@@ -195,64 +198,69 @@ let pp_ty : named_vars -> Format.formatter -> ty -> unit =
     inside ();
     if needs_parens then pp_print_string f ")"
   in
-  let rec go_tag : ty_tag -> unit =
-   fun (tag_name, payloads) ->
+  let rec go_tag : ty list -> ty_tag -> unit =
+   fun visited (tag_name, payloads) ->
     fprintf f "@[<hov 2>%s" tag_name;
     List.iter
       (fun (_, p) ->
         fprintf f "@ ";
-        go `AppHead p)
+        go visited `AppHead p)
       payloads;
     fprintf f "@]"
-  and go parens t =
-    match !t with
-    | Unbd i -> pp_named i '?'
-    | ForA (i, _) -> pp_named i '\''
-    | Link t -> go parens t
-    | Content TTagEmpty -> pp_print_string f "[]"
-    | Content (TPrim `Str) -> pp_print_string f "Str"
-    | Content (TPrim `Unit) -> pp_print_string f "{}"
-    | Content (TTag { tags; ext }) ->
-        let tags, ext = chase_tags tags @@ snd ext in
-        fprintf f "@[<v 0>[@[<v 2>@,";
-        List.iteri
-          (fun i t ->
-            if i > 0 then fprintf f ",@,";
-            go_tag t)
-          tags;
-        fprintf f "@]@,]";
-        let print_ext () = go `Free ext in
-        if not (is_empty_tag ext) then print_ext ();
-        fprintf f "@]"
-    | Content (TFn (in', out)) ->
-        fprintf f "@[<hov 2>";
-        let pty () =
-          go `FnHead @@ snd in';
-          fprintf f "@ -> ";
-          go `Free @@ snd out
-        in
-        with_parens (parens >> `Free) pty;
-        fprintf f "@]"
-    | Alias { alias = head, args; real = _ } -> (
-        let rec go_args = function
-          | [] -> ()
-          | [ (_, arg) ] -> go `AppHead arg
-          | (_, arg) :: args ->
-              go `AppHead arg;
-              fprintf f "@ ";
-              go_args args
-        in
-        match args with
-        | [] -> fprintf f "%s" @@ snd head
-        | _ ->
-            let pty () =
-              fprintf f "@[<hov 2>%s@ " @@ snd head;
-              go_args args;
-              fprintf f "@]"
-            in
-            with_parens (parens >> `Free) pty)
+  and go visited parens t =
+    if List.memq t visited then
+      (* This is a recursive type *)
+      pp_print_string f "..."
+    else
+      let visited = t :: visited in
+      match !t with
+      | Unbd i -> pp_named i '?'
+      | ForA (i, _) -> pp_named i '\''
+      | Link t -> go visited parens t
+      | Content TTagEmpty -> pp_print_string f "[]"
+      | Content (TPrim `Str) -> pp_print_string f "Str"
+      | Content (TPrim `Unit) -> pp_print_string f "{}"
+      | Content (TTag { tags; ext }) ->
+          let tags, ext = chase_tags tags @@ snd ext in
+          fprintf f "@[<v 0>[@[<v 2>@,";
+          List.iteri
+            (fun i t ->
+              if i > 0 then fprintf f ",@,";
+              go_tag visited t)
+            tags;
+          fprintf f "@]@,]";
+          let print_ext () = go visited `Free ext in
+          if not (is_empty_tag ext) then print_ext ();
+          fprintf f "@]"
+      | Content (TFn (in', out)) ->
+          fprintf f "@[<hov 2>";
+          let pty () =
+            go visited `FnHead @@ snd in';
+            fprintf f "@ -> ";
+            go visited `Free @@ snd out
+          in
+          with_parens (parens >> `Free) pty;
+          fprintf f "@]"
+      | Alias { alias = head, args; real = _ } -> (
+          let rec go_args = function
+            | [] -> ()
+            | [ (_, arg) ] -> go visited `AppHead arg
+            | (_, arg) :: args ->
+                go visited `AppHead arg;
+                fprintf f "@ ";
+                go_args args
+          in
+          match args with
+          | [] -> fprintf f "%s" @@ snd head
+          | _ ->
+              let pty () =
+                fprintf f "@[<hov 2>%s@ " @@ snd head;
+                go_args args;
+                fprintf f "@]"
+              in
+              with_parens (parens >> `Free) pty)
   in
-  go `Free t
+  go [] `Free t
 
 let string_of_ty width names ty = with_buffer (fun f -> pp_ty names f ty) width
 
