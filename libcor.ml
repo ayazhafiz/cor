@@ -7,6 +7,7 @@ let lang_mods : (module LANGUAGE) list =
     (module Uls.Uls);
     (module Refine.Refine);
     (module Easy_tags.Easy_tags);
+    (module Compose_fx.Compose_fx);
   ]
 
 let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
