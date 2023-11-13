@@ -199,7 +199,7 @@ let string_of_compile_err = function
       | `NoQueries -> "no queries given!"
       | `TypeNotFound loc -> "Type not found at " ^ string_of_loc loc)
   | BadEmit (p, e) ->
-      "Commit do " ^ string_of_emit e ^ " for phase " ^ string_of_phase p
+      "Cannot do " ^ string_of_emit e ^ " for phase " ^ string_of_phase p
   | NoHover -> "No hover location found"
 
 type compile_result = (compile_output, compile_err) result
