@@ -51,22 +51,22 @@ def:
       let vars = vars ctx in
       let ty = ty ctx in
       let loc = range (fst loc_t) (fst ty) in
-      (loc, ctx.fresh_tvar Unbd, TyAlias(loc_t, vars, ty))
+      (loc, ctx.fresh_tvar @@ Unbd None, TyAlias(loc_t, vars, ty))
   }
   | l=LET loc_x=LOWER EQ e=expr SEMI s=SEMI { fun ctx ->
       let e = e ctx in
       let loc = range l s in
-      (loc, ctx.fresh_tvar Unbd, Def(loc_x, e))
+      (loc, ctx.fresh_tvar @@ Unbd None, Def(loc_x, e))
   }
   | s=SIG loc_x=LOWER COLON t=ty { fun ctx ->
       let t = t ctx in
       let loc = range s (fst t) in
-      (loc, ctx.fresh_tvar Unbd, Sig(loc_x, t))
+      (loc, ctx.fresh_tvar @@ Unbd None, Sig(loc_x, t))
   }
   | r=RUN loc_x=LOWER EQ e=expr SEMI s=SEMI { fun ctx ->
       let e = e ctx in
       let loc = range r s in
-      (loc, ctx.fresh_tvar Unbd, Run(loc_x, e))
+      (loc, ctx.fresh_tvar @@ Unbd None, Run(loc_x, e))
   }
 
 alias_vars:
@@ -79,8 +79,8 @@ expr:
   | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
       let body = body ctx in
       let loc = range lam (xloc body) in
-      let arg = (fst arg, (noloc, ctx.fresh_tvar Unbd), snd arg) in
-      (loc, ctx.fresh_tvar Unbd, Clos(arg, body))
+      let arg = (fst arg, (noloc, ctx.fresh_tvar @@ Unbd None), snd arg) in
+      (loc, ctx.fresh_tvar @@ Unbd None, Clos(arg, body))
   }
 
 expr_app:
@@ -88,14 +88,14 @@ expr_app:
   | head=UPPER atom_list=expr_atom_list { fun ctx ->
       let atom_list = atom_list ctx in
       let loc = range (fst head) (l_range xloc atom_list) in
-      (loc, ctx.fresh_tvar Unbd, Tag(snd head, atom_list))
+      (loc, ctx.fresh_tvar @@ Unbd None, Tag(snd head, atom_list))
   }
   | head=LOWER atom_list=expr_atom_list { fun ctx ->
-      let head = (fst head, ctx.fresh_tvar Unbd, Var (snd head)) in
+      let head = (fst head, ctx.fresh_tvar @@ Unbd None, Var (snd head)) in
       let atom_list = atom_list ctx in
       List.fold_left (fun whole e ->
         let loc = (range (xloc whole) (xloc e)) in
-        (loc, ctx.fresh_tvar Unbd, Call(whole, e))
+        (loc, ctx.fresh_tvar @@ Unbd None, Call(whole, e))
       ) head atom_list
   }
 
@@ -107,24 +107,24 @@ expr_lets:
   | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
       let body = body c in
       let loc = range l (xloc body) in
-      let x = (fst loc_x, (noloc, c.fresh_tvar Unbd), snd loc_x) in
-      (loc, c.fresh_tvar Unbd, Let(x, e c, body))
+      let x = (fst loc_x, (noloc, c.fresh_tvar @@ Unbd None), snd loc_x) in
+      (loc, c.fresh_tvar @@ Unbd None, Let(x, e c, body))
   }
   | l=LET loc_x=LOWER COLON t=ty EQ e=expr IN body=expr { fun c ->
       let body = body c in
       let ty = t c in
       let loc = range l (xloc body) in
       let x = (fst loc_x, ty, snd loc_x) in
-      (loc, c.fresh_tvar Unbd, Let(x, e c, body))
+      (loc, c.fresh_tvar @@ Unbd None, Let(x, e c, body))
   }
 
 expr_atom:
-  | x=LOWER { fun ctx -> (fst x, ctx.fresh_tvar Unbd, Var (snd x)) }
+  | x=LOWER { fun ctx -> (fst x, ctx.fresh_tvar @@ Unbd None, Var (snd x)) }
   | l=LPAREN e=expr r=RPAREN { fun ctx -> 
       let e = e ctx in
       (range l r, xty e, xv e)
   }
-  | head=UPPER { fun ctx -> (fst head, ctx.fresh_tvar Unbd, Tag(snd head, [])) }
+  | head=UPPER { fun ctx -> (fst head, ctx.fresh_tvar @@ Unbd None, Tag(snd head, [])) }
 
 ty:
   | arrow=ty_arrow { fun ctx -> arrow ctx }
@@ -145,7 +145,7 @@ ty_app:
       let vars = vars ctx in
       let t = ctx.fresh_tvar @@ Alias {
         alias = (h, vars);
-        real = ctx.fresh_tvar Unbd;
+        real = ctx.fresh_tvar @@ Unbd None;
       } in
       let last_var = List.nth_opt (List.rev vars) 0 in
       let last_var_loc = Option.map fst last_var in

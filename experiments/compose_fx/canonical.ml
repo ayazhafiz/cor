@@ -38,7 +38,7 @@ let rec collect_aliases : program -> alias_definition list = function
 let rec extract_all_named_vars : tvar -> named_var list =
  fun tvar ->
   match tvar_deref tvar with
-  | Unbd ->
+  | Unbd _ ->
       can_error "extract_all_named_vars"
         ("did not expect unbound type" ^ show_tvar tvar)
   | Link ty ->
@@ -58,7 +58,7 @@ let rec extract_all_named_vars : tvar -> named_var list =
   | Content (TPrim (`Str | `Unit)) -> []
   | Alias { alias = (_, _), args; real } ->
       (match tvar_deref real with
-      | Unbd -> ()
+      | Unbd None -> ()
       | _ ->
           can_error "extract_all_named_vars"
             ("expected alias " ^ show_tvar tvar ^ " real to be unbound"));
@@ -87,7 +87,7 @@ let canonicalize_alias { alias_type; name; args; real } =
   let rec update_ty : tvar -> unit =
    fun tvar ->
     match tvar_deref tvar with
-    | Unbd ->
+    | Unbd _ ->
         can_error "canonicalize_alias"
           ("did not expect unbound type" ^ show_tvar tvar)
     | Link ty -> update_ty ty
@@ -141,7 +141,7 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
   let rec inst_alias : arg_map -> tvar -> ty_alias_content -> ty =
    fun arg_map alias_type { alias = (_, name), args; real } ->
     (match tvar_deref real with
-    | Unbd -> ()
+    | Unbd None -> ()
     | _ ->
         can_error "instantiate_type"
           "expected alias real to be unbound before instantiation");
@@ -191,7 +191,7 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
           Link r
       | None -> (
           match tvar_deref tvar with
-          | Unbd ->
+          | Unbd _ ->
               can_error "instantiate_alias" ("unbound type" ^ show_tvar tvar)
           | Link ty -> Link ty
           | ForA a -> ForA a

@@ -25,8 +25,8 @@ and ty_content =
 and ty_alias_content = { alias : loc_str * loc_tvar list; real : tvar }
 
 and ty =
-  | Unbd
   | Link of tvar  (** Link to a type *)
+  | Unbd of string option
   | ForA of string option  (** generalized type *)
   | Content of ty_content
   | Alias of ty_alias_content
@@ -46,7 +46,7 @@ let chase_tags tags ext : ty_tag list * tvar =
    fun all_tags ext ->
     match tvar_deref @@ unlink ext with
     | Link _ -> failwith "unreachable"
-    | Unbd -> (all_tags, ext)
+    | Unbd _ -> (all_tags, ext)
     | ForA _ -> (all_tags, ext)
     | Content TTagEmpty -> (all_tags, ext)
     | Content (TTag { tags; ext }) -> go (all_tags @ tags) (snd ext)
@@ -125,7 +125,8 @@ let preprocess : tvar list -> claimed_names * type_hit_counts =
       match tvar_deref t with
       | Link _ -> failwith "unreachable"
       | ForA (Some name) -> replace claimed var name
-      | ForA None | Unbd -> update hits var (fun h -> h + 1) 1
+      | Unbd (Some name) -> replace claimed var name
+      | ForA None | Unbd None -> update hits var (fun h -> h + 1) 1
       | Content TTagEmpty -> ()
       | Content (TPrim _) -> ()
       | Content (TTag { tags; ext }) ->
@@ -214,7 +215,7 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
   let rec go_head deep parens t =
     let var = tvar_v t in
     match (tvar_deref @@ unlink t, deep) with
-    | Unbd, _ -> pp_named var '?'
+    | Unbd _, _ -> pp_named var '?'
     | ForA _, _ -> pp_named var '\''
     | Link _, _ -> failwith "unreachable"
     | Content TTagEmpty, _ -> pp_print_string f "[]"
@@ -295,7 +296,7 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
     else
       let visited = var :: visited in
       match tvar_deref t with
-      | Unbd -> pp_named var '?'
+      | Unbd _ -> pp_named var '?'
       | ForA _ -> pp_named var '\''
       | Link t -> go visited parens t
       | Content TTagEmpty -> pp_print_string f "[]"

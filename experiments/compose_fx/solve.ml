@@ -11,9 +11,9 @@ let inst : fresh_tvar -> tvar -> tvar =
     | None ->
         let t' =
           match tvar_deref t with
-          | Unbd -> t
+          | Unbd _ -> t
           | Link t -> go t
-          | ForA _ -> fresh_tvar Unbd
+          | ForA x -> fresh_tvar (Unbd x)
           | Content (TPrim (`Str | `Unit)) | Content TTagEmpty -> t
           | Content (TTag { tags; ext = _, ext }) ->
               let map_tag : ty_tag -> ty_tag =
