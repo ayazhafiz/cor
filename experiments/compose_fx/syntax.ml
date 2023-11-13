@@ -22,12 +22,14 @@ and ty_content =
   | TTagEmpty
   | TPrim of [ `Str | `Unit ]
 
+and ty_alias_content = { alias : loc_str * loc_tvar list; real : tvar }
+
 and ty =
   | Unbd
   | Link of tvar  (** Link to a type *)
   | ForA of string option  (** generalized type *)
   | Content of ty_content
-  | Alias of { alias : loc_str * loc_tvar list; real : tvar }
+  | Alias of ty_alias_content
 
 and tvar = { ty : ty ref; var : variable } [@@deriving show]
 (** Mutable type cell *)

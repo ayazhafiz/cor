@@ -23,8 +23,14 @@ module Compose_fx : LANGUAGE = struct
   let name = "compose_fx"
 
   type ty = Syntax.ty
-  type parsed_program = Syntax.program
-  type canonicalized_program = Syntax.program
+  type parsed_program = { fresh_tvar : fresh_tvar; syn : Syntax.program }
+
+  type canonicalized_program = {
+    fresh_tvar : fresh_tvar;
+    syn : Syntax.program;
+    can : Canonical.program;
+  }
+
   type solved_program = unit
   type ir_program = unit
   type evaled_program = unit
@@ -37,8 +43,8 @@ module Compose_fx : LANGUAGE = struct
     in
     let parse_ctx = fresh_parse_ctx () in
     try
-      let parsed = parse lex parse_ctx in
-      Ok parsed
+      let syn = parse lex parse_ctx in
+      Ok { syn; fresh_tvar = parse_ctx.fresh_tvar }
     with
     | Lexer.SyntaxError what ->
         Error
@@ -49,17 +55,22 @@ module Compose_fx : LANGUAGE = struct
           (Printf.sprintf "Parse error at %s"
              (string_of_position (Lexer.position lexbuf)))
 
-  let canonicalize program =
+  let canonicalize ({ syn; fresh_tvar } : parsed_program) =
     try
-      Canonical.canonicalize program;
-      Ok program
+      let can = Canonical.canonicalize { fresh_tvar } syn in
+      Ok { fresh_tvar; syn; can }
     with Canonical.Can_error e -> Error e
 
   let solve _p = failwith "todo"
   let ir _ = failwith "todo"
   let eval _ = failwith "todo"
-  let print_parsed ?(width = default_width) p = string_of_program ~width p
-  let print_canonicalized = print_parsed
+
+  let print_parsed ?(width = default_width) ({ syn; _ } : parsed_program) =
+    string_of_program ~width syn
+
+  let print_canonicalized ?(width = default_width)
+      ({ syn; _ } : canonicalized_program) =
+    string_of_program ~width syn
 
   let print_solved ?(width = default_width) _ =
     let _ = width in
