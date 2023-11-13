@@ -15,7 +15,8 @@
   (public_name cor)
   (name cor)
   (modules cor)
-  (libraries libcor))
+  (libraries libcor)
+  (modes exe byte))
 
 (executable
   (public_name corjs)

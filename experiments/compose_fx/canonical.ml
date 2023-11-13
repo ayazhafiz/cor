@@ -6,33 +6,64 @@ type ctx = { fresh_tvar : fresh_tvar }
 
 let can_error f s = raise (Can_error (f ^ ": " ^ s))
 
-type alias_arg = string * tvar
+type named_var = string * tvar
 
 type alias_definition = {
   alias_type : tvar;
   name : string;
-  args : alias_arg list;
+  args : named_var list;
   real : tvar;
 }
 
-let opt_extract_alias_arg ty =
+let opt_extract_named_var ty =
   match tvar_deref ty with ForA (Some x) -> Some (x, ty) | _ -> None
 
-let extract_alias_arg ty =
-  match opt_extract_alias_arg ty with
+let extract_named_var ty =
+  match opt_extract_named_var ty with
   | Some r -> r
   | None ->
-      can_error "extract_alias_arg" "alias args must be a ForA with a name"
+      can_error "extract_named_var" "alias args must be a ForA with a name"
 
 let rec collect_aliases : program -> alias_definition list = function
   | [] -> []
   | (_, ty, TyAlias (((_, x) as loc_x), args, real)) :: rest ->
       tvar_set ty @@ Alias { alias = (loc_x, args); real = snd real };
 
-      let args = List.map extract_alias_arg @@ List.map snd args in
+      let args = List.map extract_named_var @@ List.map snd args in
       { alias_type = ty; name = x; args; real = snd real }
       :: collect_aliases rest
   | _ :: rest -> collect_aliases rest
+
+(** Must be called on a type before canonicalization (i.e. no links expected) *)
+let rec extract_all_named_vars : tvar -> named_var list =
+ fun tvar ->
+  match tvar_deref tvar with
+  | Unbd ->
+      can_error "extract_all_named_vars"
+        ("did not expect unbound type" ^ show_tvar tvar)
+  | Link ty ->
+      can_error "extract_all_named_vars"
+        ("did not expect linked type" ^ show_tvar ty)
+  | ForA (Some x) -> [ (x, tvar) ]
+  | ForA None ->
+      (* This is a *, let it go *)
+      []
+  | Content (TFn ((_, t1), (_, t2))) ->
+      extract_all_named_vars t1 @ extract_all_named_vars t2
+  | Content (TTag { tags; ext }) ->
+      let tag_args = List.map snd @@ List.flatten @@ List.map snd tags in
+      let extracted = List.flatten (List.map extract_all_named_vars tag_args) in
+      extracted @ extract_all_named_vars (snd ext)
+  | Content TTagEmpty -> []
+  | Content (TPrim (`Str | `Unit)) -> []
+  | Alias { alias = (_, _), args; real } ->
+      (match tvar_deref real with
+      | Unbd -> ()
+      | _ ->
+          can_error "extract_all_named_vars"
+            ("expected alias " ^ show_tvar tvar ^ " real to be unbound"));
+
+      List.flatten @@ List.map extract_all_named_vars @@ List.map snd args
 
 let canonicalize_alias { alias_type; name; args; real } =
   (* Go through and replace:
@@ -42,7 +73,7 @@ let canonicalize_alias { alias_type; name; args; real } =
   let is_same_alias : loc_str * loc_tvar list -> bool =
    fun ((_, other_name), other_args) ->
     let other_args =
-      List.map opt_extract_alias_arg @@ List.map snd other_args
+      List.map opt_extract_named_var @@ List.map snd other_args
     in
     let rec args_eq = function
       | [], [] -> true
@@ -90,7 +121,22 @@ let canonicalize_alias { alias_type; name; args; real } =
 type alias_map = (string * alias_definition) list
 type arg_map = (variable * tvar) list
 
-let instantiate_type : ctx -> alias_map -> tvar -> unit =
+let show_arg_map : arg_map -> string =
+ fun arg_map ->
+  let show_arg (x, ty) = show_variable x ^ " -> " ^ show_tvar ty in
+  String.concat "\t\n" @@ List.map show_arg arg_map
+
+let sig_arg_map : tvar -> arg_map =
+ fun tyvar ->
+  let named_vars = extract_all_named_vars tyvar in
+  List.filter_map
+    (fun (x, ty) ->
+      let canonical_ty = List.assoc x named_vars in
+      if tvar_v ty = tvar_v canonical_ty then None
+      else Some (tvar_v ty, canonical_ty))
+    named_vars
+
+let instantiate_signature : ctx -> alias_map -> tvar -> unit =
  fun ctx alias_map tvar ->
   let rec inst_alias : arg_map -> tvar -> ty_alias_content -> ty =
    fun arg_map alias_type { alias = (_, name), args; real } ->
@@ -112,6 +158,8 @@ let instantiate_type : ctx -> alias_map -> tvar -> unit =
     if List.length args <> List.length schme_args then
       can_error "instantiate_alias"
         ("alias " ^ name ^ " has the wrong number of arguments");
+    (* instantiate the arguments properly before continuing. *)
+    List.iter (fun (_, tvar) -> tvar_set tvar @@ inst_ty arg_map tvar) args;
     (* map the arguments in the scheme to the types we wish to instantiate.
        the alias may also appear in the scheme, so we map it as well. *)
     let scheme_arg_vars = List.map tvar_v @@ List.map snd @@ schme_args in
@@ -135,7 +183,12 @@ let instantiate_type : ctx -> alias_map -> tvar -> unit =
      fun tvar ->
       let var = tvar_v tvar in
       match List.assoc_opt var arg_map with
-      | Some r -> Link r
+      | Some r ->
+          if tvar_v r = var then
+            can_error "instantiate_alias"
+              ("alias " ^ show_variable var
+             ^ " is told to instantiate to itself");
+          Link r
       | None -> (
           match tvar_deref tvar with
           | Unbd ->
@@ -170,7 +223,8 @@ let instantiate_type : ctx -> alias_map -> tvar -> unit =
     inst_ty tvar
   in
 
-  tvar_set tvar @@ inst_ty [] tvar
+  let arg_map = sig_arg_map tvar in
+  tvar_set tvar @@ inst_ty arg_map tvar
 
 type can_def = {
   name : string;
@@ -192,8 +246,7 @@ let canonicalize_defs : ctx -> alias_map -> e_def list -> can_def list =
           can_error "canonicalize_defs"
             ("signature and definition names do not match: " ^ x ^ " vs " ^ y);
         let run = match def with Run _ -> true | _ -> false in
-        (* instantiate the signature *)
-        instantiate_type ctx alias_map sig_;
+        instantiate_signature ctx alias_map sig_;
         (* Link the signature type to the signature def. We'll check that the
            signature matches the definition during solving. *)
         tvar_set sig_t @@ Link sig_;

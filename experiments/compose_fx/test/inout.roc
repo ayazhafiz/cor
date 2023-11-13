@@ -95,7 +95,7 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > sig await :
 >   (Task 'a 'op)
->     -> ('a1 -> Task 'b 'op1) -> Task 'b1 'op2
+>     -> ('a -> Task 'b 'op) -> Task 'b 'op
 > let await =
 >   \fromResult ->
 >     \next ->

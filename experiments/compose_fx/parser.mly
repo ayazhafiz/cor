@@ -29,7 +29,6 @@ let xv = Syntax.xv
 %token <Syntax.loc> COLON
 %token <Syntax.loc> SEMI
 %token <Syntax.loc> ARROW
-%token <Syntax.loc> WILD
 %token <Syntax.loc> STAR
 %token <Syntax.loc> LAMBDA
 %token EOF
@@ -161,7 +160,6 @@ ty_alias_app:
 
 ty_atom:
   | LPAREN t=ty RPAREN { fun ctx -> t ctx }
-  | w=WILD { fun ctx -> (w, ctx.fresh_tvar Unbd) }
   | lb=LBRACKET tags=ty_tags RBRACKET ext=ty_atom { fun ctx ->
       let tags = tags ctx in
       let ext: loc_tvar = ext ctx in
