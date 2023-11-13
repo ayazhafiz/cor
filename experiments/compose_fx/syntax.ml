@@ -1,6 +1,8 @@
 open Util
 open Language
 
+let default_width = 50
+
 type lineco = int * int [@@deriving show]
 (** line * col *)
 
