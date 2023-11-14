@@ -45,7 +45,7 @@ Op a : [
 
 sig main : Task {} (Op *)
 run main = await lineIn (\s -> lineOut s)
-#                         ^    ^^^^^^^
+#          ^^^^^          ^    ^^^^^^^
 ;;
 
 > cor-out +parse -print
@@ -185,5 +185,8 @@ run main = await lineIn (\s -> lineOut s)
 > run main = await lineIn (\s -> lineOut s)
 > #                              ^^^^^^^ Str -> Task {} (OpOut ?* ?*)
 > #                         ^ Str
+> #          ^^^^^ (Task Str (OpIn ?* ?*))
+> #          ^^^^^   -> (Str -> Task {} (OpOut ?* ?*))
+> #          ^^^^^        -> Task {} (Op '*)
 > ;;
 > 

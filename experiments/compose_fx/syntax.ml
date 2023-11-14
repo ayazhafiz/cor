@@ -430,14 +430,17 @@ let tightest_node_at_def : loc -> e_def -> found_node =
   in
   or_else deeper surface
 
+let tightest_node_at_program : loc -> program -> found_node =
+ fun loc program -> List.find_map (tightest_node_at_def loc) program
+
 let type_at : loc -> program -> tvar option =
  fun loc program ->
-  let found = List.find_map (tightest_node_at_def loc) program in
+  let found = tightest_node_at_program loc program in
   match found with Some (l, ty, _) when l = loc -> Some ty | _ -> None
 
 let hover_info lineco program =
   let open Printf in
-  let wrap_code code = sprintf "```easy_tags\n%s\n```" code in
+  let wrap_code code = sprintf "```compose_fx\n%s\n```" code in
   let gen_docs (range, ty, kind) =
     let names = name_vars [ ty ] in
     let ty_str = string_of_tvar default_width names ty in
@@ -455,7 +458,7 @@ let hover_info lineco program =
     let md_docs = [ wrap_code ty_doc ] in
     { range; md_docs }
   in
-  let node = tightest_node_at_expr (lineco, lineco) program in
+  let node = tightest_node_at_program (lineco, lineco) program in
   Option.map gen_docs node
 
 let with_parens f needs_parens inside =

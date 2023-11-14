@@ -92,5 +92,5 @@ module Compose_fx : LANGUAGE = struct
     let type_and_names l = type_at l syn |> Option.map add_names in
     List.map (fun l -> (l, type_and_names l)) locs
 
-  let hover_info _ _ = failwith "todo"
+  let hover_info loc ({ syn; _ } : solved_program) = hover_info loc syn
 end

@@ -48,31 +48,31 @@ let inst : fresh_tvar -> tvar -> tvar =
   go tvar
 
 let occurs : variable -> tvar -> bool =
+ fun v t ->
   let visited = ref [] in
-  fun v t ->
-    let rec go t =
-      let var = tvar_v t in
-      if List.mem var !visited then false
-      else (
-        visited := var :: !visited;
-        match tvar_deref t with
-        | Unbd _ -> var = v
-        | ForA _ ->
-            (* generalized variables are not a specific instance, they cannot
-               occur because there is nothing more general. *)
-            false
-        | Link t -> go t
-        | Content (TPrim (`Str | `Unit)) | Content TTagEmpty -> false
-        | Content (TTag { tags; ext }) ->
-            let check_tag : ty_tag -> bool =
-             fun (_, args) -> List.exists (fun (_, t) -> go t) args
-            in
-            List.exists check_tag tags || go (snd ext)
-        | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
-        | Alias { alias = _, args; real } ->
-            List.exists (fun (_, t) -> go t) args || go real)
-    in
-    go t
+  let rec go t =
+    let var = tvar_v t in
+    if List.mem var !visited then false
+    else (
+      visited := var :: !visited;
+      match tvar_deref t with
+      | Unbd _ -> var = v
+      | ForA _ ->
+          (* generalized variables are not a specific instance, they cannot
+             occur because there is nothing more general. *)
+          false
+      | Link t -> go t
+      | Content (TPrim (`Str | `Unit)) | Content TTagEmpty -> false
+      | Content (TTag { tags; ext }) ->
+          let check_tag : ty_tag -> bool =
+           fun (_, args) -> List.exists (fun (_, t) -> go t) args
+          in
+          List.exists check_tag tags || go (snd ext)
+      | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
+      | Alias { alias = _, args; real } ->
+          List.exists (fun (_, t) -> go t) args || go real)
+  in
+  go t
 
 let gen : venv -> tvar -> unit =
  fun venv t ->
@@ -133,11 +133,11 @@ let separate_tags tags1 ext1 tags2 ext2 =
   let result = walk [] [] [] (tags1, tags2) in
   (result, ext1, ext2)
 
-let unify : fresh_tvar -> tvar -> tvar -> unit =
- fun fresh_tvar a b ->
+let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
+ fun ctx fresh_tvar a b ->
   let error prefix =
     failsolve "unify"
-      (prefix ^ " at "
+      ("(" ^ ctx ^ ")" ^ prefix ^ " at "
       ^ string_of_tvar default_width [] a
       ^ " ~ "
       ^ string_of_tvar default_width [] b)
@@ -161,7 +161,11 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
         match (ty_a, ty_b) with
         | Link _, _ | _, Link _ -> error "found a link where none was expected"
         | ForA _, _ | _, ForA _ ->
-            error "cannot unify generalized type; forgot to instantiate?"
+            error
+              ("cannot unify generalized type; forgot to instantiate?"
+              ^ show_tvar (fresh_tvar @@ ty_a)
+              ^ " ~ "
+              ^ show_tvar (fresh_tvar @@ ty_b))
         | Unbd None, Unbd (Some x) | Unbd (Some x), Unbd None -> Unbd (Some x)
         | Unbd _, other | other, Unbd _ -> other
         | _, Alias { alias; real } ->
@@ -235,7 +239,7 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
 
 let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
  fun fresh_tvar venv expr ->
-  let unify = unify fresh_tvar in
+  let unify c = unify c fresh_tvar in
   let rec infer : venv -> e_expr -> tvar =
    fun venv (_, t, e) ->
     let ty =
@@ -252,7 +256,7 @@ let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
       | Let ((_, (_, t_x), x), e, b) ->
           let t_x' = infer venv e in
-          unify t_x t_x';
+          unify ("let " ^ x) t_x t_x';
           gen venv t_x;
           infer ((x, t_x) :: venv) b
       | Clos ((_, (_, t_x), x), e) ->
@@ -265,23 +269,23 @@ let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
           let t_fn_expected =
             fresh_tvar @@ Content (TFn ((noloc, t_arg), (noloc, t_ret)))
           in
-          unify t_fn t_fn_expected;
+          unify "call" t_fn t_fn_expected;
           t_ret
     in
-    unify t ty;
+    unify "top-level expr" t ty;
     ty
   in
   infer venv expr
 
 let infer_def : fresh_tvar -> venv -> Canonical.can_def -> tvar =
- fun fresh_tvar venv { name = _; ty; def; sig_; run = _ } ->
+ fun fresh_tvar venv { name; ty; def; sig_; run = _ } ->
   let t = infer_expr fresh_tvar venv def in
   Option.iter
     (fun t_sig ->
       let t_sig = inst fresh_tvar t_sig in
-      unify fresh_tvar t t_sig)
+      unify ("with sig " ^ name) fresh_tvar t t_sig)
     sig_;
-  unify fresh_tvar t ty;
+  unify ("with toplevel def" ^ name) fresh_tvar t ty;
   gen venv ty;
   t
 
