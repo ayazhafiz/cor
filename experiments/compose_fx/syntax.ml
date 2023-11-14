@@ -349,12 +349,38 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
 let string_of_tvar width names tvar =
   with_buffer (fun f -> pp_tvar [] names f tvar) width
 
-type node_kind = [ `Def of string | `Var of string | `Generic ]
+type node_kind =
+  [ `Def of string | `Var of string | `Alias of string | `Generic ]
+
 type found_node = (loc * tvar * node_kind) option
 
-let tightest_node_at : loc -> e_expr -> found_node =
+let or_else o f = match o with Some a -> Some a | None -> f ()
+
+let tightest_node_at_var : loc -> loc_tvar -> found_node =
+ fun loc loc_ty ->
+  let rec go_tag (_tag, args) : found_node = List.find_map go args
+  and go (l, ty) : found_node =
+    let deeper =
+      match tvar_deref ty with
+      | Link ty -> go (l, ty)
+      | Unbd _ | ForA _ -> None
+      | Content (TPrim (`Str | `Unit)) -> None
+      | Content TTagEmpty -> None
+      | Content (TTag { tags; ext }) ->
+          let found_in_tag = List.find_map go_tag tags in
+          or_else found_in_tag (fun () -> go ext)
+      | Content (TFn (in', out)) -> or_else (go in') (fun () -> go out)
+      | Alias { alias = (l_x, x), vars; real } ->
+          if within loc l_x then Some (l_x, real, `Alias x)
+          else List.find_map go vars
+    in
+    let surface () = if within loc l then Some (l, ty, `Generic) else None in
+    or_else deeper surface
+  in
+  go loc_ty
+
+let tightest_node_at_expr : loc -> e_expr -> found_node =
  fun loc program ->
-  let or_else o f = match o with Some a -> Some a | None -> f () in
   let rec expr (l, ty, e) : found_node =
     let deeper =
       match e with
@@ -375,10 +401,39 @@ let tightest_node_at : loc -> e_expr -> found_node =
   in
   expr program
 
-let type_at loc program =
-  match tightest_node_at loc program with
-  | Some (l, ty, _) when l = loc -> Some ty
-  | _ -> None
+let tightest_node_at_def : loc -> e_def -> found_node =
+ fun loc (l, ty, def) ->
+  let deeper =
+    match def with
+    | TyAlias ((l_x, x), vars, var) ->
+        if within loc l_x then Some (l_x, snd var, `Alias x)
+        else
+          or_else
+            (List.find_map (tightest_node_at_var loc) vars)
+            (fun () -> tightest_node_at_var loc var)
+    | Sig ((l_x, x), var) ->
+        if within loc l_x then Some (l_x, snd var, `Def x)
+        else tightest_node_at_var loc var
+    | Def ((l_x, x), e) | Run ((l_x, x), e) ->
+        if within loc l_x then Some (l_x, ty, `Def x)
+        else tightest_node_at_expr loc e
+  in
+  let surface () =
+    if within loc l then
+      let kind =
+        match def with
+        | TyAlias ((_, x), _, _) -> `Alias x
+        | Sig ((_, x), _) | Def ((_, x), _) | Run ((_, x), _) -> `Def x
+      in
+      Some (l, ty, kind)
+    else None
+  in
+  or_else deeper surface
+
+let type_at : loc -> program -> tvar option =
+ fun loc program ->
+  let found = List.find_map (tightest_node_at_def loc) program in
+  match found with Some (l, ty, _) when l = loc -> Some ty | _ -> None
 
 let hover_info lineco program =
   let open Printf in
@@ -393,14 +448,14 @@ let hover_info lineco program =
       match kind with
       | `Var x -> sprintf "(var) %s:%s" x split
       | `Def x -> sprintf "(def) %s:%s" x split
-      | `Pat -> ""
+      | `Alias x -> sprintf "(alias) %s:%s" x split
       | `Generic -> ""
     in
     let ty_doc = prefix ^ ty_str in
     let md_docs = [ wrap_code ty_doc ] in
     { range; md_docs }
   in
-  let node = tightest_node_at (lineco, lineco) program in
+  let node = tightest_node_at_expr (lineco, lineco) program in
   Option.map gen_docs node
 
 let with_parens f needs_parens inside =

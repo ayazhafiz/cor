@@ -15,14 +15,10 @@ let fresh_parse_ctx () : parse_ctx =
   in
   { fresh_tvar }
 
-let solve _p = failwith "todo"
-let lower _ctx _p = failwith "todo"
-let eval (_ty, _program) = failwith "todo"
-
 module Compose_fx : LANGUAGE = struct
   let name = "compose_fx"
 
-  type ty = Syntax.ty
+  type ty = named_vars * Syntax.tvar
   type parsed_program = { fresh_tvar : fresh_tvar; syn : Syntax.program }
 
   type canonicalized_program = {
@@ -31,7 +27,7 @@ module Compose_fx : LANGUAGE = struct
     can : Canonical.program;
   }
 
-  type solved_program = unit
+  type solved_program = { syn : Syntax.program }
   type ir_program = unit
   type evaled_program = unit
 
@@ -61,7 +57,12 @@ module Compose_fx : LANGUAGE = struct
       Ok { fresh_tvar; syn; can }
     with Canonical.Can_error e -> Error e
 
-  let solve _p = failwith "todo"
+  let solve ({ syn; can; fresh_tvar } : canonicalized_program) =
+    try
+      Solve.infer_program { fresh_tvar } can;
+      Ok { syn }
+    with Solve.Solve_err e -> Error e
+
   let ir _ = failwith "todo"
   let eval _ = failwith "todo"
 
@@ -72,9 +73,8 @@ module Compose_fx : LANGUAGE = struct
       ({ syn; _ } : canonicalized_program) =
     string_of_program ~width syn
 
-  let print_solved ?(width = default_width) _ =
-    let _ = width in
-    failwith "todo"
+  let print_solved ?(width = default_width) ({ syn; _ } : solved_program) =
+    string_of_program ~width syn
 
   let print_ir ?(width = default_width) _ =
     let _ = width in
@@ -84,10 +84,13 @@ module Compose_fx : LANGUAGE = struct
     let _ = width in
     failwith "todo"
 
-  let print_type ?(width = default_width) _ =
-    let _ = width in
-    failwith "todo"
+  let print_type ?(width = default_width) (_, (names, tvar)) =
+    string_of_tvar width names tvar
 
-  let types_at _ _ = failwith "todo"
+  let types_at locs ({ syn; _ } : solved_program) =
+    let add_names ty = (name_vars [ ty ], ty) in
+    let type_and_names l = type_at l syn |> Option.map add_names in
+    List.map (fun l -> (l, type_and_names l)) locs
+
   let hover_info _ _ = failwith "todo"
 end
