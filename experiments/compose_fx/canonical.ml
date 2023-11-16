@@ -110,7 +110,8 @@ let canonicalize_alias { alias_type; name; args; real } =
     | Content TTagEmpty -> ()
     | Content (TPrim (`Str | `Unit)) -> ()
     | Alias { alias; real = _ } when is_same_alias alias ->
-        tvar_set tvar @@ Link alias_type
+        tvar_set tvar @@ Link alias_type;
+        tvar_set_recur (unlink alias_type) true
     | Alias _ ->
         can_error "canonicalize_alias"
           ("cannot reference an alias " ^ show_tvar tvar
@@ -138,7 +139,7 @@ let sig_arg_map : tvar -> arg_map =
 
 let instantiate_signature : ctx -> alias_map -> tvar -> unit =
  fun ctx alias_map tvar ->
-  let rec inst_alias : arg_map -> tvar -> ty_alias_content -> ty =
+  let rec inst_alias : arg_map -> tvar -> ty_alias_content -> tvar =
    fun arg_map alias_type { alias = (_, name), args; real } ->
     (match tvar_deref real with
     | Unbd None -> ()
@@ -159,11 +160,14 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
       can_error "instantiate_alias"
         ("alias " ^ name ^ " has the wrong number of arguments");
     (* instantiate the arguments properly before continuing. *)
-    List.iter (fun (_, tvar) -> tvar_set tvar @@ inst_ty arg_map tvar) args;
+    List.iter
+      (fun (_, tvar) -> tvar_set tvar @@ Link (inst_ty arg_map tvar))
+      args;
     (* map the arguments in the scheme to the types we wish to instantiate.
        the alias may also appear in the scheme, so we map it as well. *)
     let scheme_arg_vars = List.map tvar_v @@ List.map snd @@ schme_args in
     let arg_tys = List.map snd args in
+    tvar_set_recur (unlink alias_type) (tvar_recurs @@ unlink scheme_alias_type);
     let new_arg_map =
       (tvar_v scheme_alias_type, alias_type)
       :: List.combine scheme_arg_vars arg_tys
@@ -177,54 +181,60 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
         can_error "instantiate_alias" (show_variable x ^ " already mapped")
     | None -> ());
     inst_ty new_arg_map scheme_ty
-  and inst_ty : arg_map -> tvar -> ty =
+  and inst_ty : arg_map -> tvar -> tvar =
    fun arg_map tvar ->
-    let rec inst_ty : tvar -> ty =
+    let rec inst_ty : tvar -> tvar =
      fun tvar ->
       let var = tvar_v tvar in
-      match List.assoc_opt var arg_map with
-      | Some r ->
-          if tvar_v r = var then
-            can_error "instantiate_alias"
-              ("alias " ^ show_variable var
-             ^ " is told to instantiate to itself");
-          Link r
-      | None -> (
-          match tvar_deref tvar with
-          | Unbd _ ->
-              can_error "instantiate_alias" ("unbound type" ^ show_tvar tvar)
-          | Link ty -> Link ty
-          | ForA a -> ForA a
-          | Content TTagEmpty -> Content TTagEmpty
-          | Content (TPrim `Str) -> Content (TPrim `Str)
-          | Content (TPrim `Unit) -> Content (TPrim `Unit)
-          | Content (TFn ((_, t1), (_, t2))) ->
-              let t1' = ctx.fresh_tvar @@ inst_ty t1 in
-              let t2' = ctx.fresh_tvar @@ inst_ty t2 in
-              Content (TFn ((noloc, t1'), (noloc, t2')))
-          | Content (TTag { tags; ext = _, ext }) ->
-              let map_tag : ty_tag -> ty_tag =
-               fun (tag, vars) ->
-                let vars' =
-                  List.map
-                    (fun (_, t) -> (noloc, ctx.fresh_tvar @@ inst_ty t))
-                    vars
+      let t' = ctx.fresh_tvar @@ Unbd None in
+      let ty' =
+        match List.assoc_opt var arg_map with
+        | Some r ->
+            if tvar_v r = var then
+              can_error "instantiate_alias"
+                ("alias " ^ show_variable var
+               ^ " is told to instantiate to itself");
+            Link r
+        | None -> (
+            match tvar_deref tvar with
+            | Unbd _ ->
+                can_error "instantiate_alias" ("unbound type" ^ show_tvar tvar)
+            | Link ty -> Link ty
+            | ForA a -> ForA a
+            | Content TTagEmpty -> Content TTagEmpty
+            | Content (TPrim `Str) -> Content (TPrim `Str)
+            | Content (TPrim `Unit) -> Content (TPrim `Unit)
+            | Content (TFn ((_, t1), (_, t2))) ->
+                let t1' = ctx.fresh_tvar @@ Link (inst_ty t1) in
+                let t2' = ctx.fresh_tvar @@ Link (inst_ty t2) in
+                Content (TFn ((noloc, t1'), (noloc, t2')))
+            | Content (TTag { tags; ext = _, ext }) ->
+                let map_tag : ty_tag -> ty_tag =
+                 fun (tag, vars) ->
+                  let vars' =
+                    List.map
+                      (fun (_, t) ->
+                        (noloc, ctx.fresh_tvar @@ Link (inst_ty t)))
+                      vars
+                  in
+                  (tag, vars')
                 in
-                (tag, vars')
-              in
-              let tags' = List.map map_tag tags in
-              let ext' = ctx.fresh_tvar @@ inst_ty ext in
-              Content (TTag { tags = tags'; ext = (noloc, ext') })
-          | Alias alias_content ->
-              let real_ty = inst_alias arg_map tvar alias_content in
-              tvar_set alias_content.real real_ty;
-              Alias alias_content)
+                let tags' = List.map map_tag tags in
+                let ext' = ctx.fresh_tvar @@ Link (inst_ty ext) in
+                Content (TTag { tags = tags'; ext = (noloc, ext') })
+            | Alias alias_content ->
+                let real_ty = inst_alias arg_map t' alias_content in
+                tvar_set alias_content.real (Link real_ty);
+                Alias alias_content)
+      in
+      tvar_set t' ty';
+      t'
     in
     inst_ty tvar
   in
 
   let arg_map = sig_arg_map tvar in
-  tvar_set tvar @@ inst_ty arg_map tvar
+  tvar_set tvar @@ Link (inst_ty arg_map tvar)
 
 type can_def = {
   name : string;

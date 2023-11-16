@@ -11,7 +11,7 @@ let fresh_parse_ctx () : parse_ctx =
     !n
   in
   let fresh_tvar : fresh_tvar =
-   fun ty -> { ty = ref ty; var = `Var (fresh_int ()) }
+   fun ty -> { ty = ref ty; var = `Var (fresh_int ()); recur = ref false }
   in
   { fresh_tvar }
 

@@ -33,11 +33,13 @@ and ty =
   | Content of ty_content
   | Alias of ty_alias_content
 
-and tvar = { ty : ty ref; var : variable } [@@deriving show]
+and tvar = { ty : ty ref; var : variable; recur : bool ref } [@@deriving show]
 (** Mutable type cell *)
 
 let tvar_deref tvar = !(tvar.ty)
 let tvar_set tvar ty = tvar.ty := ty
+let tvar_set_recur tvar recur = tvar.recur := recur
+let tvar_recurs tvar = !(tvar.recur)
 let tvar_v tvar = tvar.var
 
 let rec unlink tvar =
@@ -290,59 +292,66 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
   and go visited parens t =
     let t = unlink t in
     let var = tvar_v t in
-    if List.mem var visited then (
-      (* This is a recursive type *)
-      fprintf f "@[<hov 2><%s" ellipsis;
-      go_head false `Free t;
-      fprintf f ">@]")
-    else
-      let visited = var :: visited in
-      match tvar_deref t with
-      | Unbd _ -> pp_named var '?'
-      | ForA _ -> pp_named var '\''
-      | Link t -> go visited parens t
-      | Content TTagEmpty -> pp_print_string f "[]"
-      | Content (TPrim `Str) -> pp_print_string f "Str"
-      | Content (TPrim `Unit) -> pp_print_string f "{}"
-      | Content (TTag { tags; ext }) ->
-          let tags, ext = chase_tags tags @@ snd ext in
-          fprintf f "@[<v 0>[@[<v 2>@,";
-          List.iteri
-            (fun i t ->
-              if i > 0 then fprintf f ",@,";
-              go_tag visited t)
-            tags;
-          fprintf f "@]@,]";
-          let print_ext () = go visited `Free ext in
-          if not (is_empty_tag ext) then print_ext ();
-          fprintf f "@]"
-      | Content (TFn (in', out)) ->
-          fprintf f "@[<hov 2>";
-          let pty () =
-            go visited `FnHead @@ snd in';
-            fprintf f "@ -> ";
-            go visited `Free @@ snd out
-          in
-          with_parens (parens >> `Free) pty;
-          fprintf f "@]"
-      | Alias { alias = head, args; real = _ } -> (
-          let rec go_args = function
-            | [] -> ()
-            | [ (_, arg) ] -> go visited `AppHead arg
-            | (_, arg) :: args ->
-                go visited `AppHead arg;
-                fprintf f "@ ";
-                go_args args
-          in
-          match args with
-          | [] -> fprintf f "%s" @@ snd head
-          | _ ->
-              let pty () =
-                fprintf f "@[<hov 2>%s@ " @@ snd head;
-                go_args args;
-                fprintf f "@]"
+    let recurs = tvar_recurs @@ unlink t in
+    let inner f () =
+      if List.mem var visited then (
+        (* This is a recursive type *)
+        fprintf f "@[<hov 2><%s" ellipsis;
+        go_head false `Free t;
+        fprintf f ">@]")
+      else
+        let visited = var :: visited in
+        match tvar_deref t with
+        | Unbd _ -> pp_named var '?'
+        | ForA _ -> pp_named var '\''
+        | Link t -> go visited parens t
+        | Content TTagEmpty -> pp_print_string f "[]"
+        | Content (TPrim `Str) -> pp_print_string f "Str"
+        | Content (TPrim `Unit) -> pp_print_string f "{}"
+        | Content (TTag { tags; ext }) ->
+            let tags, ext = chase_tags tags @@ snd ext in
+            fprintf f "@[<v 0>[@[<v 2>@,";
+            List.iteri
+              (fun i t ->
+                if i > 0 then fprintf f ",@,";
+                go_tag visited t)
+              tags;
+            fprintf f "@]@,]";
+            let print_ext () = go visited `Free ext in
+            if not (is_empty_tag ext) then print_ext ();
+            fprintf f "@]"
+        | Content (TFn (in', out)) ->
+            fprintf f "@[<hov 2>";
+            let pty () =
+              go visited `FnHead @@ snd in';
+              fprintf f "@ -> ";
+              go visited `Free @@ snd out
+            in
+            with_parens (parens >> `Free) pty;
+            fprintf f "@]"
+        | Alias { alias = head, args; real = _ } ->
+            let header f () =
+              let rec go_args = function
+                | [] -> ()
+                | [ (_, arg) ] -> go visited `AppHead arg
+                | (_, arg) :: args ->
+                    go visited `AppHead arg;
+                    fprintf f "@ ";
+                    go_args args
               in
-              with_parens (parens >> `Free) pty)
+              match args with
+              | [] -> fprintf f "%s" @@ snd head
+              | _ ->
+                  let pty () =
+                    fprintf f "@[<hov 2>%s@ " @@ snd head;
+                    go_args args;
+                    fprintf f "@]"
+                  in
+                  with_parens (parens >> `Free) pty
+            in
+            fprintf f "@[<hov 2>%a@]" header ()
+    in
+    if recurs then fprintf f "@[<hov 2>%%%a@]" inner () else inner f ()
   in
   go visited `Free t
 
@@ -370,8 +379,8 @@ let tightest_node_at_var : loc -> loc_tvar -> found_node =
           let found_in_tag = List.find_map go_tag tags in
           or_else found_in_tag (fun () -> go ext)
       | Content (TFn (in', out)) -> or_else (go in') (fun () -> go out)
-      | Alias { alias = (l_x, x), vars; real } ->
-          if within loc l_x then Some (l_x, real, `Alias x)
+      | Alias { alias = (l_x, x), vars; real = _ } ->
+          if within loc l_x then Some (l_x, ty, `Alias x)
           else List.find_map go vars
     in
     let surface () = if within loc l then Some (l, ty, `Generic) else None in
@@ -406,7 +415,7 @@ let tightest_node_at_def : loc -> e_def -> found_node =
   let deeper =
     match def with
     | TyAlias ((l_x, x), vars, var) ->
-        if within loc l_x then Some (l_x, snd var, `Alias x)
+        if within loc l_x then Some (l_x, ty, `Alias x)
         else
           or_else
             (List.find_map (tightest_node_at_var loc) vars)

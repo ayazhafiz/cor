@@ -41,6 +41,7 @@ let inst : fresh_tvar -> tvar -> tvar =
               let real = go real in
               fresh_tvar @@ Alias { alias = (name, args); real }
         in
+        tvar_set_recur t' (tvar_recurs @@ unlink t);
         tvar_set set_t (Link t');
         t'
   in
@@ -142,6 +143,7 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
       ^ " ~ "
       ^ string_of_tvar default_width [] b)
   in
+  let visited = ref [] in
   let rec unify_tags : ty_tag -> ty_tag -> unit =
    fun (t1, args1) (t2, args2) ->
     assert (t1 = t2);
@@ -150,13 +152,14 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
     List.iter2 unify (List.map snd args1) (List.map snd args2)
   and unify a b =
     let a, b = (unlink a, unlink b) in
-    if tvar_v a <> tvar_v b then (
+    let vara, varb = (tvar_v a, tvar_v b) in
+    if List.mem (vara, varb) !visited then (
+      tvar_set_recur a true;
+      tvar_set_recur b true)
+    else if vara <> varb then (
+      visited := (vara, varb) :: !visited;
       let ty_a = tvar_deref a in
       let ty_b = tvar_deref b in
-      (* unify up-front to avoid infinite recursion at recursive types *)
-      let c = fresh_tvar @@ Unbd None in
-      tvar_set a (Link c);
-      tvar_set b (Link c);
       let ty =
         match (ty_a, ty_b) with
         | Link _, _ | _, Link _ -> error "found a link where none was expected"
@@ -233,7 +236,13 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
             in
             Content c'
       in
-      tvar_set c ty)
+      (* unify up-front to avoid infinite recursion at recursive types *)
+      let recurs = tvar_recurs a || tvar_recurs b in
+      let c = fresh_tvar @@ Unbd None in
+      tvar_set a (Link c);
+      tvar_set b (Link c);
+      tvar_set c ty;
+      tvar_set_recur c recurs)
   in
   unify a b
 
