@@ -45,6 +45,12 @@ let tvar_v tvar = tvar.var
 let rec unlink tvar =
   match tvar_deref tvar with Link t -> unlink t | _ -> tvar
 
+let rec unlink_w_alias tvar =
+  match tvar_deref tvar with
+  | Link t -> unlink_w_alias t
+  | Alias { real; _ } -> unlink_w_alias real
+  | _ -> tvar
+
 let chase_tags tags ext : ty_tag list * tvar =
   let rec go : ty_tag list -> tvar -> _ =
    fun all_tags ext ->

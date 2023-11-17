@@ -143,21 +143,21 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
       ^ " ~ "
       ^ string_of_tvar default_width [] b)
   in
-  let visited = ref [] in
-  let rec unify_tags : ty_tag -> ty_tag -> unit =
-   fun (t1, args1) (t2, args2) ->
+  let rec unify_tags : _ -> ty_tag -> ty_tag -> unit =
+   fun visited (t1, args1) (t2, args2) ->
     assert (t1 = t2);
     if List.length args1 <> List.length args2 then
       error ("arity mismatch for tag " ^ t1);
-    List.iter2 unify (List.map snd args1) (List.map snd args2)
-  and unify a b =
+    List.iter2 (unify visited) (List.map snd args1) (List.map snd args2)
+  and unify visited a b =
     let a, b = (unlink a, unlink b) in
     let vara, varb = (tvar_v a, tvar_v b) in
-    if List.mem (vara, varb) !visited then (
+    if List.mem (vara, varb) visited then (
       tvar_set_recur a true;
       tvar_set_recur b true)
     else if vara <> varb then (
-      visited := (vara, varb) :: !visited;
+      let visited = (vara, varb) :: visited in
+      let unify = unify visited in
       let ty_a = tvar_deref a in
       let ty_b = tvar_deref b in
       let ty =
@@ -196,7 +196,7 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
                   let shared : ty_tag list =
                     List.map
                       (fun (t1, t2) ->
-                        unify_tags t1 t2;
+                        unify_tags visited t1 t2;
                         t1)
                       shared
                   in
@@ -244,7 +244,7 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
       tvar_set c ty;
       tvar_set_recur c recurs)
   in
-  unify a b
+  unify [] a b
 
 let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
  fun fresh_tvar venv expr ->
