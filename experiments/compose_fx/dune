@@ -4,7 +4,7 @@
 
 (library
  (name compose_fx)
- (modules compose_fx syntax lexer parser canonical solve ir lower util)
+ (modules compose_fx syntax lexer parser canonical solve ir ir_lower ir_check util)
  (libraries language sedlex menhirLib)
  (inline_tests)
  (preprocess

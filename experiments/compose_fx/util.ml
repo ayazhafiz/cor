@@ -26,3 +26,14 @@ let intersperse f between fn iter =
       if i <> 0 then Format.fprintf f "%s" between;
       fn f i elt)
     iter
+
+let fresh_name_generator () =
+  let taken = ref [] in
+  let rec find hint i =
+    let cand = if i = 0 then hint else hint ^ string_of_int i in
+    if List.mem cand !taken then find hint (i + 1)
+    else (
+      taken := cand :: !taken;
+      cand)
+  in
+  fun hint -> find hint 0

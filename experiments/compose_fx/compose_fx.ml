@@ -28,7 +28,7 @@ module Compose_fx : LANGUAGE = struct
   }
 
   type solved_program = { syn : Syntax.program }
-  type ir_program = unit
+  type ir_program = Ir.program
   type evaled_program = unit
 
   let parse s =
@@ -63,7 +63,11 @@ module Compose_fx : LANGUAGE = struct
       Ok { syn }
     with Solve.Solve_err e -> Error e
 
-  let ir _ = failwith "todo"
+  let ir ({ syn } : solved_program) =
+    let compiled = Ir_lower.compile syn in
+    Ir_check.check compiled;
+    Ok compiled
+
   let eval _ = failwith "todo"
 
   let print_parsed ?(width = default_width) ({ syn; _ } : parsed_program) =
@@ -76,9 +80,8 @@ module Compose_fx : LANGUAGE = struct
   let print_solved ?(width = default_width) ({ syn; _ } : solved_program) =
     string_of_program ~width syn
 
-  let print_ir ?(width = default_width) _ =
-    let _ = width in
-    failwith "todo"
+  let print_ir ?(width = 80) (program : Ir.program) =
+    Ir.string_of_program ~width program
 
   let print_evaled ?(width = default_width) _ =
     let _ = width in
