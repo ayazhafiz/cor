@@ -13,22 +13,29 @@ let fresh_parse_ctx () : parse_ctx =
   let fresh_tvar : fresh_tvar =
    fun ty -> { ty = ref ty; var = `Var (fresh_int ()); recur = ref false }
   in
-  { fresh_tvar }
+  let symbols = Symbol.make () in
+  { fresh_tvar; symbols }
 
 module Compose_fx : LANGUAGE = struct
   let name = "compose_fx"
 
-  type ty = named_vars * Syntax.tvar
-  type parsed_program = { fresh_tvar : fresh_tvar; syn : Syntax.program }
+  type ty = { symbols : Symbol.t; names : named_vars; tvar : Syntax.tvar }
+
+  type parsed_program = {
+    symbols : Symbol.t;
+    fresh_tvar : fresh_tvar;
+    syn : Syntax.program;
+  }
 
   type canonicalized_program = {
+    symbols : Symbol.t;
     fresh_tvar : fresh_tvar;
     syn : Syntax.program;
     can : Canonical.program;
   }
 
-  type solved_program = { syn : Syntax.program }
-  type ir_program = Ir.program
+  type solved_program = { symbols : Symbol.t; syn : Syntax.program }
+  type ir_program = { symbols : Symbol.t; program : Ir.program }
   type evaled_program = unit
 
   let parse s =
@@ -40,7 +47,7 @@ module Compose_fx : LANGUAGE = struct
     let parse_ctx = fresh_parse_ctx () in
     try
       let syn = parse lex parse_ctx in
-      Ok { syn; fresh_tvar = parse_ctx.fresh_tvar }
+      Ok { symbols = parse_ctx.symbols; syn; fresh_tvar = parse_ctx.fresh_tvar }
     with
     | Lexer.SyntaxError what ->
         Error
@@ -51,49 +58,52 @@ module Compose_fx : LANGUAGE = struct
           (Printf.sprintf "Parse error at %s"
              (string_of_position (Lexer.position lexbuf)))
 
-  let canonicalize ({ syn; fresh_tvar } : parsed_program) =
+  let canonicalize ({ symbols; syn; fresh_tvar } : parsed_program) =
     try
-      let can = Canonical.canonicalize { fresh_tvar } syn in
-      Ok { fresh_tvar; syn; can }
+      let can = Canonical.canonicalize { symbols; fresh_tvar } syn in
+      Ok { symbols; fresh_tvar; syn; can }
     with Canonical.Can_error e -> Error e
 
-  let solve ({ syn; can; fresh_tvar } : canonicalized_program) =
+  let solve ({ symbols; syn; can; fresh_tvar } : canonicalized_program) =
     try
-      Solve.infer_program { fresh_tvar } can;
-      Ok { syn }
+      Solve.infer_program { symbols; fresh_tvar } can;
+      Ok { symbols; syn }
     with Solve.Solve_err e -> Error e
 
-  let ir ({ syn } : solved_program) =
-    let compiled = Ir_lower.compile syn in
+  let ir ({ symbols; syn } : solved_program) =
+    let compiled = Ir_lower.compile symbols syn in
     Ir_check.check compiled;
-    Ok compiled
+    Ok { symbols; program = compiled }
 
   let eval _ = failwith "todo"
 
-  let print_parsed ?(width = default_width) ({ syn; _ } : parsed_program) =
-    string_of_program ~width syn
+  let print_parsed ?(width = default_width)
+      ({ symbols; syn; _ } : parsed_program) =
+    string_of_program ~width symbols syn
 
   let print_canonicalized ?(width = default_width)
-      ({ syn; _ } : canonicalized_program) =
-    string_of_program ~width syn
+      ({ symbols; syn; _ } : canonicalized_program) =
+    string_of_program ~width symbols syn
 
-  let print_solved ?(width = default_width) ({ syn; _ } : solved_program) =
-    string_of_program ~width syn
+  let print_solved ?(width = default_width)
+      ({ symbols; syn; _ } : solved_program) =
+    string_of_program ~width symbols syn
 
-  let print_ir ?(width = 80) (program : Ir.program) =
+  let print_ir ?(width = 80) ({ program; _ } : ir_program) =
     Ir.string_of_program ~width program
 
   let print_evaled ?(width = default_width) _ =
     let _ = width in
     failwith "todo"
 
-  let print_type ?(width = default_width) (_, (names, tvar)) =
-    string_of_tvar width names tvar
+  let print_type ?(width = default_width) (_, { symbols; names; tvar }) =
+    string_of_tvar width symbols names tvar
 
-  let types_at locs ({ syn; _ } : solved_program) =
-    let add_names ty = (name_vars [ ty ], ty) in
+  let types_at locs ({ symbols; syn; _ } : solved_program) =
+    let add_names ty = { symbols; names = name_vars [ ty ]; tvar = ty } in
     let type_and_names l = type_at l syn |> Option.map add_names in
     List.map (fun l -> (l, type_and_names l)) locs
 
-  let hover_info loc ({ syn; _ } : solved_program) = hover_info loc syn
+  let hover_info loc ({ symbols; syn; _ } : solved_program) =
+    hover_info loc syn symbols
 end

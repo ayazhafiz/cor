@@ -1,7 +1,6 @@
 open Util
 open Language
 
-type function_name = [ `Fn of string ]
 type rec_id = [ `Rec of int ]
 
 type layout_repr =
@@ -14,8 +13,7 @@ type layout_repr =
 
 and layout = layout_repr ref
 
-type var_name = [ `Var of string ] [@@deriving show]
-type var = layout * var_name
+type var = layout * Symbol.symbol
 
 type expr =
   | Var of var
@@ -25,24 +23,28 @@ type expr =
   | MakeStruct of var list
   | GetStructField of var * int
   | CallIndirect of var * var list
-  | CallDirect of function_name * var list
+  | CallDirect of Symbol.symbol * var list
   | MakeBox of var
   | GetBoxed of var
   | PtrCast of var * layout
-  | MakeFnPtr of function_name
+  | MakeFnPtr of Symbol.symbol
 
 type stmt = Let of var * expr
 
 type proc = {
-  name : function_name;
+  name : Symbol.symbol;
   args : var list;
   body : stmt list;
   ret : var;
 }
 
-type global = { name : var_name; layout : layout; init : expr }
+type global = { name : Symbol.symbol; layout : layout; init : expr }
 type definition = Proc of proc | Global of global
-type program = { definitions : definition list; entry_points : var_name list }
+
+type program = {
+  definitions : definition list;
+  entry_points : Symbol.symbol list;
+}
 
 let pp_rec_id : Format.formatter -> rec_id -> unit =
  fun f (`Rec i) -> Format.fprintf f "%%type_%d" i
@@ -101,18 +103,21 @@ let rec pp_layout : Format.formatter -> layout -> unit =
 
 let show_layout = Format.asprintf "%a" pp_layout
 
+let pp_symbol : Format.formatter -> Symbol.symbol -> unit =
+ fun f s -> Format.fprintf f "%s" (Symbol.norm_of s)
+
 let pp_var : Format.formatter -> var -> unit =
- fun f (lay, `Var name) ->
-  Format.fprintf f "@[<hv 2>%s:@ %a@]" name pp_layout lay
+ fun f (lay, symbol) ->
+  Format.fprintf f "@[<hv 2>%a:@ %a@]" pp_symbol symbol pp_layout lay
 
 let pp_v_name : Format.formatter -> var -> unit =
- fun f (_, `Var name) -> Format.fprintf f "%s" name
+ fun f (_, symbol) -> pp_symbol f symbol
 
 let pp_v_names : Format.formatter -> var list -> unit =
  fun f vs ->
   List.iteri
-    (fun i (_, `Var name) ->
-      Format.fprintf f "%s" name;
+    (fun i (_, symbol) ->
+      Format.fprintf f "%a" pp_symbol symbol;
       if i < List.length vs - 1 then Format.fprintf f ",@, ")
     vs
 
@@ -140,17 +145,17 @@ let pp_expr : Format.formatter -> expr -> unit =
           | args -> fprintf f ",@ %a" pp_v_names args
         in
         fprintf f "@[<hv 2>@call_indirect(@,%a%a)@]" pp_v_name var pp_args args
-    | CallDirect (`Fn name, args) ->
+    | CallDirect (fn, args) ->
         let pp_args f = function
           | [] -> ()
           | args -> fprintf f ",@ %a" pp_v_names args
         in
-        fprintf f "@[<hv 2>@call_direct(@,%s%a)@]" name pp_args args
+        fprintf f "@[<hv 2>@call_direct(@,%a%a)@]" pp_symbol fn pp_args args
     | MakeBox v -> fprintf f "@[<hv 2>@make_box(@,%a)@]" pp_v_name v
     | GetBoxed v -> fprintf f "@[<hv 2>@get_boxed<@,%a>@]" pp_v_name v
     | PtrCast (v, lay) ->
         fprintf f "@[<hv 2>@ptr_cast(@,%a as@ %a)@]" pp_v_name v pp_layout lay
-    | MakeFnPtr (`Fn name) -> fprintf f "@[<hv 2>@make_fn_ptr<@,%s>@]" name
+    | MakeFnPtr fn -> fprintf f "@[<hv 2>@make_fn_ptr<@,%a>@]" pp_symbol fn
 
 let pp_stmt : Format.formatter -> stmt -> unit =
   let open Format in
@@ -159,7 +164,7 @@ let pp_stmt : Format.formatter -> stmt -> unit =
 
 let pp_proc : Format.formatter -> proc -> unit =
   let open Format in
-  fun f { name = `Fn name; args; body; ret = ret_lay, `Var ret_x } ->
+  fun f { name; args; body; ret = ret_lay, ret_x } ->
     let pp_args f = function
       | [] -> ()
       | args ->
@@ -171,16 +176,16 @@ let pp_proc : Format.formatter -> proc -> unit =
     in
 
     fprintf f
-      "@[<hov 0>@[<hv 2>@[<hv 2>proc %s(@,%a)@]:@ %a@]@ @[{@;<0 2>@[<v 0>" name
-      pp_args args pp_layout ret_lay;
+      "@[<hov 0>@[<hv 2>@[<hv 2>proc %a(@,%a)@]:@ %a@]@ @[{@;<0 2>@[<v 0>"
+      pp_symbol name pp_args args pp_layout ret_lay;
     List.iter (fun s -> fprintf f "%a@," pp_stmt s) body;
-    fprintf f "return %s;@]@,@]}@]" ret_x
+    fprintf f "return %a;@]@,@]}@]" pp_symbol ret_x
 
 let pp_global : Format.formatter -> global -> unit =
   let open Format in
-  fun f { name = `Var name; layout; init } ->
-    fprintf f "@[<hv 2>global %s:@ %a@ = %a;@]" name pp_layout layout pp_expr
-      init
+  fun f { name; layout; init } ->
+    fprintf f "@[<hv 2>global %a:@ %a@ = %a;@]" pp_symbol name pp_layout layout
+      pp_expr init
 
 let pp_definition : Format.formatter -> definition -> unit =
  fun f -> function Proc p -> pp_proc f p | Global g -> pp_global f g
@@ -191,8 +196,8 @@ let pp_program : Format.formatter -> program -> unit =
     fprintf f "@[<v 0>";
     List.iter (fun p -> fprintf f "%a@,@," pp_definition p) definitions;
     List.iteri
-      (fun i (`Var name) ->
-        fprintf f "@[entry %s;@]" name;
+      (fun i name ->
+        fprintf f "@[entry %a;@]" pp_symbol name;
         if i < List.length entry_points - 1 then fprintf f "@,")
       entry_points;
     fprintf f "@]"

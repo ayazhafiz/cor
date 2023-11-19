@@ -1,8 +1,9 @@
 open Syntax
+open Symbol
 
 exception Can_error of string
 
-type ctx = { fresh_tvar : fresh_tvar }
+type ctx = { symbols : Symbol.t; fresh_tvar : fresh_tvar }
 
 let can_error f s = raise (Can_error (f ^ ": " ^ s))
 
@@ -10,7 +11,7 @@ type named_var = string * tvar
 
 type alias_definition = {
   alias_type : tvar;
-  name : string;
+  name : symbol;
   args : named_var list;
   real : tvar;
 }
@@ -70,7 +71,7 @@ let canonicalize_alias { alias_type; name; args; real } =
      - References to a type argument name with the alias's type argument type
      - References to the same alias with a recursive pointer
   *)
-  let is_same_alias : loc_str * loc_tvar list -> bool =
+  let is_same_alias : loc_symbol * loc_tvar list -> bool =
    fun ((_, other_name), other_args) ->
     let other_args =
       List.map opt_extract_named_var @@ List.map snd other_args
@@ -96,10 +97,10 @@ let canonicalize_alias { alias_type; name; args; real } =
         | Some arg -> tvar_set tvar @@ Link arg
         | None ->
             can_error "canonicalize_alias"
-              ("alias " ^ name ^ " does not have arg " ^ x))
+              ("alias " ^ show_symbol name ^ " does not have arg " ^ x))
     | ForA None ->
         can_error "canonicalize_alias"
-          ("alias " ^ name ^ " has a type argument without a name")
+          ("alias " ^ show_symbol name ^ " has a type argument without a name")
     | Content (TFn ((_, t1), (_, t2))) ->
         update_ty t1;
         update_ty t2
@@ -119,7 +120,7 @@ let canonicalize_alias { alias_type; name; args; real } =
   in
   update_ty real
 
-type alias_map = (string * alias_definition) list
+type alias_map = (symbol * alias_definition) list
 type arg_map = (variable * tvar) list
 
 let show_arg_map : arg_map -> string =
@@ -154,11 +155,13 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
     } =
       match List.assoc_opt name alias_map with
       | Some r -> r
-      | None -> can_error "instantiate_alias" ("alias " ^ name ^ " not found")
+      | None ->
+          can_error "instantiate_alias"
+            ("alias " ^ show_symbol name ^ " not found")
     in
     if List.length args <> List.length schme_args then
       can_error "instantiate_alias"
-        ("alias " ^ name ^ " has the wrong number of arguments");
+        ("alias " ^ show_symbol name ^ " has the wrong number of arguments");
     (* instantiate the arguments properly before continuing. *)
     List.iter
       (fun (_, tvar) -> tvar_set tvar @@ Link (inst_ty arg_map tvar))
@@ -237,7 +240,7 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
   tvar_set tvar @@ Link (inst_ty arg_map tvar)
 
 type can_def = {
-  name : string;
+  name : symbol;
   ty : tvar;
   def : e_expr;
   sig_ : tvar option;
@@ -254,7 +257,8 @@ let canonicalize_defs : ctx -> alias_map -> e_def list -> can_def list =
       :: rest ->
         if x <> y then
           can_error "canonicalize_defs"
-            ("signature and definition names do not match: " ^ x ^ " vs " ^ y);
+            ("signature and definition names do not match: " ^ show_symbol x
+           ^ " vs " ^ show_symbol y);
         let run = match def with Run _ -> true | _ -> false in
         instantiate_signature ctx alias_map sig_;
         (* Link the signature type to the signature def. We'll check that the
@@ -268,7 +272,7 @@ let canonicalize_defs : ctx -> alias_map -> e_def list -> can_def list =
         def :: inner rest
     | (_, _, Sig ((_, x), _)) :: _ ->
         can_error "canonicalize_defs"
-          ("signature " ^ x ^ " does not have a definition")
+          ("signature " ^ show_symbol x ^ " does not have a definition")
   in
   inner @@ defs
 

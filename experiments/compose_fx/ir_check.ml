@@ -1,9 +1,9 @@
 open Ir
 
-type fenv = (function_name * proc) list
-type venv = (var_name * layout) list
+type fenv = (Symbol.symbol * proc) list
+type venv = (Symbol.symbol * layout) list
 
-let globals_names : definition list -> var_name list =
+let globals_names : definition list -> Symbol.symbol list =
  fun defs ->
   List.fold_left
     (fun acc def ->
@@ -129,8 +129,7 @@ let check_body : string -> fenv -> venv -> var -> stmt list -> unit =
         let ret_layout = List.assoc ret venv in
         check_lay_equiv (ctx_join ctx "ret") ret_layout l_ret
     | Let ((l_x, x), e) :: rest ->
-        let (`Var x_s) = x in
-        check_expr (ctx_join ctx x_s) fenv venv l_x e;
+        check_expr (ctx_join ctx (Symbol.show_symbol x)) fenv venv l_x e;
         go (i + 1) ((x, l_x) :: venv) rest
   in
   go 0 venv stmts
@@ -140,8 +139,7 @@ let check_definitions : definition list -> unit =
   let rec go fenv venv = function
     | [] -> ()
     | Global { name; layout; init } :: rest ->
-        let (`Var n) = name in
-        check_expr ("global " ^ n) fenv venv layout init;
+        check_expr ("global " ^ Symbol.show_symbol name) fenv venv layout init;
         go fenv ((name, layout) :: venv) rest
     | Proc ({ name; args; body; ret } as proc) :: rest ->
         let body_venv' =
@@ -149,8 +147,7 @@ let check_definitions : definition list -> unit =
             (fun acc (layout, name) -> (name, layout) :: acc)
             venv args
         in
-        let (`Fn n) = name in
-        check_body ("proc " ^ n) fenv body_venv' ret body;
+        check_body ("proc " ^ Symbol.show_symbol name) fenv body_venv' ret body;
         go ((name, proc) :: fenv) venv rest
   in
 
@@ -162,6 +159,6 @@ let check : program -> unit =
   List.iter
     (fun ep ->
       if not (List.mem ep globals) then
-        failwith ("Entry point " ^ show_var_name ep ^ " not found"))
+        failwith ("Entry point " ^ Symbol.show_symbol ep ^ " not found"))
     entry_points;
   check_definitions definitions

@@ -4,7 +4,11 @@ exception Solve_err of string
 
 let failsolve f s = raise (Solve_err (f ^ ": " ^ s))
 
-type venv = (string * tvar) list
+type venv = (Symbol.symbol * tvar) list
+
+let show_venv venv =
+  let show (sym, _) = Printf.sprintf "%s: <ty>" (Symbol.norm_of sym) in
+  String.concat ", " (List.map show venv)
 
 let inst : fresh_tvar -> tvar -> tvar =
  fun fresh_tvar tvar ->
@@ -134,14 +138,14 @@ let separate_tags tags1 ext1 tags2 ext2 =
   let result = walk [] [] [] (tags1, tags2) in
   (result, ext1, ext2)
 
-let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
- fun ctx fresh_tvar a b ->
+let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
+ fun symbols ctx fresh_tvar a b ->
   let error prefix =
     failsolve "unify"
       ("(" ^ ctx ^ ")" ^ prefix ^ " at "
-      ^ string_of_tvar default_width [] a
+      ^ string_of_tvar default_width symbols [] a
       ^ " ~ "
-      ^ string_of_tvar default_width [] b)
+      ^ string_of_tvar default_width symbols [] b)
   in
   let rec unify_tags : _ -> ty_tag -> ty_tag -> unit =
    fun visited (t1, args1) (t2, args2) ->
@@ -246,9 +250,9 @@ let unify : string -> fresh_tvar -> tvar -> tvar -> unit =
   in
   unify [] a b
 
-let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
- fun fresh_tvar venv expr ->
-  let unify c = unify c fresh_tvar in
+let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
+ fun symbols fresh_tvar venv expr ->
+  let unify c = unify symbols c fresh_tvar in
   let rec infer : venv -> e_expr -> tvar =
    fun venv (_, t, e) ->
     let ty =
@@ -256,7 +260,10 @@ let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
       | Var x -> (
           match List.assoc_opt x venv with
           | Some t -> inst fresh_tvar t
-          | None -> failsolve "infer" ("unbound variable " ^ x))
+          | None ->
+              failsolve "infer"
+                ("unbound variable " ^ Symbol.syn_of symbols x ^ " ("
+               ^ Symbol.norm_of x ^ ") in " ^ show_venv venv))
       | Tag (tag, args) ->
           let arg_tys =
             List.map (fun t -> (noloc, t)) @@ List.map (infer venv) @@ args
@@ -265,7 +272,7 @@ let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
       | Let ((_, (_, t_x), x), e, b) ->
           let t_x' = infer venv e in
-          unify ("let " ^ x) t_x t_x';
+          unify ("let " ^ Symbol.syn_of symbols x) t_x t_x';
           infer ((x, t_x) :: venv) b
       | Clos ((_, (_, t_x), x), e) ->
           let t_ret = infer ((x, t_x) :: venv) e in
@@ -285,26 +292,30 @@ let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
   in
   infer venv expr
 
-let infer_def : fresh_tvar -> venv -> Canonical.can_def -> tvar =
- fun fresh_tvar venv { name; ty; def; sig_; run = _ } ->
-  let t = infer_expr fresh_tvar venv def in
+type ctx = { fresh_tvar : fresh_tvar; symbols : Symbol.t }
+
+let infer_def : ctx -> venv -> Canonical.can_def -> tvar =
+ fun { symbols; fresh_tvar } venv { name; ty; def; sig_; run = _ } ->
+  let t = infer_expr symbols fresh_tvar venv def in
   Option.iter
     (fun t_sig ->
       let t_sig = inst fresh_tvar t_sig in
-      unify ("with sig " ^ name) fresh_tvar t t_sig)
+      unify symbols
+        ("with sig " ^ Symbol.syn_of symbols name)
+        fresh_tvar t t_sig)
     sig_;
-  unify ("with toplevel def" ^ name) fresh_tvar t ty;
+  unify symbols
+    ("with toplevel def" ^ Symbol.syn_of symbols name)
+    fresh_tvar t ty;
   gen venv ty;
   t
 
-type ctx = { fresh_tvar : fresh_tvar }
-
 let infer_program : ctx -> Canonical.program -> unit =
- fun { fresh_tvar } defs ->
+ fun ctx defs ->
   let rec go venv = function
     | [] -> ()
     | def :: defs ->
-        let t = infer_def fresh_tvar venv def in
+        let t = infer_def ctx venv def in
         go ((def.name, t) :: venv) defs
   in
   go [] defs

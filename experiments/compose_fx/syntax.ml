@@ -1,5 +1,6 @@
 open Util
 open Language
+open Symbol
 
 let default_width = 50
 
@@ -11,7 +12,7 @@ type loc = lineco * lineco [@@deriving show]
 
 let noloc = ((0, 0), (0, 0))
 
-type loc_str = loc * string [@@deriving show]
+type loc_symbol = loc * symbol [@@deriving show]
 type variable = [ `Var of int ] [@@deriving show]
 
 type loc_tvar = loc * tvar
@@ -24,7 +25,7 @@ and ty_content =
   | TTagEmpty
   | TPrim of [ `Str | `Unit ]
 
-and ty_alias_content = { alias : loc_str * loc_tvar list; real : tvar }
+and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
 
 and ty =
   | Link of tvar  (** Link to a type *)
@@ -66,36 +67,29 @@ let chase_tags tags ext : ty_tag list * tvar =
   in
   go tags ext
 
-type e_pat = loc * tvar * pat
-(** An elaborated pattern *)
-
-and pat = PVar of string
-
-type pat_set = loc * tvar * e_pat list
-
 type e_expr = loc * tvar * expr
 (** An elaborated expression *)
 
 and expr =
-  | Var of string
+  | Var of symbol
   | Tag of string * e_expr list
-  | Let of (loc * loc_tvar * string) * e_expr * e_expr  (** let x = e in b *)
-  | Clos of (loc * loc_tvar * string) * e_expr
+  | Let of (loc * loc_tvar * symbol) * e_expr * e_expr  (** let x = e in b *)
+  | Clos of (loc * loc_tvar * symbol) * e_expr
   | Call of e_expr * e_expr
 
 (** A top-level definition *)
 type def =
-  | TyAlias of loc_str * loc_tvar list * loc_tvar
-  | Sig of loc_str * loc_tvar
-  | Def of loc_str * e_expr
-  | Run of loc_str * e_expr
+  | TyAlias of loc_symbol * loc_tvar list * loc_tvar
+  | Sig of loc_symbol * loc_tvar
+  | Def of loc_symbol * e_expr
+  | Run of loc_symbol * e_expr
 
 type e_def = loc * tvar * def
 (** An elaborated definition *)
 
 type program = e_def list
 type fresh_tvar = ty -> tvar
-type parse_ctx = { fresh_tvar : fresh_tvar }
+type parse_ctx = { fresh_tvar : fresh_tvar; symbols : Symbol.t }
 
 (* extractions *)
 let xloc (l, _, _) = l
@@ -197,8 +191,13 @@ let name_vars : tvar list -> named_vars =
 (* format *)
 let ellipsis = ".."
 
-let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
- fun visited names f t ->
+let pp_symbol : Symbol.t -> Format.formatter -> symbol -> unit =
+ fun symbols f s -> Format.pp_print_string f (Symbol.syn_of symbols s)
+
+let pp_tvar :
+    Symbol.t -> variable list -> named_vars -> Format.formatter -> tvar -> unit
+    =
+ fun symbols visited names f t ->
   let open Format in
   let pp_named var c =
     let name =
@@ -255,10 +254,10 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
         fprintf f "@]"
     | Alias { alias = head, args; real = _ }, true -> (
         match args with
-        | [] -> fprintf f "%s" @@ snd head
+        | [] -> pp_symbol symbols f @@ snd head
         | _ ->
             let pty () =
-              fprintf f "@[<hov 2>%s@ " @@ snd head;
+              fprintf f "@[<hov 2>%a@ " (pp_symbol symbols) (snd head);
               List.iteri
                 (fun i _ ->
                   if i > 0 then fprintf f "@ ";
@@ -277,10 +276,10 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
               go_args args
         in
         match args with
-        | [] -> fprintf f "%s" @@ snd head
+        | [] -> fprintf f "%a" (pp_symbol symbols) (snd head)
         | _ ->
             let pty () =
-              fprintf f "@[<hov 2>%s@ " @@ snd head;
+              fprintf f "@[<hov 2>%a@ " (pp_symbol symbols) (snd head);
               go_args args;
               fprintf f "@]"
             in
@@ -346,10 +345,10 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
                     go_args args
               in
               match args with
-              | [] -> fprintf f "%s" @@ snd head
+              | [] -> fprintf f "%a" (pp_symbol symbols) (snd head)
               | _ ->
                   let pty () =
-                    fprintf f "@[<hov 2>%s@ " @@ snd head;
+                    fprintf f "@[<hov 2>%a@ " (pp_symbol symbols) (snd head);
                     go_args args;
                     fprintf f "@]"
                   in
@@ -361,11 +360,11 @@ let pp_tvar : variable list -> named_vars -> Format.formatter -> tvar -> unit =
   in
   go visited `Free t
 
-let string_of_tvar width names tvar =
-  with_buffer (fun f -> pp_tvar [] names f tvar) width
+let string_of_tvar width symbols names tvar =
+  with_buffer (fun f -> pp_tvar symbols [] names f tvar) width
 
 type node_kind =
-  [ `Def of string | `Var of string | `Alias of string | `Generic ]
+  [ `Def of symbol | `Var of symbol | `Alias of symbol | `Generic ]
 
 type found_node = (loc * tvar * node_kind) option
 
@@ -453,20 +452,20 @@ let type_at : loc -> program -> tvar option =
   let found = tightest_node_at_program loc program in
   match found with Some (l, ty, _) when l = loc -> Some ty | _ -> None
 
-let hover_info lineco program =
+let hover_info lineco program symbols =
   let open Printf in
   let wrap_code code = sprintf "```compose_fx\n%s\n```" code in
   let gen_docs (range, ty, kind) =
     let names = name_vars [ ty ] in
-    let ty_str = string_of_tvar default_width names ty in
+    let ty_str = string_of_tvar default_width symbols names ty in
     let split =
       if List.length @@ String.split_on_char '\n' ty_str > 0 then "\n" else " "
     in
     let prefix =
       match kind with
-      | `Var x -> sprintf "(var) %s:%s" x split
-      | `Def x -> sprintf "(def) %s:%s" x split
-      | `Alias x -> sprintf "(alias) %s:%s" x split
+      | `Var x -> sprintf "(var) %s:%s" (Symbol.syn_of symbols x) split
+      | `Def x -> sprintf "(def) %s:%s" (Symbol.syn_of symbols x) split
+      | `Alias x -> sprintf "(alias) %s:%s" (Symbol.syn_of symbols x) split
       | `Generic -> ""
     in
     let ty_doc = prefix ^ ty_str in
@@ -482,29 +481,14 @@ let with_parens f needs_parens inside =
   inside ();
   if needs_parens then pp_print_string f ")"
 
-let pp_pat f (_, _, p) =
-  let open Format in
-  let rec go_pat (_, _, atom) = match atom with PVar x -> fprintf f "%s" x
-  and go_pat_set atoms =
-    fprintf f "@[<hov 2>";
-    List.iteri
-      (fun i atom ->
-        if i > 0 then fprintf f "@ | ";
-        go_pat atom)
-      atoms;
-    fprintf f "@]"
-  in
-
-  go_pat_set p
-
-let pp_expr f =
+let pp_expr symbols f =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
 
   let rec go parens (_, _, e) =
     match e with
-    | Var x -> pp_print_string f x
+    | Var x -> pp_symbol symbols f x
     | Tag (tag, payloads) ->
         fprintf f "@[<v 0>";
         let expr () =
@@ -521,7 +505,7 @@ let pp_expr f =
     | Let ((_, _, x), rhs, body) ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<hv 2>let %s =@ " x;
+          fprintf f "@[<hv 2>let %a =@ " (pp_symbol symbols) x;
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free body
@@ -529,7 +513,7 @@ let pp_expr f =
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
     | Clos ((_, _, x), e) ->
-        fprintf f "@[<hov 2>\\%s ->@ " x;
+        fprintf f "@[<hov 2>\\%a ->@ " (pp_symbol symbols) x;
         go `Apply e;
         fprintf f "@]"
     | Call (head, arg) ->
@@ -542,57 +526,60 @@ let pp_expr f =
   go `Free
 
 let pp_e_expr = pp_expr
-let string_of_expr e = with_buffer (fun f -> pp_expr f e) default_width
 
-let pp_def : Format.formatter -> e_def -> unit =
- fun f (_, tvar, def) ->
+let string_of_expr symbols e =
+  with_buffer (fun f -> pp_expr symbols f e) default_width
+
+let pp_def : Symbol.t -> Format.formatter -> e_def -> unit =
+ fun symbols f (_, tvar, def) ->
   let open Format in
   match def with
   | TyAlias ((_, x), args, (_, ty)) ->
-      fprintf f "@[<hov 2>@[<hv 2>%s" x;
+      fprintf f "@[<hov 2>@[<hv 2>%a" (pp_symbol symbols) x;
       let names = name_vars @@ List.map snd args @ [ ty ] in
       List.iter
         (fun (_, ty) ->
           fprintf f " ";
-          pp_tvar [] names f ty)
+          pp_tvar symbols [] names f ty)
         args;
       fprintf f "@]@ :@ ";
-      pp_tvar [ tvar_v tvar ] names f ty;
+      pp_tvar symbols [ tvar_v tvar ] names f ty;
       fprintf f "@]"
   | Sig ((_, x), ty) ->
       let names = name_vars [ snd ty ] in
-      fprintf f "@[<hov 2>@[<hv 2>sig %s :@ " x;
-      pp_tvar [] names f @@ snd ty;
+      fprintf f "@[<hov 2>@[<hv 2>sig %a :@ " (pp_symbol symbols) x;
+      pp_tvar symbols [] names f @@ snd ty;
       fprintf f "@]@]"
   | Def ((_, x), e) ->
-      fprintf f "@[<hov 2>@[<hv 2>let %s =@ " x;
-      pp_expr f e;
+      fprintf f "@[<hov 2>@[<hv 2>let %a =@ " (pp_symbol symbols) x;
+      pp_expr symbols f e;
       fprintf f "@]@]"
   | Run ((_, x), e) ->
-      fprintf f "@[<hov 2>@[<hv 2>run %s =@ " x;
-      pp_expr f e;
+      fprintf f "@[<hov 2>@[<hv 2>run %a =@ " (pp_symbol symbols) x;
+      pp_expr symbols f e;
       fprintf f "@]@]"
 
-let pp_defs : Format.formatter -> e_def list -> unit =
- fun f defs ->
+let pp_defs : Symbol.t -> Format.formatter -> e_def list -> unit =
+ fun symbols f defs ->
   let open Format in
   fprintf f "@[<v 0>";
   let rec go : e_def list -> unit = function
     | [] -> ()
-    | [ def ] -> pp_def f def
+    | [ def ] -> pp_def symbols f def
     | ((_, _, Sig ((_, x), _)) as sig_)
       :: ((_, _, (Def ((_, y), _) | Run ((_, y), _))) :: _ as defs)
       when x = y ->
-        pp_def f sig_;
+        pp_def symbols f sig_;
         fprintf f "@,";
         go defs
     | def :: defs ->
-        pp_def f def;
+        pp_def symbols f def;
         fprintf f "@,@,";
         go defs
   in
   go defs;
   fprintf f "@]"
 
-let string_of_program ?(width = default_width) (program : program) =
-  with_buffer (fun f -> pp_defs f program) width
+let string_of_program ?(width = default_width) (symbols : Symbol.t)
+    (program : program) =
+  with_buffer (fun f -> pp_defs symbols f program) width

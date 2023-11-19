@@ -5,6 +5,18 @@ let range: loc -> loc -> loc = fun (start, _) (_, fin) -> (start, fin)
 
 let l_range x l = range (x (List.hd l)) (x (List.hd (List.rev l)))
 
+let add_scoped_def_sym ctx (l, n) =
+  let sym = ctx.symbols.fresh_symbol_named n in
+  Symbol.enter_scope ctx.symbols n sym;
+  (l, sym)
+
+let lookup_sym ctx (l, n) =
+  let sym = Symbol.scoped_name ctx.symbols n in
+  (l, sym)
+
+let exit_scope ctx sym =
+  Symbol.exit_scope ctx.symbols @@ Symbol.syn_of ctx.symbols sym
+
 let xloc = Syntax.xloc
 let xty = Syntax.xty
 let xv = Syntax.xv
@@ -35,7 +47,7 @@ let xv = Syntax.xv
 
 %start toplevel
 %type <Syntax.parse_ctx -> Syntax.program> toplevel
-%type <Syntax.parse_ctx -> Syntax.e_def> def
+%type <Syntax.parse_ctx -> Syntax.e_def list> def
 %type <Syntax.parse_ctx -> Syntax.e_expr> expr
 %type <Syntax.parse_ctx -> Syntax.e_expr list> expr_atom_list
 %type <Syntax.parse_ctx -> Syntax.loc_tvar> ty
@@ -44,29 +56,66 @@ let xv = Syntax.xv
 
 toplevel:
   | EOF { fun _ -> [] }
-  | d=def rest=toplevel { fun ctx -> (d ctx)::(rest ctx) }
+  | d=def rest=toplevel { fun ctx ->
+      let d = d ctx in
+      d @ (rest ctx)
+  }
 
 def:
   | loc_t=UPPER vars=alias_vars COLON ty=ty { fun ctx ->
       let vars = vars ctx in
+      let loc_sym_t = add_scoped_def_sym ctx loc_t in
       let ty = ty ctx in
       let loc = range (fst loc_t) (fst ty) in
-      (loc, ctx.fresh_tvar @@ Unbd None, TyAlias(loc_t, vars, ty))
+      [ (loc, ctx.fresh_tvar @@ Unbd None, TyAlias(loc_sym_t, vars, ty)) ]
   }
-  | l=LET loc_x=LOWER EQ e=expr SEMI s=SEMI { fun ctx ->
+  | sig_=sig_ lr=let_or_run { fun ctx ->
+      let (s, (loc_x, name_x), t) = sig_ in
+      let (kind, l, (loc_y, name_y), e, loc_semi) = lr in
+      let t = t ctx in
+      let loc_sig = range s (fst t) in
+      let loc_sym_x = add_scoped_def_sym ctx (loc_x, name_x) in
+      let e_sig = (loc_sig, ctx.fresh_tvar @@ Unbd None, Sig(loc_sym_x, t)) in
+
+      let loc_sym_y = if name_x = name_y then loc_sym_x else add_scoped_def_sym ctx (loc_y, name_y) in
       let e = e ctx in
-      let loc = range l s in
-      (loc, ctx.fresh_tvar @@ Unbd None, Def(loc_x, e))
+      let loc_lr = range l loc_semi in
+      let def = match kind with
+        | `Let -> Def(loc_sym_y, e)
+        | `Run -> Run(loc_sym_y, e)
+      in
+      [ e_sig; (loc_lr, ctx.fresh_tvar @@ Unbd None, def) ]
   }
-  | s=SIG loc_x=LOWER COLON t=ty { fun ctx ->
+  | sig_=sig_ { fun ctx ->
+      let (s, loc_x, t) = sig_ in
       let t = t ctx in
       let loc = range s (fst t) in
-      (loc, ctx.fresh_tvar @@ Unbd None, Sig(loc_x, t))
+      let loc_sym_x = add_scoped_def_sym ctx loc_x in
+      [ (loc, ctx.fresh_tvar @@ Unbd None, Sig(loc_sym_x, t)) ]
   }
-  | r=RUN loc_x=LOWER EQ e=expr SEMI s=SEMI { fun ctx ->
+  | lr=let_or_run { fun ctx ->
+      let (kind, l, x, e, loc_semi) = lr in
       let e = e ctx in
-      let loc = range r s in
-      (loc, ctx.fresh_tvar @@ Unbd None, Run(loc_x, e))
+      let loc = range l loc_semi in
+      let loc_sym_x = add_scoped_def_sym ctx x in
+      let def = match kind with
+        | `Let -> Def(loc_sym_x, e)
+        | `Run -> Run(loc_sym_x, e)
+      in
+      [ (loc, ctx.fresh_tvar @@ Unbd None, def) ]
+  }
+
+sig_:
+  s=SIG loc_x=LOWER COLON t=ty {
+    (s, loc_x, t)
+  }
+
+let_or_run:
+  | l=LET loc_x=LOWER EQ e=expr SEMI s=SEMI {
+      (`Let, l, loc_x, e, s)
+  }
+  | r=RUN loc_x=LOWER EQ e=expr SEMI s=SEMI {
+      (`Run, r, loc_x, e, s)
   }
 
 alias_vars:
@@ -77,9 +126,11 @@ expr:
   | app=expr_app { app }
   | e=expr_lets { fun c -> e c }
   | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
+      let (loc_arg, sym_arg) = add_scoped_def_sym ctx arg in
       let body = body ctx in
+      exit_scope ctx sym_arg;
       let loc = range lam (xloc body) in
-      let arg = (fst arg, (noloc, ctx.fresh_tvar @@ Unbd None), snd arg) in
+      let arg = (loc_arg, (noloc, ctx.fresh_tvar @@ Unbd None), sym_arg) in
       (loc, ctx.fresh_tvar @@ Unbd None, Clos(arg, body))
   }
 
@@ -91,7 +142,8 @@ expr_app:
       (loc, ctx.fresh_tvar @@ Unbd None, Tag(snd head, atom_list))
   }
   | head=LOWER atom_list=expr_atom_list { fun ctx ->
-      let head = (fst head, ctx.fresh_tvar @@ Unbd None, Var (snd head)) in
+      let (loc_head, sym_head) = lookup_sym ctx head in
+      let head = (loc_head, ctx.fresh_tvar @@ Unbd None, Var sym_head) in
       let atom_list = atom_list ctx in
       List.fold_left (fun whole e ->
         let loc = (range (xloc whole) (xloc e)) in
@@ -105,21 +157,30 @@ expr_atom_list:
 
 expr_lets:
   | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
+      let e = e c in
+      let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
       let body = body c in
+      exit_scope c sym_x;
       let loc = range l (xloc body) in
-      let x = (fst loc_x, (noloc, c.fresh_tvar @@ Unbd None), snd loc_x) in
-      (loc, c.fresh_tvar @@ Unbd None, Let(x, e c, body))
+      let x = (loc_x, (noloc, c.fresh_tvar @@ Unbd None), sym_x) in
+      (loc, c.fresh_tvar @@ Unbd None, Let(x, e, body))
   }
   | l=LET loc_x=LOWER COLON t=ty EQ e=expr IN body=expr { fun c ->
-      let body = body c in
+      let e = e c in
       let ty = t c in
+      let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
+      let body = body c in
+      exit_scope c sym_x;
       let loc = range l (xloc body) in
-      let x = (fst loc_x, ty, snd loc_x) in
-      (loc, c.fresh_tvar @@ Unbd None, Let(x, e c, body))
+      let x = (loc_x, ty, sym_x) in
+      (loc, c.fresh_tvar @@ Unbd None, Let(x, e, body))
   }
 
 expr_atom:
-  | x=LOWER { fun ctx -> (fst x, ctx.fresh_tvar @@ Unbd None, Var (snd x)) }
+  | x=LOWER { fun ctx ->
+      let (loc_x, sym_x) = lookup_sym ctx x in
+      (loc_x, ctx.fresh_tvar @@ Unbd None, Var sym_x)
+  }
   | l=LPAREN e=expr r=RPAREN { fun ctx -> 
       let e = e ctx in
       (range l r, xty e, xv e)
@@ -144,7 +205,7 @@ ty_app:
   | h=UPPER vars=ty_alias_app { fun ctx -> 
       let vars = vars ctx in
       let t = ctx.fresh_tvar @@ Alias {
-        alias = (h, vars);
+        alias = (lookup_sym ctx h, vars);
         real = ctx.fresh_tvar @@ Unbd None;
       } in
       let last_var = List.nth_opt (List.rev vars) 0 in
