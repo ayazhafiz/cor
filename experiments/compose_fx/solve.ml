@@ -266,7 +266,6 @@ let infer_expr : fresh_tvar -> venv -> e_expr -> tvar =
       | Let ((_, (_, t_x), x), e, b) ->
           let t_x' = infer venv e in
           unify ("let " ^ x) t_x t_x';
-          gen venv t_x;
           infer ((x, t_x) :: venv) b
       | Clos ((_, (_, t_x), x), e) ->
           let t_ret = infer ((x, t_x) :: venv) e in
