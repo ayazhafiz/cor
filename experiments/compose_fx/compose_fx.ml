@@ -34,7 +34,12 @@ module Compose_fx : LANGUAGE = struct
     can : Canonical.program;
   }
 
-  type solved_program = { symbols : Symbol.t; syn : Syntax.program }
+  type solved_program = {
+    symbols : Symbol.t;
+    fresh_tvar : fresh_tvar;
+    syn : Syntax.program;
+  }
+
   type ir_program = { symbols : Symbol.t; program : Ir.program }
   type evaled_program = unit
 
@@ -47,7 +52,10 @@ module Compose_fx : LANGUAGE = struct
     let parse_ctx = fresh_parse_ctx () in
     try
       let syn = parse lex parse_ctx in
-      Ok { symbols = parse_ctx.symbols; syn; fresh_tvar = parse_ctx.fresh_tvar }
+      let program : parsed_program =
+        { symbols = parse_ctx.symbols; syn; fresh_tvar = parse_ctx.fresh_tvar }
+      in
+      Ok program
     with
     | Lexer.SyntaxError what ->
         Error
@@ -67,11 +75,12 @@ module Compose_fx : LANGUAGE = struct
   let solve ({ symbols; syn; can; fresh_tvar } : canonicalized_program) =
     try
       Solve.infer_program { symbols; fresh_tvar } can;
-      Ok { symbols; syn }
+      Ok { symbols; fresh_tvar; syn }
     with Solve.Solve_err e -> Error e
 
-  let ir ({ symbols; syn } : solved_program) =
-    let compiled = Ir_lower.compile symbols syn in
+  let ir ({ symbols; fresh_tvar; syn } : solved_program) =
+    let specialized = Monomorphize.specialize { symbols; fresh_tvar } syn in
+    let compiled = Ir_lower.compile symbols specialized in
     Ir_check.check compiled;
     Ok { symbols; program = compiled }
 

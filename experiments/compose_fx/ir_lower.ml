@@ -134,7 +134,8 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let id = tag_id ctor ty in
         let arg_asgns, arg_vars = List.split @@ List.map go_var args in
         let arg_asgns = List.concat arg_asgns in
-        let tag_asgns, expr =
+        let rec build_union : layout -> stmt list * expr =
+         fun layout ->
           match !layout with
           | Union struct_layouts ->
               let struct_layout = List.nth struct_layouts id in
@@ -143,8 +144,13 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
                 (struct_layout, ctx.symbols.fresh_symbol "struct")
               in
               ([ Let (struct_var, make_struct) ], MakeUnion (id, struct_var))
-          | _ -> failwith "impossible"
+          | Box (inner, _) ->
+              let inner_asgns, inner_expr = build_union inner in
+              let union_var = (inner, ctx.symbols.fresh_symbol "union") in
+              (inner_asgns @ [ Let (union_var, inner_expr) ], MakeBox union_var)
+          | _ -> failwith "impossible: non-union layout"
         in
+        let tag_asgns, expr = build_union layout in
         (arg_asgns @ tag_asgns, (layout, expr))
     | S.Let ((_, (_, x_ty), x), e, b) ->
         let x_layout = layout_of_tvar ctx x_ty in
@@ -296,15 +302,13 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
   in
   go pending_procs
 
-let compile_defs : ctx -> S.e_def list -> program =
- fun ctx defs ->
+let compile_defs :
+    ctx -> Monomorphize.ready_specialization list -> definition list =
+ fun ctx specs ->
   let pending_procs : pending_proc list ref = ref [] in
-  let entry_points : symbol list ref = ref [] in
-  let rec go = function
+  let rec go : Monomorphize.ready_specialization list -> unit = function
     | [] -> ()
-    | (_, _, S.TyAlias _) :: defs -> go defs
-    | (_, _, S.Sig _) :: defs -> go defs
-    | (_, t, ((S.Def ((_, x), e) | S.Run ((_, x), e)) as def)) :: defs ->
+    | `Ready (x, e, t) :: defs ->
         let thunk_name =
           ctx.symbols.fresh_symbol (Symbol.syn_of ctx.symbols x ^ "_thunk")
         in
@@ -314,17 +318,13 @@ let compile_defs : ctx -> S.e_def list -> program =
         pending_procs := `Thunk pending_thunk :: !pending_procs;
         pending_procs :=
           `Ready (Global { name = x; layout = x_lay; init }) :: !pending_procs;
-        (match def with
-        | S.Run _ -> entry_points := x :: !entry_points
-        | _ -> ());
         go defs
   in
-  go defs;
-  let definitions = compile_pending_procs ctx @@ List.rev !pending_procs in
-  let entry_points = List.rev !entry_points in
-  { definitions; entry_points }
+  go specs;
+  compile_pending_procs ctx @@ List.rev !pending_procs
 
-let compile : Symbol.t -> S.program -> program =
- fun symbols defs ->
+let compile : Symbol.t -> Monomorphize.specialized -> program =
+ fun symbols ({ specializations; entry_points } : Monomorphize.specialized) ->
   let ctx = new_ctx symbols in
-  compile_defs ctx defs
+  let definitions = compile_defs ctx specializations in
+  { definitions; entry_points }
