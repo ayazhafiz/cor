@@ -27,8 +27,12 @@ let xv = Syntax.xv
 %token <Syntax.loc * string> UPPER
 
 %token <Syntax.loc> LET
+%token <Syntax.loc> REC
 %token <Syntax.loc> SIG
 %token <Syntax.loc> RUN
+%token <Syntax.loc> WHEN
+%token <Syntax.loc> IS
+%token <Syntax.loc> END
 %token <Syntax.loc> STR
 %token <Syntax.loc> UNIT
 %token <Syntax.loc> IN
@@ -42,6 +46,7 @@ let xv = Syntax.xv
 %token <Syntax.loc> SEMI
 %token <Syntax.loc> ARROW
 %token <Syntax.loc> STAR
+%token <Syntax.loc> PIPE
 %token <Syntax.loc> LAMBDA
 %token EOF
 
@@ -77,7 +82,7 @@ def:
       let loc_sym_x = add_scoped_def_sym ctx (loc_x, name_x) in
       let e_sig = (loc_sig, ctx.fresh_tvar @@ Unbd None, Sig(loc_sym_x, t)) in
 
-      let loc_sym_y = if name_x = name_y then loc_sym_x else add_scoped_def_sym ctx (loc_y, name_y) in
+      let loc_sym_y = if name_x = name_y then (loc_y, snd loc_sym_x) else add_scoped_def_sym ctx (loc_y, name_y) in
       let e = e ctx in
       let loc_lr = range l loc_semi in
       let def = match kind with
@@ -133,6 +138,12 @@ expr:
       let arg = (loc_arg, (noloc, ctx.fresh_tvar @@ Unbd None), sym_arg) in
       (loc, ctx.fresh_tvar @@ Unbd None, Clos(arg, body))
   }
+  | w=WHEN e=expr IS branches=branch_seq { fun ctx ->
+      let e = e ctx in
+      let branches, loc_end = branches ctx in
+      let loc = range w loc_end in
+      (loc, ctx.fresh_tvar @@ Unbd None, When(e, branches))
+  }
 
 expr_app:
   | e=expr_atom { e }
@@ -156,24 +167,31 @@ expr_atom_list:
   | e=expr_atom rest=expr_atom_list { fun ctx -> (e ctx)::(rest ctx) }
 
 expr_lets:
-  | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
-      let e = e c in
+  | l=LET r=letrec loc_x=LOWER EQ e=expr IN body=expr { fun c ->
       let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
+      let e = e c in
       let body = body c in
       exit_scope c sym_x;
       let loc = range l (xloc body) in
       let x = (loc_x, (noloc, c.fresh_tvar @@ Unbd None), sym_x) in
-      (loc, c.fresh_tvar @@ Unbd None, Let(x, e, body))
+      (loc, c.fresh_tvar @@ Unbd None, Let(r, x, e, body))
   }
-  | l=LET loc_x=LOWER COLON t=ty EQ e=expr IN body=expr { fun c ->
+  | l=LET r=letrec loc_x=LOWER COLON t=ty EQ e=expr IN body=expr { fun c ->
+      let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
       let e = e c in
       let ty = t c in
-      let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
       let body = body c in
       exit_scope c sym_x;
       let loc = range l (xloc body) in
       let x = (loc_x, ty, sym_x) in
-      (loc, c.fresh_tvar @@ Unbd None, Let(x, e, body))
+      (loc, c.fresh_tvar @@ Unbd None, Let(r, x, e, body))
+  }
+
+letrec:
+  | r=option(REC) {
+    match r with
+    | None -> `Let
+    | Some _ -> `LetRec
   }
 
 expr_atom:
@@ -186,6 +204,46 @@ expr_atom:
       (range l r, xty e, xv e)
   }
   | head=UPPER { fun ctx -> (fst head, ctx.fresh_tvar @@ Unbd None, Tag(snd head, [])) }
+
+branch_seq:
+  | e=END { fun _ -> ([], e) }
+  | PIPE pat=pat ARROW body=expr rest=branch_seq { fun ctx ->
+      let pat, syms = pat ctx in
+      let body = body ctx in
+      List.iter (exit_scope ctx) syms;
+      let rest, e = rest ctx in
+      ((pat, body)::rest, e)
+  }
+
+pat:
+  | p=pat_atom { fun ctx -> p ctx }
+  | hd=UPPER args=pat_apply { fun ctx ->
+      let args, syms = args ctx in
+      let loc = range (fst hd) (xloc (List.hd (List.rev args))) in
+      (loc, ctx.fresh_tvar @@ Unbd None, PTag(hd, args)), syms
+  }
+
+pat_apply:
+  | p=pat_atom rest=pat_apply { fun ctx ->
+      let pa, pa_syms = p ctx in
+      let rest, rest_syms = rest ctx in
+      (pa::rest, pa_syms@rest_syms)
+  }
+  | p=pat_atom { fun ctx ->
+      let pa, pa_syms = p ctx in
+      ([pa], pa_syms)
+  }
+
+pat_atom:
+  | x=LOWER { fun ctx ->
+      let (loc_x, sym_x) = add_scoped_def_sym ctx x in
+      (loc_x, ctx.fresh_tvar @@ Unbd None, PVar (loc_x, sym_x)), [sym_x]
+  }
+  | l=LPAREN p=pat r=RPAREN { fun ctx ->
+      let p, syms = p ctx in
+      (range l r, xty p, xv p), syms
+  }
+  | hd=UPPER { fun ctx -> (fst hd, ctx.fresh_tvar @@ Unbd None, PTag(hd, [])), [] }
 
 ty:
   | arrow=ty_arrow { fun ctx -> arrow ctx }

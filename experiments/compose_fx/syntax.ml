@@ -67,15 +67,26 @@ let chase_tags tags ext : ty_tag list * tvar =
   in
   go tags ext
 
+type letrec = [ `Let | `LetRec ] [@@deriving show]
+
+type e_pat = loc * tvar * pat
+(** An elaborated pattern *)
+
+and pat = PTag of (loc * string) * e_pat list | PVar of loc_symbol
+
 type e_expr = loc * tvar * expr
 (** An elaborated expression *)
 
 and expr =
   | Var of symbol
   | Tag of string * e_expr list
-  | Let of (loc * loc_tvar * symbol) * e_expr * e_expr  (** let x = e in b *)
+  | Let of letrec * (loc * loc_tvar * symbol) * e_expr * e_expr
+      (** let x = e in b *)
   | Clos of (loc * loc_tvar * symbol) * e_expr
   | Call of e_expr * e_expr
+  | When of e_expr * branch list
+
+and branch = e_pat * e_expr
 
 (** A top-level definition *)
 type def =
@@ -334,6 +345,9 @@ let pp_tvar :
             in
             with_parens (parens >> `Free) pty;
             fprintf f "@]"
+        | Alias { alias = head; real }
+          when Symbol.syn_of symbols (snd @@ fst head) = "X" ->
+            go visited parens real
         | Alias { alias = head, args; real = _ } ->
             let header f () =
               let rec go_args = function
@@ -395,17 +409,31 @@ let tightest_node_at_var : loc -> loc_tvar -> found_node =
 
 let tightest_node_at_expr : loc -> e_expr -> found_node =
  fun loc program ->
+  let rec pat (l, ty, p) : found_node =
+    let deeper =
+      match p with
+      | PTag (_, args) -> List.find_map pat args
+      | PVar (l, x) -> if within loc l then Some (l, ty, `Var x) else None
+    in
+    or_else deeper (fun () ->
+        if within loc l then Some (l, ty, `Generic) else None)
+  in
   let rec expr (l, ty, e) : found_node =
     let deeper =
       match e with
       | Var _ -> None
-      | Let ((l, ty, x), e1, e2) ->
+      | Let (_, (l, ty, x), e1, e2) ->
           if within loc l then Some (l, snd ty, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
       | Tag (_, tags) -> List.find_map (fun tag -> expr tag) tags
       | Clos ((l, ty, x), e) ->
           if within loc l then Some (l, snd ty, `Var x) else expr e
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
+      | When (e, branches) ->
+          let check_branch (pat', body) =
+            or_else (pat pat') (fun () -> expr body)
+          in
+          or_else (expr e) (fun () -> List.find_map check_branch branches)
     in
     or_else deeper (fun () ->
         if within loc l then
@@ -481,6 +509,33 @@ let with_parens f needs_parens inside =
   inside ();
   if needs_parens then pp_print_string f ")"
 
+let pp_pat symbols f p =
+  let open Format in
+  let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
+  let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
+
+  let rec go parens (_, _, atom) =
+    match atom with
+    | PTag ((_, t), atoms) ->
+        fprintf f "@[<hov 2>";
+        let printer () =
+          fprintf f "%s" t;
+          List.iteri
+            (fun i p ->
+              if i > 0 then fprintf f "@ ";
+              go `Apply p)
+            atoms
+        in
+        with_parens f (parens >> `Free) printer;
+        fprintf f "@]"
+    | PVar (_, x) -> pp_symbol symbols f x
+  in
+  go `Free p
+
+let pp_letrec f = function
+  | `Let -> Format.pp_print_string f "let"
+  | `LetRec -> Format.pp_print_string f "let rec"
+
 let pp_expr symbols f =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
@@ -502,10 +557,10 @@ let pp_expr symbols f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | Let ((_, _, x), rhs, body) ->
+    | Let (letrec, (_, _, x), rhs, body) ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<hv 2>let %a =@ " (pp_symbol symbols) x;
+          fprintf f "@[<hv 2>%a %a =@ " pp_letrec letrec (pp_symbol symbols) x;
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free body
@@ -522,6 +577,17 @@ let pp_expr symbols f =
         fprintf f "@ ";
         go `Apply arg;
         fprintf f "@]"
+    | When (e, branches) ->
+        fprintf f "@[<v 0>@[<hv 2>when@ ";
+        go `Free e;
+        fprintf f " is@]@ @[<hv 2>";
+        List.iteri
+          (fun i (pat, body) ->
+            fprintf f "|@ %a ->@ " (pp_pat symbols) pat;
+            go `Free body;
+            if i < List.length branches - 1 then fprintf f "@ ")
+          branches;
+        fprintf f "@]@,@]"
   in
   go `Free
 

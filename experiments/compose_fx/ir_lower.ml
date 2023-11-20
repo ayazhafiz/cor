@@ -80,26 +80,53 @@ module SymbolMap = struct
   let union u v =
     let f _ x _ = Some x in
     union f u v
+
+  let diff u v =
+    let f _ _ y = y in
+    merge f u v
 end
 
-let rec free : S.e_expr -> S.tvar SymbolMap.t =
- fun (_, t, e) ->
-  match e with
-  | S.Var x -> SymbolMap.singleton x t
-  | S.Tag (_, es) ->
-      List.fold_left
-        (fun acc e -> SymbolMap.union (free e) acc)
-        SymbolMap.empty es
-  | S.Let ((_, _, x), e, b) ->
-      let free_e = free e in
-      let free_b = free b in
-      let free_b = SymbolMap.remove x free_b in
-      SymbolMap.union free_e free_b
-  | S.Clos ((_, _, a), b) -> SymbolMap.remove a (free b)
-  | S.Call (e1, e2) ->
-      let free_e1 = free e1 in
-      let free_e2 = free e2 in
-      SymbolMap.union free_e1 free_e2
+let vars_of_pat : S.e_pat -> S.tvar SymbolMap.t =
+  let rec go_pat (_, t, p) =
+    match p with
+    | S.PVar (_, x) -> SymbolMap.singleton x t
+    | S.PTag (_, ps) ->
+        List.fold_left
+          (fun acc p -> SymbolMap.union (go_pat p) acc)
+          SymbolMap.empty ps
+  in
+  go_pat
+
+let free : S.e_expr -> S.tvar SymbolMap.t =
+ fun e ->
+  let rec go_branch (p, e) =
+    let defined_p = vars_of_pat p in
+    let free_e = go_expr e in
+    SymbolMap.diff free_e defined_p
+  and go_expr (_, t, e) =
+    match e with
+    | S.Var x -> SymbolMap.singleton x t
+    | S.Tag (_, es) ->
+        List.fold_left
+          (fun acc e -> SymbolMap.union (go_expr e) acc)
+          SymbolMap.empty es
+    | S.Let (_, (_, _, x), e, b) ->
+        let free_e = go_expr e in
+        let free_b = go_expr b in
+        let free_b = SymbolMap.remove x free_b in
+        SymbolMap.union free_e free_b
+    | S.Clos ((_, _, a), b) -> SymbolMap.remove a (go_expr b)
+    | S.Call (e1, e2) ->
+        let free_e1 = go_expr e1 in
+        let free_e2 = go_expr e2 in
+        SymbolMap.union free_e1 free_e2
+    | S.When (e, branches) ->
+        let free_e = go_expr e in
+        List.fold_left
+          (fun acc branch -> SymbolMap.union (go_branch branch) acc)
+          free_e branches
+  in
+  go_expr e
 
 type pending_closure = {
   proc_name : symbol;
@@ -152,7 +179,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         in
         let tag_asgns, expr = build_union layout in
         (arg_asgns @ tag_asgns, (layout, expr))
-    | S.Let ((_, (_, x_ty), x), e, b) ->
+    | S.Let (_, (_, (_, x_ty), x), e, b) ->
         let x_layout = layout_of_tvar ctx x_ty in
         let x_var = (x_layout, x) in
         let e_asgns, (_, e_expr) =
@@ -235,6 +262,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr proc_name) in
         ( [ stack_captures_asgn; box_captures_asgn; captures_asgn; fn_ptr_asgn ],
           (ref closure_repr, MakeStruct [ fn_ptr_var; captures_var ]) )
+    | S.When _ -> failwith "compile decision tree"
   in
   let result = go_var expr in
   (result, List.rev !pending_procs)

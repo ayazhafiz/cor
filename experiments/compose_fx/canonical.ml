@@ -183,7 +183,9 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
     | Some (x, _) ->
         can_error "instantiate_alias" (show_variable x ^ " already mapped")
     | None -> ());
-    inst_ty new_arg_map scheme_ty
+    (* instantiate the real type *)
+    let real = inst_ty new_arg_map scheme_ty in
+    real
   and inst_ty : arg_map -> tvar -> tvar =
    fun arg_map tvar ->
     let rec inst_ty : tvar -> tvar =
@@ -202,7 +204,7 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
             match tvar_deref tvar with
             | Unbd _ ->
                 can_error "instantiate_alias" ("unbound type" ^ show_tvar tvar)
-            | Link ty -> Link ty
+            | Link ty -> Link (inst_ty ty)
             | ForA a -> ForA a
             | Content TTagEmpty -> Content TTagEmpty
             | Content (TPrim `Str) -> Content (TPrim `Str)
@@ -270,10 +272,15 @@ let canonicalize_defs : ctx -> alias_map -> e_def list -> can_def list =
         let run = match def with Run _ -> true | _ -> false in
         let def = { name = x; ty = def_t; def = expr; sig_ = None; run } in
         def :: inner rest
-    | (_, _, Sig ((_, x), _)) :: _ ->
-        can_error "canonicalize_defs"
-          ("signature " ^ show_symbol x ^ " does not have a definition")
+    | (_, sig_t, Sig ((_, x), (_, sig_))) :: rest ->
+        instantiate_signature ctx alias_map sig_;
+        tvar_set sig_t @@ Link sig_;
+        if false then
+          can_error "canonicalize_defs"
+            ("signature " ^ show_symbol x ^ " does not have a definition");
+        inner rest
   in
+
   inner @@ defs
 
 type program = can_def list

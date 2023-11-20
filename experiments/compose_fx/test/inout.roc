@@ -1,5 +1,3 @@
-# cor +parse -print
-# cor +can -print
 # cor +solve -elab
 # cor +ir -print
 # Task.roc
@@ -45,99 +43,17 @@ Op a : [
 ]
 
 sig main : Task {} (Op *)
-run main = await lineIn (\s -> lineOut s)
+let main = await lineIn (\s -> lineOut s)
 #          ^^^^^          ^    ^^^^^^^
 ;;
 
-> cor-out +parse -print
-> Task 'v 'op : ('v1 -> 'op1) -> 'op2
-> 
-> sig await :
->   (Task 'a 'op)
->     -> ('a1 -> Task 'b 'op1) -> Task 'b1 'op2
-> let await =
->   \fromResult ->
->     \next ->
->       \continue ->
->         fromResult
->           \result ->
->             (let inner = next result in
->             inner continue)
-> 
-> OpIn 'a 'b :
->   [
->      StdinLine (Str -> OpIn 'a1 'b1),
->      Done 'a2
->   ]'b2
-> 
-> sig lineIn : Task Str (OpIn '* '*)
-> let lineIn =
->   \toNext -> (StdinLine \s -> toNext s)
-> 
-> OpOut 'a 'b :
->   [
->      StdoutLine Str ({} -> OpOut 'a1 'b1),
->      Done 'a2
->   ]'b2
-> 
-> sig lineOut : Str -> Task {} (OpOut '* '*)
-> let lineOut =
->   \s -> \toNext -> (StdoutLine s \x -> toNext x)
-> 
-> Op 'a :
->   [
->      StdinLine (Str -> Op 'a1),
->      StdoutLine Str ({} -> Op 'a2),
->      Done 'a3
->   ]
-> 
-> sig main : Task {} (Op '*)
-> run main = await lineIn \s -> lineOut s
-
-> cor-out +can -print
-> Task 'v 'op : ('v -> 'op) -> 'op
-> 
-> sig await :
->   (Task 'a 'op)
->     -> ('a -> Task 'b 'op) -> Task 'b 'op
-> let await =
->   \fromResult ->
->     \next ->
->       \continue ->
->         fromResult
->           \result ->
->             (let inner = next result in
->             inner continue)
-> 
-> OpIn 'a 'b :
->   [
->      StdinLine (Str -> %<..OpIn 'a 'b>),
->      Done 'a
->   ]'b
-> 
-> sig lineIn : Task Str %(OpIn '* '*)
-> let lineIn =
->   \toNext -> (StdinLine \s -> toNext s)
-> 
-> OpOut 'a 'b :
->   [
->      StdoutLine Str ({} -> %<..OpOut 'a 'b>),
->      Done 'a
->   ]'b
-> 
-> sig lineOut : Str -> Task {} %(OpOut '* '*)
-> let lineOut =
->   \s -> \toNext -> (StdoutLine s \x -> toNext x)
-> 
-> Op 'a :
->   [
->      StdinLine (Str -> %<..Op 'a>),
->      StdoutLine Str ({} -> %<..Op 'a>),
->      Done 'a
->   ]
-> 
-> sig main : Task {} %(Op '*)
-> run main = await lineIn \s -> lineOut s
+run main_handler =
+#   ^^^^^^^^^^^^
+    let op = main (\x -> Done x) in
+    let rec handle = \op -> op in
+#           ^^^^^^
+    handle op
+;;
 
 > cor-out +solve -elab
 > # Task.roc
@@ -183,20 +99,26 @@ run main = await lineIn (\s -> lineOut s)
 > ]
 > 
 > sig main : Task {} (Op *)
-> run main = await lineIn (\s -> lineOut s)
-> #                              ^^^^^^^ Str -> Task {} %(OpOut ?* ?*)
+> let main = await lineIn (\s -> lineOut s)
+> #                              ^^^^^^^ Str -> Task {} %(Op 'a)
 > #                         ^ Str
-> #          ^^^^^ (Task Str %(OpIn ?* ?*))
-> #          ^^^^^   -> (Str -> Task {} %(OpOut ?* ?*))
-> #          ^^^^^        -> Task {} %(Op '*)
+> #          ^^^^^ (Task Str %(Op 'a))
+> #          ^^^^^   -> (Str -> Task {} %(Op 'a))
+> #          ^^^^^        -> Task {} %(Op 'a)
+> ;;
+> 
+> run main_handler =
+> #   ^^^^^^^^^^^^ %Op {}
+>     let op = main (\x -> Done x) in
+>     let rec handle = \op -> op in
+> #           ^^^^^^ %(Op {}) -> %Op {}
+>     handle op
 > ;;
 > 
 
 > cor-out +ir -print
 > proc clos3(captures_3: box<erased>, result: str):
->   box<
->     %type_0 =
->     [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]>
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
 > {
 >   let captures_box3: box<{ { *fn, box<erased> }, { *fn, box<erased> } }> =
 >     @ptr_cast(
@@ -212,17 +134,18 @@ run main = await lineIn (\s -> lineOut s)
 >   let fnptr2: *fn = @get_struct_field<inner, 0>;
 >   let captures2: box<erased> = @get_struct_field<inner, 1>;
 >   let var5:
->         box<
->           %type_0 =
->           [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]> =
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
 >     @call_indirect(fnptr2, captures2, continue);
 >   return var5;
 > }
 > 
 > proc clos2(captures_2: box<erased>, continue: { *fn, box<erased> }):
->   box<
->     %type_0 =
->     [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]>
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
 > {
 >   let captures_box2: box<{ { *fn, box<erased> }, { *fn, box<erased> } }> =
 >     @ptr_cast(
@@ -242,9 +165,12 @@ run main = await lineIn (\s -> lineOut s)
 >   let fn_ptr_3: *fn = @make_fn_ptr<clos3>;
 >   let var3: { *fn, box<erased> } = @make_struct{ fn_ptr_3, captures_3 };
 >   let var4:
->         box<
->           %type_0 =
->           [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]> =
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
 >     @call_indirect(fnptr, captures, var3);
 >   return var4;
 > }
@@ -293,9 +219,7 @@ run main = await lineIn (\s -> lineOut s)
 > global await1: { *fn, box<erased> } = @call_direct(await_thunk);
 > 
 > proc clos5(captures_5: box<erased>, s: str):
->   box<
->     %type_0 =
->     [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]>
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
 > {
 >   let captures_box5: box<{ { *fn, box<erased> } }> =
 >     @ptr_cast(captures_5 as box<{ { *fn, box<erased> } }>);
@@ -304,17 +228,18 @@ run main = await lineIn (\s -> lineOut s)
 >   let fnptr3: *fn = @get_struct_field<toNext, 0>;
 >   let captures3: box<erased> = @get_struct_field<toNext, 1>;
 >   let var9:
->         box<
->           %type_0 =
->           [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]> =
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
 >     @call_indirect(fnptr3, captures3, s);
 >   return var9;
 > }
 > 
 > proc clos4(captures_4: box<erased>, toNext: { *fn, box<erased> }):
->   box<
->     %type_0 =
->     [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]>
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
 > {
 >   let captures_box4: box<{}> = @ptr_cast(captures_4 as box<{}>);
 >   let captures_stack4: {} = @get_boxed<captures_box4>;
@@ -325,13 +250,14 @@ run main = await lineIn (\s -> lineOut s)
 >   let fn_ptr_5: *fn = @make_fn_ptr<clos5>;
 >   let var7: { *fn, box<erased> } = @make_struct{ fn_ptr_5, captures_5 };
 >   let struct: { { *fn, box<erased> } } = @make_struct{ var7 };
->   let union: [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ] =
->     @make_union<0, struct>;
 >   let var8:
->         box<
->           %type_0 =
->           [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]> =
->     @make_box(union);
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
+>     @make_union<1, struct>;
 >   return var8;
 > }
 > 
@@ -347,10 +273,8 @@ run main = await lineIn (\s -> lineOut s)
 > 
 > global lineIn1: { *fn, box<erased> } = @call_direct(lineIn_thunk);
 > 
-> proc clos8(captures_8: box<erased>, x: str):
->   box<
->     %type_0 =
->     [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]>
+> proc clos8(captures_8: box<erased>, x: {}):
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
 > {
 >   let captures_box8: box<{ { *fn, box<erased> } }> =
 >     @ptr_cast(captures_8 as box<{ { *fn, box<erased> } }>);
@@ -359,17 +283,18 @@ run main = await lineIn (\s -> lineOut s)
 >   let fnptr4: *fn = @get_struct_field<toNext1, 0>;
 >   let captures4: box<erased> = @get_struct_field<toNext1, 1>;
 >   let var14:
->         box<
->           %type_0 =
->           [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]> =
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
 >     @call_indirect(fnptr4, captures4, x);
 >   return var14;
 > }
 > 
 > proc clos7(captures_7: box<erased>, toNext1: { *fn, box<erased> }):
->   box<
->     %type_0 =
->     [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]>
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
 > {
 >   let captures_box7: box<{ str }> = @ptr_cast(captures_7 as box<{ str }>);
 >   let captures_stack7: { str } = @get_boxed<captures_box7>;
@@ -381,13 +306,14 @@ run main = await lineIn (\s -> lineOut s)
 >   let fn_ptr_8: *fn = @make_fn_ptr<clos8>;
 >   let var12: { *fn, box<erased> } = @make_struct{ fn_ptr_8, captures_8 };
 >   let struct1: { str, { *fn, box<erased> } } = @make_struct{ s1, var12 };
->   let union1: [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ] =
->     @make_union<1, struct1>;
 >   let var13:
->         box<
->           %type_0 =
->           [ `0 { { *fn, box<erased> } }, `1 { str, { *fn, box<erased> } } ]> =
->     @make_box(union1);
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
+>     @make_union<2, struct1>;
 >   return var13;
 > }
 > 
@@ -444,6 +370,77 @@ run main = await lineIn (\s -> lineOut s)
 >   return var17;
 > }
 > 
-> global main: { *fn, box<erased> } = @call_direct(main_thunk);
+> global main1: { *fn, box<erased> } = @call_direct(main_thunk);
 > 
-> entry main;
+> proc clos10(captures_10: box<erased>, x1: {}):
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
+> {
+>   let captures_box10: box<{}> = @ptr_cast(captures_10 as box<{}>);
+>   let captures_stack10: {} = @get_boxed<captures_box10>;
+>   let struct2: { {} } = @make_struct{ x1 };
+>   let var21:
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
+>     @make_union<0, struct2>;
+>   return var21;
+> }
+> 
+> proc handle1(
+>   captures_handle: box<erased>,
+>    op1:
+>      [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ,
+>      ]):
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
+> {
+>   let captures_box11: box<{}> = @ptr_cast(captures_handle as box<{}>);
+>   let captures_stack11: {} = @get_boxed<captures_box11>;
+>   return op1;
+> }
+> 
+> proc main_handler_thunk():
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
+> {
+>   let fnptr8: *fn = @get_struct_field<main1, 0>;
+>   let captures8: box<erased> = @get_struct_field<main1, 1>;
+>   let captures_stack_10: {} = @make_struct{};
+>   let captures_box_10: box<{}> = @make_box(captures_stack_10);
+>   let captures_10: box<erased> = @ptr_cast(captures_box_10 as box<erased>);
+>   let fn_ptr_10: *fn = @make_fn_ptr<clos10>;
+>   let var19: { *fn, box<erased> } = @make_struct{ fn_ptr_10, captures_10 };
+>   let op:
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
+>     @call_indirect(fnptr8, captures8, var19);
+>   let captures_stack_handle: {} = @make_struct{};
+>   let captures_box_handle: box<{}> = @make_box(captures_stack_handle);
+>   let captures_handle: box<erased> =
+>     @ptr_cast(captures_box_handle as box<erased>);
+>   let fn_ptr_handle: *fn = @make_fn_ptr<handle1>;
+>   let handle: { *fn, box<erased> } =
+>     @make_struct{ fn_ptr_handle, captures_handle };
+>   let fnptr9: *fn = @get_struct_field<handle, 0>;
+>   let captures9: box<erased> = @get_struct_field<handle, 1>;
+>   let var20:
+>         [
+>          `0 { {} },
+>           `1 { { *fn, box<erased> } },
+>           `2 { str, { *fn, box<erased> } }
+>          ,
+>         ] =
+>     @call_indirect(fnptr9, captures9, op);
+>   return var20;
+> }
+> 
+> global main_handler:
+>   [ `0 { {} }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
+>   = @call_direct(main_handler_thunk);
+> 
+> entry main_handler;

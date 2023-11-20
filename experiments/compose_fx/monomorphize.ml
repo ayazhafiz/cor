@@ -80,7 +80,23 @@ type ctx = { symbols : Symbol.t; fresh_tvar : fresh_tvar }
 let clone_expr : ctx -> fenv -> e_expr -> e_expr * queue =
  fun ctx fenv expr ->
   let type_cache : type_cache = ref [] in
-  let rec go : e_expr -> e_expr * queue =
+  let rec go_pat : e_pat -> e_pat * queue =
+   fun (l, t, p) ->
+    let t = clone_type type_cache t in
+    let p, needed =
+      match p with
+      | PVar (l_x, x) -> (PVar (l_x, x), [])
+      | PTag ((l_tag, tag), args) ->
+          let args, needed = List.split @@ List.map go_pat args in
+          (PTag ((l_tag, tag), args), List.concat needed)
+    in
+    ((l, t, p), needed)
+  and go_branch : branch -> branch * queue =
+   fun (p, e) ->
+    let p, p_needed = go_pat p in
+    let e, e_needed = go e in
+    ((p, e), p_needed @ e_needed)
+  and go : e_expr -> e_expr * queue =
    fun (l, t, e) ->
     let t = clone_type type_cache t in
     let e, needed =
@@ -96,11 +112,11 @@ let clone_expr : ctx -> fenv -> e_expr -> e_expr * queue =
       | Tag (t, es) ->
           let es, needed = List.split @@ List.map go es in
           (Tag (t, es), List.concat needed)
-      | Let ((l_x, (l_tx, tx), x), e, b) ->
+      | Let (letrec, (l_x, (l_tx, tx), x), e, b) ->
           let tx = clone_type type_cache tx in
           let e, e_needed = go e in
           let b, b_needed = go b in
-          (Let ((l_x, (l_tx, tx), x), e, b), e_needed @ b_needed)
+          (Let (letrec, (l_x, (l_tx, tx), x), e, b), e_needed @ b_needed)
       | Clos ((l_a, (l_ta, ta), a), b) ->
           let ta = clone_type type_cache ta in
           let b, b_needed = go b in
@@ -109,6 +125,13 @@ let clone_expr : ctx -> fenv -> e_expr -> e_expr * queue =
           let e1, e1_needed = go e1 in
           let e2, e2_needed = go e2 in
           (Call (e1, e2), e1_needed @ e2_needed)
+      | When (e, branches) ->
+          let e, e_needed = go e in
+          let branches, branches_needed =
+            List.split @@ List.map go_branch branches
+          in
+          let branches_needed = List.concat branches_needed in
+          (When (e, branches), e_needed @ branches_needed)
     in
     ((l, t, e), needed)
   in

@@ -253,7 +253,27 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
 let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
  fun symbols fresh_tvar venv expr ->
   let unify c = unify symbols c fresh_tvar in
-  let rec infer : venv -> e_expr -> tvar =
+  let rec infer_pat : venv -> e_pat -> venv * tvar =
+   fun venv (_, t, p) ->
+    let venv, ty =
+      match p with
+      | PTag ((_, tag), args) ->
+          let arg_venvs, arg_tys =
+            List.split @@ List.map (infer_pat venv) args
+          in
+          let args_venv = List.concat arg_venvs in
+          let tag = (tag, List.map (fun t -> (noloc, t)) arg_tys) in
+          let ext = (noloc, fresh_tvar @@ Unbd None) in
+          let tag_ty = TTag { tags = [ tag ]; ext } in
+          let ty = fresh_tvar @@ Content tag_ty in
+          (args_venv, ty)
+      | PVar (_, x) ->
+          let t = fresh_tvar @@ Unbd None in
+          ([ (x, t) ], t)
+    in
+    unify "pattern" t ty;
+    (venv, ty)
+  and infer : venv -> e_expr -> tvar =
    fun venv (_, t, e) ->
     let ty =
       match e with
@@ -270,10 +290,18 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           in
           let ext = (noloc, fresh_tvar @@ Unbd None) in
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
-      | Let ((_, (_, t_x), x), e, b) ->
-          let t_x' = infer venv e in
-          unify ("let " ^ Symbol.syn_of symbols x) t_x t_x';
-          infer ((x, t_x) :: venv) b
+      | Let (letrec, (_, (_, t_x), x), e, b) -> (
+          match letrec with
+          | `LetRec ->
+              let t_x' = fresh_tvar @@ Unbd None in
+              unify ("rec def " ^ Symbol.syn_of symbols x) t_x t_x';
+              let t_x'' = infer ((x, t_x) :: venv) e in
+              unify ("rec def " ^ Symbol.syn_of symbols x) t_x' t_x'';
+              infer ((x, t_x) :: venv) b
+          | `Let ->
+              let t_x' = infer venv e in
+              unify ("let " ^ Symbol.syn_of symbols x) t_x t_x';
+              infer ((x, t_x) :: venv) b)
       | Clos ((_, (_, t_x), x), e) ->
           let t_ret = infer ((x, t_x) :: venv) e in
           fresh_tvar @@ Content (TFn ((noloc, t_x), (noloc, t_ret)))
@@ -286,6 +314,17 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           in
           unify "call" t_fn t_fn_expected;
           t_ret
+      | When (e, branches) ->
+          let t_e = infer venv e in
+          let t_b = fresh_tvar @@ Unbd None in
+          List.iter
+            (fun (pat, body) ->
+              let venv_pat, t_pat = infer_pat venv pat in
+              unify "when" t_e t_pat;
+              let t_body = infer (venv_pat @ venv) body in
+              unify "when" t_b t_body)
+            branches;
+          t_b
     in
     unify "top-level expr" t ty;
     ty
