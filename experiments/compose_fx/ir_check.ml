@@ -74,6 +74,8 @@ let lookup_var : string -> venv -> var -> layout =
 let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
  fun ctx fenv venv lay e ->
   match e with
+  | Lit (`String _) -> check_lay_equiv ctx (ref Str) lay
+  | Lit (`Int _) -> check_lay_equiv ctx (ref Int) lay
   | Var x ->
       let l_x = lookup_var ctx venv x in
       check_lay_equiv ctx l_x lay

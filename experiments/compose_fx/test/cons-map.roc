@@ -1,5 +1,5 @@
 # cor +solve -elab
-
+# cor +ir -print
 List a : [ Nil, Cons a (List a) ]
 
 sig map : (a -> b) -> List a -> List b
@@ -12,6 +12,11 @@ let map = \f -> \xs ->
     end
   in go xs
 ;;
+
+let mapper = \x -> A x;;
+#   ^^^^^^
+
+run main = map mapper (Cons 1 (Cons 2 Nil));;
 
 > cor-out +solve -elab
 > 

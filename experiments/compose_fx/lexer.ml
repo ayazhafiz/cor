@@ -6,6 +6,7 @@ exception SyntaxError of string
 let whitespace = [%sedlex.regexp? Plus (' ' | '\t')]
 let newline = [%sedlex.regexp? '\n' | "\r\n"]
 let nat = [%sedlex.regexp? Plus '0' .. '9']
+let string_literal = [%sedlex.regexp? '"', Star (Compl '"'), '"']
 
 let lower =
   [%sedlex.regexp?
@@ -36,6 +37,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "is" -> make lexbuf (fun i -> IS i)
   | "end" -> make lexbuf (fun i -> END i)
   | "Str" -> make lexbuf (fun i -> STR i)
+  | "Int" -> make lexbuf (fun i -> INT i)
   | "{}" -> make lexbuf (fun i -> UNIT i)
   | "in" -> make lexbuf (fun i -> IN i)
   | "=" -> make lexbuf (fun i -> EQ i)
@@ -50,8 +52,16 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "*" -> make lexbuf (fun i -> STAR i)
   | "|" -> make lexbuf (fun i -> PIPE i)
   | "\\" -> make lexbuf (fun i -> LAMBDA i)
+  | string_literal ->
+      make lexbuf (fun i ->
+          let s = Utf8.lexeme lexbuf in
+          let s = String.sub s 1 (String.length s - 2) in
+          let s = Scanf.unescaped s in
+          STRING (i, s))
   | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))
   | upper -> make lexbuf (fun i -> UPPER (i, Utf8.lexeme lexbuf))
+  | nat ->
+      make lexbuf (fun i -> NUMBER (i, int_of_string @@ Utf8.lexeme lexbuf))
   | "#" -> comment lexbuf
   | eof -> EOF
   | _ ->

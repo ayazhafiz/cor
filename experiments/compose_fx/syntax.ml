@@ -23,7 +23,7 @@ and ty_content =
   | TFn of loc_tvar * loc_tvar
   | TTag of { tags : ty_tag list; ext : loc_tvar }
   | TTagEmpty
-  | TPrim of [ `Str | `Unit ]
+  | TPrim of [ `Str | `Int | `Unit ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
 
@@ -79,6 +79,8 @@ type e_expr = loc * tvar * expr
 
 and expr =
   | Var of symbol
+  | Int of int
+  | Str of string
   | Tag of string * e_expr list
   | Let of letrec * (loc * loc_tvar * symbol) * e_expr * e_expr
       (** let x = e in b *)
@@ -240,6 +242,7 @@ let pp_tvar :
     | Link _, _ -> failwith "unreachable"
     | Content TTagEmpty, _ -> pp_print_string f "[]"
     | Content (TPrim `Str), _ -> pp_print_string f "Str"
+    | Content (TPrim `Int), _ -> pp_print_string f "Int"
     | Content (TPrim `Unit), _ -> pp_print_string f "{}"
     | Content (TTag { tags; ext }), _ ->
         let tags, ext = chase_tags tags @@ snd ext in
@@ -323,6 +326,7 @@ let pp_tvar :
         | Link t -> go visited parens t
         | Content TTagEmpty -> pp_print_string f "[]"
         | Content (TPrim `Str) -> pp_print_string f "Str"
+        | Content (TPrim `Int) -> pp_print_string f "Int"
         | Content (TPrim `Unit) -> pp_print_string f "{}"
         | Content (TTag { tags; ext }) ->
             let tags, ext = chase_tags tags @@ snd ext in
@@ -392,7 +396,7 @@ let tightest_node_at_var : loc -> loc_tvar -> found_node =
       match tvar_deref ty with
       | Link ty -> go (l, ty)
       | Unbd _ | ForA _ -> None
-      | Content (TPrim (`Str | `Unit)) -> None
+      | Content (TPrim (`Str | `Unit | `Int)) -> None
       | Content TTagEmpty -> None
       | Content (TTag { tags; ext }) ->
           let found_in_tag = List.find_map go_tag tags in
@@ -421,7 +425,7 @@ let tightest_node_at_expr : loc -> e_expr -> found_node =
   let rec expr (l, ty, e) : found_node =
     let deeper =
       match e with
-      | Var _ -> None
+      | Var _ | Int _ | Str _ -> None
       | Let (_, (l, ty, x), e1, e2) ->
           if within loc l then Some (l, snd ty, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
@@ -544,6 +548,8 @@ let pp_expr symbols f =
   let rec go parens (_, _, e) =
     match e with
     | Var x -> pp_symbol symbols f x
+    | Int i -> pp_print_int f i
+    | Str s -> fprintf f "\"%s\"" (String.escaped s)
     | Tag (tag, payloads) ->
         fprintf f "@[<v 0>";
         let expr () =

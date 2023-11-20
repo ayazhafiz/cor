@@ -25,6 +25,8 @@ let xv = Syntax.xv
 
 %token <Syntax.loc * string> LOWER
 %token <Syntax.loc * string> UPPER
+%token <Syntax.loc * int> NUMBER
+%token <Syntax.loc * string> STRING
 
 %token <Syntax.loc> LET
 %token <Syntax.loc> REC
@@ -34,6 +36,7 @@ let xv = Syntax.xv
 %token <Syntax.loc> IS
 %token <Syntax.loc> END
 %token <Syntax.loc> STR
+%token <Syntax.loc> INT
 %token <Syntax.loc> UNIT
 %token <Syntax.loc> IN
 %token <Syntax.loc> COMMA
@@ -204,6 +207,16 @@ expr_atom:
       (range l r, xty e, xv e)
   }
   | head=UPPER { fun ctx -> (fst head, ctx.fresh_tvar @@ Unbd None, Tag(snd head, [])) }
+  | s=STRING { fun ctx ->
+      let loc = fst s in
+      let sym = ctx.fresh_tvar @@ Unbd None in
+      (loc, sym, Str (snd s))
+  }
+  | n=NUMBER { fun ctx ->
+      let loc = fst n in
+      let sym = ctx.fresh_tvar @@ Unbd None in
+      (loc, sym, Int (snd n))
+  }
 
 branch_seq:
   | e=END { fun _ -> ([], e) }
@@ -301,6 +314,9 @@ ty_atom:
   }
   | s=STR { fun ctx ->
       (s, ctx.fresh_tvar @@ Content (TPrim `Str))
+  }
+  | s=INT { fun ctx ->
+      (s, ctx.fresh_tvar @@ Content (TPrim `Int))
   }
   | s=UNIT { fun ctx ->
       (s, ctx.fresh_tvar @@ Content (TPrim `Unit))

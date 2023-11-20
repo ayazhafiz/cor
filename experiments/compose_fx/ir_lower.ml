@@ -1,74 +1,7 @@
 open Ir
+open Ir_layout
 open Symbol
 module S = Syntax
-
-type fresh_rec_id = unit -> rec_id
-type layout_cache = (S.variable * layout) list ref
-
-type ctx = {
-  symbols : Symbol.t;
-  cache : layout_cache;
-  fresh_rec_id : fresh_rec_id;
-}
-
-let new_ctx symbols =
-  let cache = ref [] in
-  let next_id = ref 0 in
-  let fresh_rec_id () =
-    let id = !next_id in
-    next_id := id + 1;
-    `Rec id
-  in
-  { symbols; cache; fresh_rec_id }
-
-let erased_captures_lay = ref @@ Box (ref @@ Erased, None)
-let closure_repr = Struct [ ref @@ FunctionPointer; erased_captures_lay ]
-
-let layout_of_tvar : ctx -> S.tvar -> layout =
- fun { cache; fresh_rec_id; _ } tvar ->
-  let rec go tvar : layout =
-    let tvar = S.unlink_w_alias tvar in
-    let var = S.tvar_v tvar in
-    match List.assoc_opt var !cache with
-    | Some layout -> layout
-    | None ->
-        let lay = ref @@ Union [] in
-        cache := (var, lay) :: !cache;
-        let repr =
-          match S.tvar_deref tvar with
-          | S.Link _ -> failwith "impossible"
-          | S.Alias _ -> failwith "impossible"
-          | S.Unbd _ -> Union []
-          | S.ForA _ -> Union [] (* TODO monomorphize *)
-          | S.Content (S.TPrim `Str) -> Str
-          | S.Content (S.TPrim `Unit) -> Struct []
-          | S.Content S.TTagEmpty -> Union []
-          | S.Content (S.TTag { tags; ext = _, ext }) ->
-              let tags, _ext = S.chase_tags tags ext in
-              let translate_tag : S.ty_tag -> layout =
-               fun (_, args) ->
-                let struct' = List.map go @@ List.map snd @@ args in
-                ref @@ Struct struct'
-              in
-              let tags = List.map translate_tag tags in
-              let union = Union tags in
-              union
-          | S.Content (S.TFn (_, _)) -> closure_repr
-        in
-        let recurs = S.tvar_recurs tvar in
-        let repr =
-          if recurs then Box (ref @@ repr, Some (fresh_rec_id ())) else repr
-        in
-        lay := repr;
-        lay
-  in
-  go tvar
-
-let tag_id ctor ty =
-  match S.tvar_deref @@ S.unlink_w_alias ty with
-  | S.Content (S.TTag { tags; ext = _ }) ->
-      Util.index_of (fun (name, _) -> name = ctor) tags
-  | _ -> failwith "unreachable"
 
 module SymbolMap = struct
   include Map.Make (struct
@@ -106,6 +39,7 @@ let free : S.e_expr -> S.tvar SymbolMap.t =
   and go_expr (_, t, e) =
     match e with
     | S.Var x -> SymbolMap.singleton x t
+    | S.Str _ | S.Int _ -> SymbolMap.empty
     | S.Tag (_, es) ->
         List.fold_left
           (fun acc e -> SymbolMap.union (go_expr e) acc)
@@ -156,6 +90,8 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
   and go ?(name_hint = None) (_, ty, e) =
     let layout = layout_of_tvar ctx ty in
     match e with
+    | S.Str s -> ([], (layout, Lit (`String s)))
+    | S.Int i -> ([], (layout, Lit (`Int i)))
     | S.Var s -> ([], (layout, Var (layout, s)))
     | S.Tag (ctor, args) ->
         let id = tag_id ctor ty in
@@ -351,8 +287,10 @@ let compile_defs :
   go specs;
   compile_pending_procs ctx @@ List.rev !pending_procs
 
-let compile : Symbol.t -> Monomorphize.specialized -> program =
- fun symbols ({ specializations; entry_points } : Monomorphize.specialized) ->
-  let ctx = new_ctx symbols in
+let compile :
+    Symbol.t -> Syntax.fresh_tvar -> Monomorphize.specialized -> program =
+ fun symbols fresh_tvar
+     ({ specializations; entry_points } : Monomorphize.specialized) ->
+  let ctx = new_ctx symbols fresh_tvar in
   let definitions = compile_defs ctx specializations in
   { definitions; entry_points }

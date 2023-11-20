@@ -5,6 +5,7 @@ type rec_id = [ `Rec of int ]
 
 type layout_repr =
   | Str
+  | Int
   | Struct of layout list
   | Union of layout list
   | Box of layout * rec_id option
@@ -14,9 +15,11 @@ type layout_repr =
 and layout = layout_repr ref
 
 type var = layout * Symbol.symbol
+type lit = [ `Int of int | `String of string ]
 
 type expr =
   | Var of var
+  | Lit of lit
   | MakeUnion of int * var
   | GetUnionId of var
   | GetUnionStruct of var
@@ -46,6 +49,26 @@ type program = {
   entry_points : Symbol.symbol list;
 }
 
+type fresh_rec_id = unit -> rec_id
+type layout_cache = (Syntax.variable * layout) list ref
+
+type ctx = {
+  symbols : Symbol.t;
+  cache : layout_cache;
+  fresh_rec_id : fresh_rec_id;
+  fresh_tvar : Syntax.fresh_tvar;
+}
+
+let new_ctx symbols fresh_tvar =
+  let cache = ref [] in
+  let next_id = ref 0 in
+  let fresh_rec_id () =
+    let id = !next_id in
+    next_id := id + 1;
+    `Rec id
+  in
+  { symbols; cache; fresh_rec_id; fresh_tvar }
+
 let pp_rec_id : Format.formatter -> rec_id -> unit =
  fun f (`Rec i) -> Format.fprintf f "%%type_%d" i
 
@@ -55,6 +78,7 @@ let rec pp_layout : Format.formatter -> layout -> unit =
   let seen_recs : rec_id list ref = ref [] in
   match !l with
   | Str -> fprintf f "str"
+  | Int -> fprintf f "int"
   | Struct [] -> fprintf f "{}"
   | Struct layouts ->
       (* format as { lay1, lay2, lay3 } *)
@@ -125,6 +149,10 @@ let pp_expr : Format.formatter -> expr -> unit =
   let open Format in
   fun f -> function
     | Var v -> fprintf f "%a" pp_v_name v
+    | Lit l -> (
+        match l with
+        | `Int i -> fprintf f "%d" i
+        | `String s -> fprintf f "\"%s\"" @@ String.escaped s)
     | MakeUnion (i, v) ->
         fprintf f "@[<hv 2>@make_union<@,%d,@ %a>@]" i pp_v_name v
     | GetUnionId v -> fprintf f "@[<hv 2>@get_union_id<@,%a>@]" pp_v_name v

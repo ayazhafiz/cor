@@ -49,8 +49,7 @@ let clone_type : type_cache -> tvar -> tvar =
           | Link t -> Link (go t)
           | Unbd x -> Unbd x
           | ForA x -> Unbd x
-          | Content (TPrim `Unit) -> Content (TPrim `Unit)
-          | Content (TPrim `Str) -> Content (TPrim `Str)
+          | Content (TPrim (`Unit | `Str | `Int)) -> !ty
           | Content TTagEmpty -> Content TTagEmpty
           | Content (TTag { tags; ext = loc_ext, ty_ext }) ->
               let go_tag : ty_tag -> ty_tag =
@@ -101,6 +100,8 @@ let clone_expr : ctx -> fenv -> e_expr -> e_expr * queue =
     let t = clone_type type_cache t in
     let e, needed =
       match e with
+      | Str s -> (Str s, [])
+      | Int i -> (Int i, [])
       | Var x -> (
           match List.assoc_opt x fenv with
           | Some _ ->

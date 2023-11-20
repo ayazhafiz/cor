@@ -26,7 +26,7 @@ let inst : fresh_tvar -> tvar -> tvar =
           | Unbd _ -> t
           | Link t -> go t
           | ForA x -> fresh_tvar (Unbd x)
-          | Content (TPrim (`Str | `Unit)) | Content TTagEmpty -> t
+          | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> t
           | Content (TTag { tags; ext = _, ext }) ->
               let map_tag : ty_tag -> ty_tag =
                fun (tag, args) ->
@@ -67,7 +67,7 @@ let occurs : variable -> tvar -> bool =
              occur because there is nothing more general. *)
           false
       | Link t -> go t
-      | Content (TPrim (`Str | `Unit)) | Content TTagEmpty -> false
+      | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> false
       | Content (TTag { tags; ext }) ->
           let check_tag : ty_tag -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
@@ -95,7 +95,7 @@ let gen : venv -> tvar -> unit =
           else tvar_set t (ForA s)
       | Link t -> go t
       | ForA _ -> ()
-      | Content (TPrim (`Str | `Unit)) | Content TTagEmpty -> ()
+      | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> ()
       | Content (TTag { tags; ext }) ->
           let gen_tag : ty_tag -> unit =
            fun (_, args) -> List.iter (fun (_, t) -> go t) args
@@ -185,6 +185,7 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
             let c' =
               match (c1, c2) with
               | TPrim `Str, TPrim `Str -> TPrim `Str
+              | TPrim `Int, TPrim `Int -> TPrim `Int
               | TPrim `Unit, TPrim `Unit -> TPrim `Unit
               | TTagEmpty, TTagEmpty -> TTagEmpty
               | TTagEmpty, TTag { tags = []; ext = _, ext }
@@ -277,6 +278,8 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
    fun venv (_, t, e) ->
     let ty =
       match e with
+      | Str _ -> fresh_tvar @@ Content (TPrim `Str)
+      | Int _ -> fresh_tvar @@ Content (TPrim `Int)
       | Var x -> (
           match List.assoc_opt x venv with
           | Some t -> inst fresh_tvar t
