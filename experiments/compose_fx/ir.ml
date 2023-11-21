@@ -32,7 +32,13 @@ type expr =
   | PtrCast of var * layout
   | MakeFnPtr of Symbol.symbol
 
-type stmt = Let of var * expr
+type stmt =
+  | Let of var * expr
+  | Switch of {
+      cond : var;
+      branches : (int * (stmt list * expr)) list;
+      join : var;
+    }
 
 type proc = {
   name : Symbol.symbol;
@@ -185,10 +191,17 @@ let pp_expr : Format.formatter -> expr -> unit =
         fprintf f "@[<hv 2>@ptr_cast(@,%a as@ %a)@]" pp_v_name v pp_layout lay
     | MakeFnPtr fn -> fprintf f "@[<hv 2>@make_fn_ptr<@,%a>@]" pp_symbol fn
 
-let pp_stmt : Format.formatter -> stmt -> unit =
+let rec pp_stmt : Format.formatter -> stmt -> unit =
   let open Format in
   fun f -> function
     | Let (v, e) -> fprintf f "@[<hv 2>let %a =@ %a;@]" pp_var v pp_expr e
+    | Switch { cond; branches; join } ->
+        let pp_branch f (i, (lets, ret)) =
+          fprintf f "@[<hv 2>%d -> {@,%a@,%a@,}@]" i (pp_print_list pp_stmt)
+            lets pp_expr ret
+        in
+        fprintf f "@[<v 0>switch %a {@,%a@,} in join %a@]" pp_v_name cond
+          (pp_print_list pp_branch) branches pp_v_name join
 
 let pp_proc : Format.formatter -> proc -> unit =
   let open Format in

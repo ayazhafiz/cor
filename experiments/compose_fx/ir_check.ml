@@ -23,15 +23,20 @@ let check_lay_equiv : string -> layout -> layout -> unit =
     if not already_visited then visited_pairs := (l1, l2) :: !visited_pairs;
     match (!l1, !l2) with
     | Str, Str -> ()
+    | Int, Int -> ()
     | Struct ls1, Struct ls2 ->
+        print_endline @@ "Struct";
         if List.length ls1 <> List.length ls2 then
           failctx ctx "Structs have different number of fields";
         List.iter2 go ls1 ls2
     | Union ls1, Union ls2 ->
+        print_endline @@ "Union";
         if List.length ls1 <> List.length ls2 then
           failctx ctx "Unions have different number of variants";
         List.iter2 go ls1 ls2
-    | Box (l1, _), Box (l2, _) -> go l1 l2
+    | Box (l1, _), Box (l2, _) ->
+        print_endline @@ "Box";
+        go l1 l2
     | Erased, Erased -> ()
     | FunctionPointer, FunctionPointer -> ()
     | _ ->
@@ -133,6 +138,17 @@ let check_body : string -> fenv -> venv -> var -> stmt list -> unit =
     | Let ((l_x, x), e) :: rest ->
         check_expr (ctx_join ctx (Symbol.show_symbol x)) fenv venv l_x e;
         go (i + 1) ((x, l_x) :: venv) rest
+    | Switch { cond; branches; join = l_j, j } :: rest ->
+        let cond_layout = lookup_var ctx venv cond in
+        check_lay_equiv (ctx_join ctx "switch") cond_layout (ref Int);
+        List.iteri
+          (fun i (j, (stmts, expr)) ->
+            if i <> j then
+              failctx ctx @@ "Switch branch indices are not contiguous";
+            go (i + 1) venv stmts;
+            check_expr (ctx_join ctx "switch") fenv venv l_j expr)
+          branches;
+        go (i + 1) ((j, l_j) :: venv) rest
   in
   go 0 venv stmts
 

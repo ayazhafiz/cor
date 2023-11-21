@@ -76,6 +76,28 @@ type pending_proc =
   | `Thunk of pending_thunk
   | `Ready of definition ]
 
+let get_pat_arg_var : ctx -> S.e_pat -> var =
+ fun ctx pat ->
+  match pat with
+  | _, t, S.PVar (_, v) ->
+      let layout = layout_of_tvar ctx t in
+      (layout, v)
+  | _ -> failwith "non-var pattern not yet supported"
+
+let unpack_boxed_union : ctx -> var -> stmt list * var =
+ fun ctx tag ->
+  let rec go (l_x, x) =
+    match !l_x with
+    | Union _ -> ([], (l_x, x))
+    | Box (inner, _) ->
+        let inner_var = (inner, ctx.symbols.fresh_symbol "inner") in
+        let asgns, (l_inner, inner) = go inner_var in
+        let asgns = asgns @ [ Let (inner_var, GetBoxed (l_x, x)) ] in
+        (asgns, (l_inner, inner))
+    | _ -> failwith "non-union layout for union"
+  in
+  go tag
+
 let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
  fun ctx expr ->
   let pending_procs : pending_proc list ref = ref [] in
@@ -87,6 +109,26 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let var = (lay, ctx.symbols.fresh_symbol "var") in
         let asgns = asgns @ [ Let (var, expr) ] in
         (asgns, var)
+  and compile_branch : var -> S.branch -> int * (stmt list * expr) =
+   fun tag_var (pat, body) ->
+    match pat with
+    | _, p_ty, S.PTag ((_, tag), args) ->
+        let tag_id = tag_id tag p_ty in
+        let arg_vars = List.map (get_pat_arg_var ctx) args in
+        let payload_layout = ref @@ Struct (List.map fst arg_vars) in
+        let tag_payload_var =
+          (payload_layout, ctx.symbols.fresh_symbol "payload")
+        in
+        let tag_payload_asgn = Let (tag_payload_var, GetUnionStruct tag_var) in
+        let arg_destructs =
+          List.mapi
+            (fun i var -> Let (var, GetStructField (tag_payload_var, i)))
+            arg_vars
+        in
+        let body_asgns, (_, body_expr) = go body in
+        let asgns = [ tag_payload_asgn ] @ arg_destructs @ body_asgns in
+        (tag_id, (asgns, body_expr))
+    | _ -> failwith "non-tag pattern not yet supported"
   and go ?(name_hint = None) (_, ty, e) =
     let layout = layout_of_tvar ctx ty in
     match e with
@@ -198,7 +240,17 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr proc_name) in
         ( [ stack_captures_asgn; box_captures_asgn; captures_asgn; fn_ptr_asgn ],
           (ref closure_repr, MakeStruct [ fn_ptr_var; captures_var ]) )
-    | S.When _ -> failwith "compile decision tree"
+    | S.When (tag_e, branches) ->
+        let tag_asgns, tag_var = go_var tag_e in
+        let unpack_asgns, tag_var = unpack_boxed_union ctx tag_var in
+        let branches =
+          List.sort (fun (tag_id1, _) (tag_id2, _) -> tag_id1 - tag_id2)
+          @@ List.map (compile_branch tag_var) branches
+        in
+        let join = (layout, ctx.symbols.fresh_symbol "join") in
+        let switch = Switch { cond = tag_var; branches; join } in
+        let asgns = tag_asgns @ unpack_asgns @ [ switch ] in
+        (asgns, (layout, Var join))
   in
   let result = go_var expr in
   (result, List.rev !pending_procs)

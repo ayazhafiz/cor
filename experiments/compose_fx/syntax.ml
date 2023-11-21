@@ -39,7 +39,11 @@ and tvar = { ty : ty ref; var : variable; recur : bool ref } [@@deriving show]
 
 let tvar_deref tvar = !(tvar.ty)
 let tvar_set tvar ty = tvar.ty := ty
-let tvar_set_recur tvar recur = tvar.recur := recur
+
+let tvar_set_recur tvar recur =
+  if !(tvar.recur) && not recur then failwith "recursive type variable";
+  tvar.recur := recur
+
 let tvar_recurs tvar = !(tvar.recur)
 let tvar_v tvar = tvar.var
 
@@ -246,14 +250,15 @@ let pp_tvar :
     | Content (TPrim `Unit), _ -> pp_print_string f "{}"
     | Content (TTag { tags; ext }), _ ->
         let tags, ext = chase_tags tags @@ snd ext in
-        fprintf f "@[<v 0>[@[<v 2>@,";
+        fprintf f "@[<hv 2>[@,";
         List.iteri
           (fun i (tag, args) ->
-            if i > 0 then fprintf f ",@,";
             fprintf f "@[<hov 2>%s" tag;
-            List.iter (fun _ -> fprintf f "@ %s" ellipsis) args)
+            List.iter (fun _ -> fprintf f "@ %s" ellipsis) args;
+            fprintf f "@]";
+            if i < List.length tags - 1 then fprintf f ",@ ")
           tags;
-        fprintf f "@]@,]";
+        fprintf f "@,]";
         let print_ext () = go_head deep `Free ext in
         if not (is_empty_tag ext) then print_ext ();
         fprintf f "@]"
@@ -311,15 +316,16 @@ let pp_tvar :
   and go visited parens t =
     let t = unlink t in
     let var = tvar_v t in
-    let recurs = tvar_recurs @@ unlink t in
+    let recurs = tvar_recurs @@ t in
     let inner f () =
       if List.mem var visited then (
+        if not recurs then failwith "type is recursive, but not marked";
         (* This is a recursive type *)
         fprintf f "@[<hov 2><%s" ellipsis;
         go_head false `Free t;
         fprintf f ">@]")
       else
-        let visited = var :: visited in
+        let visited = if recurs then var :: visited else visited in
         match tvar_deref t with
         | Unbd _ -> pp_named var '?'
         | ForA _ -> pp_named var '\''
@@ -330,13 +336,13 @@ let pp_tvar :
         | Content (TPrim `Unit) -> pp_print_string f "{}"
         | Content (TTag { tags; ext }) ->
             let tags, ext = chase_tags tags @@ snd ext in
-            fprintf f "@[<v 0>[@[<v 2>@,";
+            fprintf f "@[<hv 2>[@,";
             List.iteri
               (fun i t ->
-                if i > 0 then fprintf f ",@,";
-                go_tag visited t)
+                go_tag visited t;
+                if i < List.length tags - 1 then fprintf f ",@ ")
               tags;
-            fprintf f "@]@,]";
+            fprintf f "@,]";
             let print_ext () = go visited `Free ext in
             if not (is_empty_tag ext) then print_ext ();
             fprintf f "@]"

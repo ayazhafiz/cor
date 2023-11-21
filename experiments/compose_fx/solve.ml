@@ -159,7 +159,7 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
     if List.mem (vara, varb) visited then (
       tvar_set_recur a true;
       tvar_set_recur b true)
-    else if vara <> varb then (
+    else
       let visited = (vara, varb) :: visited in
       let unify = unify visited in
       let ty_a = tvar_deref a in
@@ -247,7 +247,7 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
       tvar_set a (Link c);
       tvar_set b (Link c);
       tvar_set c ty;
-      tvar_set_recur c recurs)
+      tvar_set_recur c recurs
   in
   unify [] a b
 
