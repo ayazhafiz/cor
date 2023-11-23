@@ -19,7 +19,7 @@ let layout_of_tvar : ctx -> S.tvar -> layout =
           | S.Link _ -> failwith "impossible"
           | S.Alias _ -> failwith "impossible"
           | S.Unbd _ -> Union []
-          | S.ForA _ -> Union [] (* TODO monomorphize *)
+          | S.ForA _ -> failwith "impossible after monomorphization"
           | S.Content (S.TPrim `Str) -> Str
           | S.Content (S.TPrim `Int) -> Int
           | S.Content (S.TPrim `Unit) -> Struct []

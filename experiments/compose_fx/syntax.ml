@@ -319,13 +319,13 @@ let pp_tvar :
     let recurs = tvar_recurs @@ t in
     let inner f () =
       if List.mem var visited then (
-        if not recurs then failwith "type is recursive, but not marked";
+        (* if not recurs then failwith "type is recursive, but not marked"; *)
         (* This is a recursive type *)
         fprintf f "@[<hov 2><%s" ellipsis;
         go_head false `Free t;
         fprintf f ">@]")
       else
-        let visited = if recurs then var :: visited else visited in
+        let visited = var :: visited in
         match tvar_deref t with
         | Unbd _ -> pp_named var '?'
         | ForA _ -> pp_named var '\''
@@ -385,6 +385,9 @@ let pp_tvar :
   go visited `Free t
 
 let string_of_tvar width symbols names tvar =
+  (*let (`Var var) = (unlink tvar).var in
+    "(" ^ string_of_int var ^ ") "
+    ^*)
   with_buffer (fun f -> pp_tvar symbols [] names f tvar) width
 
 type node_kind =

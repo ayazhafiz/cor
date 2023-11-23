@@ -115,14 +115,13 @@ let rec pp_layout : Format.formatter -> layout -> unit =
          ]
          if a break is required
       *)
-      fprintf f "@[<hv 0>[@[<hv 0>@ ";
+      fprintf f "@[<hv 0>[@[<hv 2>";
       List.iteri
         (fun i lay ->
-          fprintf f "`%d %a" i pp_layout lay;
-          if i < List.length variants - 1 then fprintf f ",@, ")
+          fprintf f "@ `%d %a" i pp_layout lay;
+          if i < List.length variants - 1 then fprintf f ",")
         variants;
-      fprintf f "@ @]%t]@]"
-        (pp_print_custom_break ~fits:("", 0, "") ~breaks:(",", 0, ""))
+      fprintf f "@]@ ]@]"
   | Box (_, Some r) when List.mem r !seen_recs ->
       fprintf f "@[<hv 2>box<%a>@]" pp_rec_id r
   | Box (lay, Some r) ->
@@ -138,7 +137,15 @@ let pp_symbol : Format.formatter -> Symbol.symbol -> unit =
 
 let pp_var : Format.formatter -> var -> unit =
  fun f (lay, symbol) ->
-  Format.fprintf f "@[<hv 2>%a:@ %a@]" pp_symbol symbol pp_layout lay
+  Format.fprintf f "@[<hov 2>%a:@ %a@]" pp_symbol symbol pp_layout lay
+
+let pp_vars : Format.formatter -> var list -> unit =
+ fun f vs ->
+  List.iteri
+    (fun i (lay, symbol) ->
+      Format.fprintf f "%a:@ %a" pp_symbol symbol pp_layout lay;
+      if i < List.length vs - 1 then Format.fprintf f ",@, ")
+    vs
 
 let pp_v_name : Format.formatter -> var -> unit =
  fun f (_, symbol) -> pp_symbol f symbol
@@ -194,14 +201,16 @@ let pp_expr : Format.formatter -> expr -> unit =
 let rec pp_stmt : Format.formatter -> stmt -> unit =
   let open Format in
   fun f -> function
-    | Let (v, e) -> fprintf f "@[<hv 2>let %a =@ %a;@]" pp_var v pp_expr e
+    | Let (v, e) -> fprintf f "@[<hv 2>let %a@ = %a;@]" pp_var v pp_expr e
     | Switch { cond; branches; join } ->
         let pp_branch f (i, (lets, ret)) =
-          fprintf f "@[<hv 2>%d -> {@,%a@,%a@,}@]" i (pp_print_list pp_stmt)
-            lets pp_expr ret
+          fprintf f "@[<hv 0>@[<hv 2>%d -> {@,%a@,%a@]@,}@]" i
+            (pp_print_list pp_stmt) lets pp_expr ret
         in
-        fprintf f "@[<v 0>switch %a {@,%a@,} in join %a@]" pp_v_name cond
+        fprintf f "@[<v 0>switch %a {@,%a@,} in join %a;@]" pp_v_name cond
           (pp_print_list pp_branch) branches pp_v_name join
+
+let show_stmts stmts = Format.asprintf "%a" (Format.pp_print_list pp_stmt) stmts
 
 let pp_proc : Format.formatter -> proc -> unit =
   let open Format in

@@ -36,7 +36,8 @@ let clone_type : type_cache -> tvar -> tvar =
  fun cache tvar ->
   let rec go_loc : loc_tvar -> loc_tvar = fun (l, t) -> (l, go t)
   and go : tvar -> tvar =
-   fun { var; ty; recur } ->
+   fun tvar ->
+    let { var; ty; recur } = unlink tvar in
     match List.assoc_opt var !cache with
     | Some tvar -> tvar
     | None ->
@@ -46,7 +47,7 @@ let clone_type : type_cache -> tvar -> tvar =
 
         let real_ty_content =
           match !ty with
-          | Link t -> Link (go t)
+          | Link _ -> failwith "clone_type: Link"
           | Unbd x -> Unbd x
           | ForA x -> Unbd x
           | Content (TPrim (`Unit | `Str | `Int)) -> !ty

@@ -15,7 +15,7 @@ module SymbolMap = struct
     union f u v
 
   let diff u v =
-    let f _ _ y = y in
+    let f _ x y = match (x, y) with Some x, None -> Some x | _ -> None in
     merge f u v
 end
 
@@ -67,6 +67,8 @@ type pending_closure = {
   arg : var;
   captures : var * var list;
   body : S.e_expr;
+  (* Some (symbol) if this is a recursive closure bound to the symbol. *)
+  rec_name : symbol option;
 }
 
 type pending_thunk = { proc_name : symbol; body : S.e_expr }
@@ -129,7 +131,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let asgns = [ tag_payload_asgn ] @ arg_destructs @ body_asgns in
         (tag_id, (asgns, body_expr))
     | _ -> failwith "non-tag pattern not yet supported"
-  and go ?(name_hint = None) (_, ty, e) =
+  and go ?(name_hint = None) ?(rec_name = None) (_, ty, e) =
     let layout = layout_of_tvar ctx ty in
     match e with
     | S.Str s -> ([], (layout, Lit (`String s)))
@@ -157,11 +159,12 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         in
         let tag_asgns, expr = build_union layout in
         (arg_asgns @ tag_asgns, (layout, expr))
-    | S.Let (_, (_, (_, x_ty), x), e, b) ->
+    | S.Let (letrec, (_, (_, x_ty), x), e, b) ->
         let x_layout = layout_of_tvar ctx x_ty in
         let x_var = (x_layout, x) in
+        let rec_name = match letrec with `LetRec -> Some x | _ -> None in
         let e_asgns, (_, e_expr) =
-          go ~name_hint:(Some (Symbol.syn_of ctx.symbols x)) e
+          go ~name_hint:(Some (Symbol.syn_of ctx.symbols x)) ~rec_name e
         in
         let b_asgns, b_expr = go b in
         let asgns = e_asgns @ [ Let (x_var, e_expr) ] @ b_asgns in
@@ -184,11 +187,18 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let a_layout = layout_of_tvar ctx a_ty in
         let a_var = (a_layout, a) in
         let free_in_e : S.tvar SymbolMap.t = free e in
+
+        let free = SymbolMap.remove a free_in_e in
+        let free =
+          match rec_name with
+          | Some name -> SymbolMap.remove name free
+          | _ -> free
+        in
         let free : var list =
           List.map (fun (v, t) -> (layout_of_tvar ctx t, v))
-          @@ SymbolMap.bindings
-          @@ SymbolMap.remove a free_in_e
+          @@ SymbolMap.bindings free
         in
+
         let proc_name =
           ctx.symbols.fresh_symbol @@ Option.value ~default:"clos" name_hint
         in
@@ -229,6 +239,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
               arg = a_var;
               captures = (captures_var, free);
               body = e;
+              rec_name;
             }
           :: !pending_procs;
 
@@ -243,13 +254,15 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
     | S.When (tag_e, branches) ->
         let tag_asgns, tag_var = go_var tag_e in
         let unpack_asgns, tag_var = unpack_boxed_union ctx tag_var in
+        let discr_var = (ref @@ Int, ctx.symbols.fresh_symbol "discr") in
+        let discr_asgn = Let (discr_var, GetUnionId tag_var) in
         let branches =
           List.sort (fun (tag_id1, _) (tag_id2, _) -> tag_id1 - tag_id2)
           @@ List.map (compile_branch tag_var) branches
         in
         let join = (layout, ctx.symbols.fresh_symbol "join") in
-        let switch = Switch { cond = tag_var; branches; join } in
-        let asgns = tag_asgns @ unpack_asgns @ [ switch ] in
+        let switch = Switch { cond = discr_var; branches; join } in
+        let asgns = tag_asgns @ unpack_asgns @ [ discr_asgn ] @ [ switch ] in
         (asgns, (layout, Var join))
   in
   let result = go_var expr in
@@ -275,7 +288,13 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
         let compiled = go @@ new_pending_procs @ [ `Ready thunk ] in
         compiled @ go pending_procs
     | `Closure
-        { proc_name = name; arg; captures = capture_arg, captures_vars; body }
+        {
+          proc_name = name;
+          arg;
+          captures = capture_arg, captures_vars;
+          body;
+          rec_name;
+        }
       :: pending_procs ->
         let stack_captures_lay = ref @@ Struct (List.map fst captures_vars) in
         (* cast the erased captures to the real type *)
@@ -302,6 +321,24 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
             captures_vars
         in
 
+        (* if this is a recursive closure, we must bind the name to the cell now as well.*)
+        let rec_asgns =
+          match rec_name with
+          | None -> []
+          | Some rec_sym ->
+              let fn_ptr_name =
+                ctx.symbols.fresh_symbol @@ "rec_fn_ptr_"
+                ^ Symbol.syn_of ctx.symbols rec_sym
+              in
+              let fn_ptr_var = (ref @@ FunctionPointer, fn_ptr_name) in
+              let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr name) in
+              let rec_clos_var = (ref closure_repr, rec_sym) in
+              let rec_clos_asgn =
+                Let (rec_clos_var, MakeStruct [ fn_ptr_var; capture_arg ])
+              in
+              [ fn_ptr_asgn; rec_clos_asgn ]
+        in
+
         let (asgns, ret), new_pending_procs = stmt_of_expr ctx body in
         let def =
           Proc
@@ -310,7 +347,7 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
               args = [ capture_arg; arg ];
               body =
                 [ boxed_captures_asgn; stack_captures_asgn ]
-                @ unpack_asgns @ asgns;
+                @ unpack_asgns @ rec_asgns @ asgns;
               ret;
             }
         in

@@ -10,47 +10,74 @@ let show_venv venv =
   let show (sym, _) = Printf.sprintf "%s: <ty>" (Symbol.norm_of sym) in
   String.concat ", " (List.map show venv)
 
+let is_generalized : tvar -> bool =
+ fun t ->
+  let visited = ref [] in
+  let rec go t =
+    let var = tvar_v t in
+    if List.mem var !visited then false
+    else (
+      visited := var :: !visited;
+      match tvar_deref t with
+      | Unbd _ -> false
+      | Link t -> go t
+      | ForA _ -> true
+      | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> false
+      | Content (TTag { tags; ext }) ->
+          let check_tag : ty_tag -> bool =
+           fun (_, args) -> List.exists (fun (_, t) -> go t) args
+          in
+          List.exists check_tag tags || go (snd ext)
+      | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
+      | Alias { alias = _, args; real } ->
+          List.exists (fun (_, t) -> go t) args || go real)
+  in
+  go t
+
+(* TODO figure out a better way to limit instantiations. Maybe make a letrec function requirement. *)
 let inst : fresh_tvar -> tvar -> tvar =
  fun fresh_tvar tvar ->
-  let tenv : (variable * tvar) list ref = ref [] in
-  let rec go : tvar -> tvar =
-   fun t ->
-    let var = tvar_v t in
-    match List.assoc_opt var !tenv with
-    | Some t -> t
-    | None ->
-        let set_t = fresh_tvar (Unbd None) in
-        tenv := (var, set_t) :: !tenv;
-        let t' =
-          match tvar_deref t with
-          | Unbd _ -> t
-          | Link t -> go t
-          | ForA x -> fresh_tvar (Unbd x)
-          | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> t
-          | Content (TTag { tags; ext = _, ext }) ->
-              let map_tag : ty_tag -> ty_tag =
-               fun (tag, args) ->
+  if not (is_generalized tvar) then tvar
+  else
+    let tenv : (variable * tvar) list ref = ref [] in
+    let rec go : tvar -> tvar =
+     fun t ->
+      let var = tvar_v t in
+      match List.assoc_opt var !tenv with
+      | Some t -> t
+      | None ->
+          let set_t = fresh_tvar (Unbd None) in
+          tenv := (var, set_t) :: !tenv;
+          let t' =
+            match tvar_deref t with
+            | Unbd _ -> t
+            | Link t -> go t
+            | ForA x -> fresh_tvar (Unbd x)
+            | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> t
+            | Content (TTag { tags; ext = _, ext }) ->
+                let map_tag : ty_tag -> ty_tag =
+                 fun (tag, args) ->
+                  let args = List.map (fun (_, t) -> (noloc, go t)) args in
+                  (tag, args)
+                in
+                let tags = List.map map_tag tags in
+                let ext = (noloc, go ext) in
+                fresh_tvar @@ Content (TTag { tags; ext })
+            | Content (TFn ((_, t1), (_, t2))) ->
+                let t1 = (noloc, go t1) in
+                let t2 = (noloc, go t2) in
+                fresh_tvar @@ Content (TFn (t1, t2))
+            | Alias { alias = name, args; real } ->
                 let args = List.map (fun (_, t) -> (noloc, go t)) args in
-                (tag, args)
-              in
-              let tags = List.map map_tag tags in
-              let ext = (noloc, go ext) in
-              fresh_tvar @@ Content (TTag { tags; ext })
-          | Content (TFn ((_, t1), (_, t2))) ->
-              let t1 = (noloc, go t1) in
-              let t2 = (noloc, go t2) in
-              fresh_tvar @@ Content (TFn (t1, t2))
-          | Alias { alias = name, args; real } ->
-              let args = List.map (fun (_, t) -> (noloc, go t)) args in
-              let real = go real in
-              fresh_tvar @@ Alias { alias = (name, args); real }
-        in
-        tvar_set_recur t' (tvar_recurs @@ unlink t);
-        tvar_set set_t (Link t');
-        t'
-  in
+                let real = go real in
+                fresh_tvar @@ Alias { alias = (name, args); real }
+          in
+          tvar_set_recur t' (tvar_recurs @@ unlink t);
+          tvar_set set_t (Link t');
+          t'
+    in
 
-  go tvar
+    go tvar
 
 let occurs : variable -> tvar -> bool =
  fun v t ->
@@ -159,7 +186,7 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
     if List.mem (vara, varb) visited then (
       tvar_set_recur a true;
       tvar_set_recur b true)
-    else
+    else if vara <> varb then (
       let visited = (vara, varb) :: visited in
       let unify = unify visited in
       let ty_a = tvar_deref a in
@@ -237,7 +264,12 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
                   unify t11 t21;
                   unify t12 t22;
                   TFn ((noloc, t11), (noloc, t12))
-              | _ -> error "incompatible"
+              | _ ->
+                  error
+                    ("incompatible"
+                    ^ string_of_tvar default_width symbols [] a
+                    ^ " ~ "
+                    ^ string_of_tvar default_width symbols [] b)
             in
             Content c'
       in
@@ -247,7 +279,7 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
       tvar_set a (Link c);
       tvar_set b (Link c);
       tvar_set c ty;
-      tvar_set_recur c recurs
+      tvar_set_recur c recurs)
   in
   unify [] a b
 

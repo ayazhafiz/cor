@@ -10,8 +10,17 @@ let globals_names : definition list -> Symbol.symbol list =
       match def with Global { name; _ } -> name :: acc | _ -> acc)
     [] defs
 
+let make_fenv : definition list -> fenv =
+ fun defs ->
+  List.fold_left
+    (fun acc def ->
+      match def with Proc proc -> (proc.name, proc) :: acc | _ -> acc)
+    [] defs
+
 let failctx : string -> string -> 'a =
  fun ctx msg -> failwith @@ "[" ^ ctx ^ "]: " ^ msg
+
+let ctx_join : string -> string -> string = fun ctx1 ctx2 -> ctx1 ^ ":" ^ ctx2
 
 let check_lay_equiv : string -> layout -> layout -> unit =
  fun ctx l1 l2 ->
@@ -25,18 +34,14 @@ let check_lay_equiv : string -> layout -> layout -> unit =
     | Str, Str -> ()
     | Int, Int -> ()
     | Struct ls1, Struct ls2 ->
-        print_endline @@ "Struct";
         if List.length ls1 <> List.length ls2 then
           failctx ctx "Structs have different number of fields";
         List.iter2 go ls1 ls2
     | Union ls1, Union ls2 ->
-        print_endline @@ "Union";
         if List.length ls1 <> List.length ls2 then
           failctx ctx "Unions have different number of variants";
         List.iter2 go ls1 ls2
-    | Box (l1, _), Box (l2, _) ->
-        print_endline @@ "Box";
-        go l1 l2
+    | Box (l1, _), Box (l2, _) -> go l1 l2
     | Erased, Erased -> ()
     | FunctionPointer, FunctionPointer -> ()
     | _ ->
@@ -72,8 +77,12 @@ let check_is_ptr_type : layout -> unit =
 
 let lookup_var : string -> venv -> var -> layout =
  fun ctx venv (l_x, x) ->
-  let l_x' = List.assoc x venv in
-  check_lay_equiv ctx l_x' l_x;
+  let l_x' =
+    match List.assoc_opt x venv with
+    | Some l_x' -> l_x'
+    | None -> failctx ctx @@ "Variable not found: " ^ Symbol.norm_of x
+  in
+  check_lay_equiv (ctx_join ctx "venv vs local") l_x' l_x;
   l_x
 
 let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
@@ -102,9 +111,13 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
       let l_field = get_struct_field l_x i in
       check_lay_equiv ctx l_field lay
   | CallIndirect (f, args) ->
-      let l_f = lookup_var ctx venv f in
-      check_lay_equiv ctx (ref @@ FunctionPointer) l_f;
-      ignore @@ List.map (lookup_var ctx venv) args
+      let l_f = lookup_var (ctx_join ctx "find_f") venv f in
+      check_lay_equiv (ctx_join ctx "expect_fnptr") (ref @@ FunctionPointer) l_f;
+      ignore
+      @@ List.mapi
+           (fun i x ->
+             lookup_var (ctx_join ctx ("arg " ^ string_of_int i)) venv x)
+           args
   | CallDirect (f, args) ->
       let proc = List.assoc f fenv in
       let l_args = List.map (lookup_var ctx venv) args in
@@ -127,16 +140,20 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
       ignore @@ List.assoc f fenv;
       check_lay_equiv ctx (ref @@ FunctionPointer) lay
 
-let ctx_join : string -> string -> string = fun ctx1 ctx2 -> ctx1 ^ ":" ^ ctx2
-
 let check_body : string -> fenv -> venv -> var -> stmt list -> unit =
  fun ctx fenv venv (l_ret, ret) stmts ->
-  let rec go i venv = function
+  let rec go i venv ?(check_ret = false) = function
     | [] ->
-        let ret_layout = List.assoc ret venv in
-        check_lay_equiv (ctx_join ctx "ret") ret_layout l_ret
+        (if check_ret then
+         match List.assoc_opt ret venv with
+         | None ->
+             failctx ctx @@ "Return variable not in scope: "
+             ^ Symbol.norm_of ret
+         | Some ret_layout ->
+             check_lay_equiv (ctx_join ctx "ret") ret_layout l_ret);
+        venv
     | Let ((l_x, x), e) :: rest ->
-        check_expr (ctx_join ctx (Symbol.show_symbol x)) fenv venv l_x e;
+        check_expr (ctx_join ctx (Symbol.show_symbol_raw x)) fenv venv l_x e;
         go (i + 1) ((x, l_x) :: venv) rest
     | Switch { cond; branches; join = l_j, j } :: rest ->
         let cond_layout = lookup_var ctx venv cond in
@@ -145,38 +162,45 @@ let check_body : string -> fenv -> venv -> var -> stmt list -> unit =
           (fun i (j, (stmts, expr)) ->
             if i <> j then
               failctx ctx @@ "Switch branch indices are not contiguous";
-            go (i + 1) venv stmts;
-            check_expr (ctx_join ctx "switch") fenv venv l_j expr)
+            let venv = go (i + 1) venv stmts ~check_ret:false in
+            check_expr
+              (ctx_join ctx ("switch " ^ string_of_int i ^ " expr"))
+              fenv venv l_j expr)
           branches;
         go (i + 1) ((j, l_j) :: venv) rest
   in
-  go 0 venv stmts
+  ignore @@ go 0 venv stmts
 
-let check_definitions : definition list -> unit =
- fun definitions ->
-  let rec go fenv venv = function
+let check_definitions : fenv -> definition list -> unit =
+ fun fenv definitions ->
+  let rec go venv = function
     | [] -> ()
     | Global { name; layout; init } :: rest ->
-        check_expr ("global " ^ Symbol.show_symbol name) fenv venv layout init;
-        go fenv ((name, layout) :: venv) rest
-    | Proc ({ name; args; body; ret } as proc) :: rest ->
+        check_expr
+          ("global " ^ Symbol.show_symbol_raw name)
+          fenv venv layout init;
+        go ((name, layout) :: venv) rest
+    | Proc { name; args; body; ret } :: rest ->
         let body_venv' =
           List.fold_left
             (fun acc (layout, name) -> (name, layout) :: acc)
             venv args
         in
-        check_body ("proc " ^ Symbol.show_symbol name) fenv body_venv' ret body;
-        go ((name, proc) :: fenv) venv rest
+        check_body
+          ("proc " ^ Symbol.show_symbol_raw name)
+          fenv body_venv' ret body;
+        go venv rest
   in
 
-  go [] [] definitions
+  go [] definitions
 
 let check : program -> unit =
  fun { definitions; entry_points } ->
   let globals = globals_names definitions in
+  let fenv = make_fenv definitions in
   List.iter
     (fun ep ->
       if not (List.mem ep globals) then
-        failwith ("Entry point " ^ Symbol.show_symbol ep ^ " not found"))
+        failwith ("Entry point " ^ Symbol.show_symbol_raw ep ^ " not found"))
     entry_points;
-  check_definitions definitions
+  check_definitions fenv definitions

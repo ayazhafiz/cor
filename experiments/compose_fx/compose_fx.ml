@@ -81,7 +81,7 @@ module Compose_fx : LANGUAGE = struct
   let ir ({ symbols; fresh_tvar; syn } : solved_program) =
     let specialized = Monomorphize.specialize { symbols; fresh_tvar } syn in
     let compiled = Ir_lower.compile symbols fresh_tvar specialized in
-    (* Ir_check.check compiled; *)
+    Ir_check.check compiled;
     Ok { symbols; program = compiled }
 
   let eval _ = failwith "todo"

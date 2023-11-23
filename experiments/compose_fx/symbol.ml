@@ -1,5 +1,7 @@
 type symbol = [ `Sym of string ] [@@deriving show]
 
+let show_symbol_raw (`Sym s) = s
+
 type t = {
   fresh_symbol : string -> symbol;
   fresh_symbol_named : string -> symbol;
