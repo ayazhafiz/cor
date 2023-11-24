@@ -39,7 +39,7 @@ let free : S.e_expr -> S.tvar SymbolMap.t =
   and go_expr (_, t, e) =
     match e with
     | S.Var x -> SymbolMap.singleton x t
-    | S.Str _ | S.Int _ -> SymbolMap.empty
+    | S.Str _ | S.Int _ | S.Unit -> SymbolMap.empty
     | S.Tag (_, es) ->
         List.fold_left
           (fun acc e -> SymbolMap.union (go_expr e) acc)
@@ -143,6 +143,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
     match e with
     | S.Str s -> ([], (layout, Lit (`String s)))
     | S.Int i -> ([], (layout, Lit (`Int i)))
+    | S.Unit -> ([], (layout, MakeStruct []))
     | S.Var s -> ([], (layout, Var (layout, s)))
     | S.Tag (ctor, args) ->
         let id = tag_id ctor ty in

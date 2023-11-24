@@ -313,6 +313,7 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
       match e with
       | Str _ -> fresh_tvar @@ Content (TPrim `Str)
       | Int _ -> fresh_tvar @@ Content (TPrim `Int)
+      | Unit -> fresh_tvar @@ Content (TPrim `Unit)
       | Var x -> (
           match List.assoc_opt x venv with
           | Some t -> inst fresh_tvar t

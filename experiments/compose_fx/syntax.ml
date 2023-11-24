@@ -108,6 +108,7 @@ and expr =
   | Var of symbol
   | Int of int
   | Str of string
+  | Unit
   | Tag of string * e_expr list
   | Let of letrec * (loc * loc_tvar * symbol) * e_expr * e_expr
       (** let x = e in b *)
@@ -458,7 +459,7 @@ let tightest_node_at_expr : loc -> e_expr -> found_node =
   let rec expr (l, ty, e) : found_node =
     let deeper =
       match e with
-      | Var _ | Int _ | Str _ -> None
+      | Var _ | Int _ | Str _ | Unit -> None
       | Let (_, (l, ty, x), e1, e2) ->
           if within loc l then Some (l, snd ty, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
@@ -584,6 +585,7 @@ let pp_expr symbols f =
     | Var x -> pp_symbol symbols f x
     | Int i -> pp_print_int f i
     | Str s -> fprintf f "\"%s\"" (String.escaped s)
+    | Unit -> pp_print_string f "{}"
     | Tag (tag, payloads) ->
         fprintf f "@[<v 0>";
         let expr () =

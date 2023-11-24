@@ -224,6 +224,10 @@ expr_atom:
       let sym = ctx.fresh_tvar @@ Unbd None in
       (loc, sym, Int (snd n))
   }
+  | loc=UNIT { fun ctx ->
+      let tvar = ctx.fresh_tvar @@ Unbd None in
+      (loc, tvar, Unit)
+  }
 
 branch_seq:
   | e=END { fun _ -> ([], e) }

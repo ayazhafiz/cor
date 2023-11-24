@@ -103,6 +103,7 @@ let clone_expr : ctx -> fenv -> e_expr -> e_expr * queue =
       match e with
       | Str s -> (Str s, [])
       | Int i -> (Int i, [])
+      | Unit -> (Unit, [])
       | Var x -> (
           match List.assoc_opt x fenv with
           | Some _ ->

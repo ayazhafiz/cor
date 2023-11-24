@@ -141,8 +141,7 @@ let readback : Symbol.t -> memory_cell -> Syntax.tvar -> Syntax.e_expr =
       | Link _ -> failwith "link after unlink"
       | Unbd _ -> Var (symbols.fresh_symbol "<unbound>")
       | ForA _ -> failwith "forA after monomorphization"
-      | Content (TPrim `Unit) ->
-          failwith "unit not representable in surface syntax"
+      | Content (TPrim `Unit) -> Unit
       | Content (TPrim `Int) -> Int (get_word cell)
       | Content (TPrim `Str) -> Str (get_string cell)
       | Content TTagEmpty -> Var (symbols.fresh_symbol "<void>")
