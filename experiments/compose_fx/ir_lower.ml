@@ -57,6 +57,10 @@ let free : S.e_expr -> S.tvar SymbolMap.t =
         let free_e1 = go_expr e1 in
         let free_e2 = go_expr e2 in
         SymbolMap.union free_e1 free_e2
+    | S.KCall (_kfn, es) ->
+        List.fold_left
+          (fun acc e -> SymbolMap.union (go_expr e) acc)
+          SymbolMap.empty es
     | S.When (e, branches) ->
         let free_e = go_expr e in
         List.fold_left
@@ -186,6 +190,10 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let a_asgns, a_var = go_var a in
         let asgns = clos_asgns @ [ fn_asgn; captures_asgn ] @ a_asgns in
         (asgns, (layout, CallIndirect (fn_var, [ captures_var; a_var ])))
+    | S.KCall (kfn, args) ->
+        let args_asgns, arg_vars = List.split @@ List.map go_var args in
+        let asgns = List.concat args_asgns in
+        (asgns, (layout, CallKFn (kfn, arg_vars)))
     | S.Clos ((_, (_, a_ty), a), e) ->
         let a_layout = layout_of_tvar ctx a_ty in
         let a_var = (a_layout, a) in

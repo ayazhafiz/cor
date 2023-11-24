@@ -350,6 +350,13 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           in
           unify "call" t_fn t_fn_expected;
           t_ret
+      | KCall (kernelfn, args) ->
+          let { args = kargs; ret = kret } = kernel_sig kernelfn in
+          let arg_tys = List.map (infer venv) @@ args in
+          List.iter2
+            (unify @@ "call " ^ List.assoc kernelfn string_of_kernelfn)
+            kargs arg_tys;
+          kret
       | When (e, branches) ->
           let t_e = infer venv e in
           let t_b = fresh_tvar @@ Unbd None in

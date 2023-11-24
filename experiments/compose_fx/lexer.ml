@@ -16,6 +16,8 @@ let upper =
   [%sedlex.regexp?
     'A' .. 'Z', Star ('a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'')]
 
+let kernelfn = [%sedlex.regexp? "~", Star ('a' .. 'z' | '_')]
+
 let pos_info_of_position ({ pos_lnum; pos_bol; pos_cnum; _ } : Lexing.position)
     =
   (pos_lnum, pos_cnum - pos_bol + 1)
@@ -58,6 +60,11 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
           let s = String.sub s 1 (String.length s - 2) in
           let s = Scanf.unescaped s in
           STRING (i, s))
+  | kernelfn ->
+      make lexbuf (fun i ->
+          let s = Utf8.lexeme lexbuf in
+          let s = String.sub s 1 (String.length s - 1) in
+          KERNELFN (i, s))
   | lower -> make lexbuf (fun i -> LOWER (i, Utf8.lexeme lexbuf))
   | upper -> make lexbuf (fun i -> UPPER (i, Utf8.lexeme lexbuf))
   | nat ->

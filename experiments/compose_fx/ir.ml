@@ -14,6 +14,9 @@ type layout_repr =
 
 and layout = layout_repr ref
 
+let layout_str = ref Str
+let layout_int = ref Int
+
 type var = layout * Symbol.symbol
 type lit = [ `Int of int | `String of string ]
 
@@ -27,6 +30,7 @@ type expr =
   | GetStructField of var * int
   | CallIndirect of var * var list
   | CallDirect of Symbol.symbol * var list
+  | CallKFn of Syntax.kernelfn * var list
   | MakeBox of var
   | GetBoxed of var
   | PtrCast of var * layout
@@ -213,6 +217,14 @@ let pp_expr : Format.formatter -> expr -> unit =
           | args -> fprintf f ",@ %a" pp_v_names args
         in
         fprintf f "@[<hv 2>@call_direct(@,%a%a)@]" pp_symbol fn pp_args args
+    | CallKFn (kfn, args) ->
+        let pp_args f = function
+          | [] -> ()
+          | args -> fprintf f ",@ %a" pp_v_names args
+        in
+        fprintf f "@[<hv 2>@call_kfn(@,%s%a)@]"
+          (List.assoc kfn Syntax.string_of_kernelfn)
+          pp_args args
     | MakeBox v -> fprintf f "@[<hv 2>@make_box(@,%a)@]" pp_v_name v
     | GetBoxed v -> fprintf f "@[<hv 2>@get_boxed<@,%a>@]" pp_v_name v
     | PtrCast (v, lay) ->

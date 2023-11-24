@@ -16,15 +16,36 @@ let get_word = function Word i -> i | _ -> failwith "not a word"
 let get_label = function Label l -> l | _ -> failwith "not a label"
 let get_block = function Block l -> l | _ -> failwith "not a block"
 
+let get_string cell =
+  let block = get_block cell in
+  let words = List.map get_word block in
+  String.of_seq @@ List.to_seq @@ List.map Char.chr words
+
+let make_string s =
+  block @@ List.map word @@ List.map Char.code @@ List.of_seq @@ String.to_seq s
+
+let arity2 = function [ x1; x2 ] -> (x1, x2) | _ -> failwith "not arity 2"
+
+let eval_kcall : Syntax.kernelfn -> memory_cell list -> memory_cell =
+ fun kfn args ->
+  match kfn with
+  | `StrConcat ->
+      let s1, s2 = arity2 @@ List.map get_string args in
+      make_string @@ s1 ^ s2
+  | `Itos ->
+      let i = get_word @@ List.hd args in
+      make_string @@ string_of_int i
+  | `Add ->
+      let i1, i2 = arity2 @@ List.map get_word args in
+      word @@ (i1 + i2)
+
 let rec eval_expr : procs -> memory -> expr -> memory_cell =
  fun procs memory expr ->
   let lookup x = List.assoc (snd x) memory in
   match expr with
   | Var x -> lookup x
   | Lit (`Int i) -> word i
-  | Lit (`String s) ->
-      block @@ List.map word @@ List.map Char.code @@ List.of_seq
-      @@ String.to_seq s
+  | Lit (`String s) -> make_string s
   | MakeUnion (id, var) -> block @@ (word id :: get_block (lookup var))
   | GetUnionId var -> List.hd @@ get_block @@ lookup var
   | GetUnionStruct var -> block @@ List.tl @@ get_block @@ lookup var
@@ -37,6 +58,9 @@ let rec eval_expr : procs -> memory -> expr -> memory_cell =
   | CallDirect (fn, args) ->
       let args = List.map lookup args in
       eval_call procs memory fn args
+  | CallKFn (fn, args) ->
+      let args = List.map lookup args in
+      eval_kcall fn args
   (* ignore boxes *)
   | MakeBox v -> lookup v
   | GetBoxed v -> lookup v
@@ -120,11 +144,7 @@ let readback : Symbol.t -> memory_cell -> Syntax.tvar -> Syntax.e_expr =
       | Content (TPrim `Unit) ->
           failwith "unit not representable in surface syntax"
       | Content (TPrim `Int) -> Int (get_word cell)
-      | Content (TPrim `Str) ->
-          let block = get_block cell in
-          let words = List.map get_word block in
-          let str = String.of_seq @@ List.to_seq @@ List.map Char.chr words in
-          Str str
+      | Content (TPrim `Str) -> Str (get_string cell)
       | Content TTagEmpty -> Var (symbols.fresh_symbol "<void>")
       | Content (TTag { tags; ext = _, ext }) ->
           let tags, _ext = chase_tags tags ext in

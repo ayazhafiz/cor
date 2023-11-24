@@ -99,6 +99,13 @@ let lookup_var : string -> venv -> var -> layout =
   check_lay_equiv (ctx_join ctx "venv vs local") l_x' l_x;
   l_x
 
+type kernel_sig = { args : layout list; ret : layout }
+
+let kernel_sig : Syntax.kernelfn -> kernel_sig = function
+  | `StrConcat -> { args = [ layout_str; layout_str ]; ret = layout_str }
+  | `Itos -> { args = [ layout_int ]; ret = layout_str }
+  | `Add -> { args = [ layout_int; layout_int ]; ret = layout_int }
+
 let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
  fun ctx fenv venv lay e ->
   match e with
@@ -139,6 +146,11 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
       List.iter2 (check_lay_equiv ctx) proc_args l_args;
       let proc_l_ret = fst proc.ret in
       check_lay_equiv ctx proc_l_ret lay
+  | CallKFn (kfn, args) ->
+      let { args = kargs; ret = kret } = kernel_sig kfn in
+      let l_args = List.map (lookup_var ctx venv) args in
+      List.iter2 (check_lay_equiv ctx) kargs l_args;
+      check_lay_equiv ctx kret lay
   | MakeBox x ->
       let l_x = lookup_var ctx venv x in
       let lay_inner = get_boxed lay in

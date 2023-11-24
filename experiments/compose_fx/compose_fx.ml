@@ -5,7 +5,7 @@ let string_of_position ({ pos_lnum; pos_cnum; pos_bol; _ } : Lexing.position) =
   Printf.sprintf "%d:%d" pos_lnum (pos_cnum - pos_bol + 1)
 
 let fresh_parse_ctx () : parse_ctx =
-  let n = ref 0 in
+  let n = ref min_var in
   let fresh_int () =
     incr n;
     !n

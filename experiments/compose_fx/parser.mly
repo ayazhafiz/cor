@@ -27,6 +27,7 @@ let xv = Syntax.xv
 %token <Syntax.loc * string> UPPER
 %token <Syntax.loc * int> NUMBER
 %token <Syntax.loc * string> STRING
+%token <Syntax.loc * string> KERNELFN
 
 %token <Syntax.loc> LET
 %token <Syntax.loc> REC
@@ -163,6 +164,12 @@ expr_app:
         let loc = (range (xloc whole) (xloc e)) in
         (loc, ctx.fresh_tvar @@ Unbd None, Call(whole, e))
       ) head atom_list
+  }
+  | head=KERNELFN atom_list=expr_atom_list { fun ctx ->
+      let atom_list = atom_list ctx in
+      let kernelfn = List.assoc (snd head) Syntax.kernelfn_of_string in
+      let loc = range (fst head) (l_range xloc atom_list) in
+      (loc, ctx.fresh_tvar @@ Unbd None, KCall(kernelfn, atom_list))
   }
 
 expr_atom_list:

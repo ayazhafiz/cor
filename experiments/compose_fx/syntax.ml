@@ -47,6 +47,14 @@ let tvar_set_recur tvar recur =
 let tvar_recurs tvar = !(tvar.recur)
 let tvar_v tvar = tvar.var
 
+let tvar_int =
+  { ty = ref (Content (TPrim `Int)); var = `Var 0; recur = ref false }
+
+let tvar_str =
+  { ty = ref (Content (TPrim `Str)); var = `Var 1; recur = ref false }
+
+let min_var = 1000
+
 let rec unlink tvar =
   match tvar_deref tvar with Link t -> unlink t | _ -> tvar
 
@@ -78,6 +86,21 @@ type e_pat = loc * tvar * pat
 
 and pat = PTag of (loc * string) * e_pat list | PVar of loc_symbol
 
+type kernelfn = [ `StrConcat | `Itos | `Add ]
+
+let string_of_kernelfn : (kernelfn * string) list =
+  [ (`StrConcat, "str_concat"); (`Add, "add"); (`Itos, "itos") ]
+
+let kernelfn_of_string : (string * kernelfn) list =
+  List.map (fun (a, b) -> (b, a)) string_of_kernelfn
+
+type kernel_sig = { args : tvar list; ret : tvar }
+
+let kernel_sig : kernelfn -> kernel_sig = function
+  | `StrConcat -> { args = [ tvar_str; tvar_str ]; ret = tvar_str }
+  | `Add -> { args = [ tvar_int; tvar_int ]; ret = tvar_int }
+  | `Itos -> { args = [ tvar_int ]; ret = tvar_str }
+
 type e_expr = loc * tvar * expr
 (** An elaborated expression *)
 
@@ -90,6 +113,7 @@ and expr =
       (** let x = e in b *)
   | Clos of (loc * loc_tvar * symbol) * e_expr
   | Call of e_expr * e_expr
+  | KCall of kernelfn * e_expr list
   | When of e_expr * branch list
 
 and branch = e_pat * e_expr
@@ -442,6 +466,7 @@ let tightest_node_at_expr : loc -> e_expr -> found_node =
       | Clos ((l, ty, x), e) ->
           if within loc l then Some (l, snd ty, `Var x) else expr e
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
+      | KCall (_, es) -> List.find_map (fun e -> expr e) es
       | When (e, branches) ->
           let check_branch (pat', body) =
             or_else (pat pat') (fun () -> expr body)
@@ -591,6 +616,14 @@ let pp_expr symbols f =
         go `Apply head;
         fprintf f "@ ";
         go `Apply arg;
+        fprintf f "@]"
+    | KCall (head, args) ->
+        fprintf f "@[<hov 2>%s@ " (List.assoc head string_of_kernelfn);
+        List.iteri
+          (fun i arg ->
+            if i > 0 then fprintf f "@ ";
+            go `Apply arg)
+          args;
         fprintf f "@]"
     | When (e, branches) ->
         fprintf f "@[<v 0>@[<hv 2>when@ ";

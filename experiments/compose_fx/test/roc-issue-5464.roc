@@ -41,24 +41,21 @@ let main =
         (\x -> await (inLine)
             (\firstName -> await (outLine "What's your last name?")
                 (\y -> await (inLine)
-                    (\lastName -> outLine firstName))))
+                    (\lastName -> outLine (~str_concat firstName (~str_concat " " lastName))))))
 ;;
 
 run main_handler =
 #   ^^^^^^^^^^^^
     let op = main (\x -> Done x) in
 #       ^^
-    let rec handle = \op -> when op is
+    let rec handle = \op -> \i -> when op is
 #           ^^^^^^
-        | StdinLine f -> handle (f "hello")
-        | StdoutLine s f -> handle (f s)
+        | StdinLine f -> handle (f (~str_concat "stdin" (~itos i))) (~add i 1)
+        | StdoutLine s f -> handle (f s) (~add i 1)
         | Done x -> x
     end
     in
-    when handle op is
-        | Ok s -> s
-        | Err e -> e
-    end
+    handle op 0
 ;;
 
 > cor-out +solve -elab
@@ -102,48 +99,47 @@ run main_handler =
 >         (\x -> await (inLine)
 >             (\firstName -> await (outLine "What's your last name?")
 >                 (\y -> await (inLine)
->                     (\lastName -> outLine firstName))))
+>                     (\lastName -> outLine (~str_concat firstName (~str_concat " " lastName))))))
 > ;;
 > 
 > run main_handler =
-> #   ^^^^^^^^^^^^ Str
+> #   ^^^^^^^^^^^^ [Err 'err, Ok Str]
 >     let op = main (\x -> Done x) in
-> #       ^^ %Op [Err Str, Ok Str]
->     let rec handle = \op -> when op is
-> #           ^^^^^^ %(Op [Err Str, Ok Str]) -> [Err Str, Ok Str]
->         | StdinLine f -> handle (f "hello")
->         | StdoutLine s f -> handle (f s)
+> #       ^^ %Op [Err 'err, Ok Str]
+>     let rec handle = \op -> \i -> when op is
+> #           ^^^^^^ %(Op [Err 'err, Ok Str])
+> #           ^^^^^^   -> Int -> [Err 'err, Ok Str]
+>         | StdinLine f -> handle (f (~str_concat "stdin" (~itos i))) (~add i 1)
+>         | StdoutLine s f -> handle (f s) (~add i 1)
 >         | Done x -> x
 >     end
 >     in
->     when handle op is
->         | Ok s -> s
->         | Err e -> e
->     end
+>     handle op 0
 > ;;
+> 
 
 > cor-out +ir -print
 > proc clos1(captures_1: box<erased>, toNext1: { *fn, box<erased> }):
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
 > {
->   let captures_box1: box<{ str }> = @ptr_cast(captures_1 as box<{ str }>);
->   let captures_stack1: { str } = @get_boxed<captures_box1>;
->   let err: str = @get_struct_field<captures_stack1, 0>;
+>   let captures_box1: box<{ [] }> = @ptr_cast(captures_1 as box<{ [] }>);
+>   let captures_stack1: { [] } = @get_boxed<captures_box1>;
+>   let err: [] = @get_struct_field<captures_stack1, 0>;
 >   let fnptr: *fn = @get_struct_field<toNext1, 0>;
 >   let captures: box<erased> = @get_struct_field<toNext1, 1>;
->   let struct: { str } = @make_struct{ err };
->   let var2: [ `0 { str }, `1 { str } ] = @make_union<0, struct>;
+>   let struct: { [] } = @make_struct{ err };
+>   let var2: [ `0 { [] }, `1 { str } ] = @make_union<0, struct>;
 >   let var3:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -151,12 +147,12 @@ run main_handler =
 >   return var3;
 > }
 > 
-> proc clos(captures_: box<erased>, err: str): { *fn, box<erased> }
+> proc clos(captures_: box<erased>, err: []): { *fn, box<erased> }
 > {
 >   let captures_box: box<{}> = @ptr_cast(captures_ as box<{}>);
 >   let captures_stack: {} = @get_boxed<captures_box>;
->   let captures_stack_1: { str } = @make_struct{ err };
->   let captures_box_1: box<{ str }> = @make_box(captures_stack_1);
+>   let captures_stack_1: { [] } = @make_struct{ err };
+>   let captures_box_1: box<{ [] }> = @make_box(captures_stack_1);
 >   let captures_1: box<erased> = @ptr_cast(captures_box_1 as box<erased>);
 >   let fn_ptr_1: *fn = @make_fn_ptr<clos1>;
 >   let var1: { *fn, box<erased> } = @make_struct{ fn_ptr_1, captures_1 };
@@ -175,11 +171,11 @@ run main_handler =
 > 
 > global fail1: { *fn, box<erased> } = @call_direct(fail_thunk);
 > 
-> proc clos5(captures_5: box<erased>, result: [ `0 { str }, `1 { str } ]):
+> proc clos5(captures_5: box<erased>, result: [ `0 { [] }, `1 { str } ]):
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -200,8 +196,8 @@ run main_handler =
 >   let discr: int = @get_union_id<result>;
 >   switch discr {
 >   0 -> {
->     let payload1: { str } = @get_union_struct<result>;
->     let e: str = @get_struct_field<payload1, 0>;
+>     let payload1: { [] } = @get_union_struct<result>;
+>     let e: [] = @get_struct_field<payload1, 0>;
 >     let fnptr3: *fn = @get_struct_field<fail1, 0>;
 >     let captures3: box<erased> = @get_struct_field<fail1, 1>;
 >     @call_indirect(fnptr3, captures3, e)
@@ -221,7 +217,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -233,7 +229,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -267,7 +263,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -333,7 +329,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -345,12 +341,12 @@ run main_handler =
 >   let fnptr5: *fn = @get_struct_field<toNext2, 0>;
 >   let captures5: box<erased> = @get_struct_field<toNext2, 1>;
 >   let struct2: { str } = @make_struct{ x };
->   let var14: [ `0 { str }, `1 { str } ] = @make_union<1, struct2>;
+>   let var14: [ `0 { [] }, `1 { str } ] = @make_union<1, struct2>;
 >   let var15:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -362,7 +358,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -379,7 +375,7 @@ run main_handler =
 >   let struct1: { str, { *fn, box<erased> } } = @make_struct{ s, var12 };
 >   let union:
 >         [
->            `0 { [ `0 { str }, `1 { str } ] },
+>            `0 { [ `0 { [] }, `1 { str } ] },
 >            `1 { { *fn, box<erased> } },
 >            `2 { str, { *fn, box<erased> } }
 >         ]
@@ -388,7 +384,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -424,23 +420,23 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
 > {
->   let captures_box10: box<{ str }> = @ptr_cast(captures_10 as box<{ str }>);
->   let captures_stack10: { str } = @get_boxed<captures_box10>;
->   let err: str = @get_struct_field<captures_stack10, 0>;
+>   let captures_box10: box<{ [] }> = @ptr_cast(captures_10 as box<{ [] }>);
+>   let captures_stack10: { [] } = @get_boxed<captures_box10>;
+>   let err: [] = @get_struct_field<captures_stack10, 0>;
 >   let fnptr6: *fn = @get_struct_field<toNext1, 0>;
 >   let captures6: box<erased> = @get_struct_field<toNext1, 1>;
->   let struct3: { str } = @make_struct{ err };
->   let var18: [ `0 { str }, `1 { str } ] = @make_union<0, struct3>;
+>   let struct3: { [] } = @make_struct{ err };
+>   let var18: [ `0 { [] }, `1 { str } ] = @make_union<0, struct3>;
 >   let var19:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -448,12 +444,12 @@ run main_handler =
 >   return var19;
 > }
 > 
-> proc clos9(captures_9: box<erased>, err: str): { *fn, box<erased> }
+> proc clos9(captures_9: box<erased>, err: []): { *fn, box<erased> }
 > {
 >   let captures_box9: box<{}> = @ptr_cast(captures_9 as box<{}>);
 >   let captures_stack9: {} = @get_boxed<captures_box9>;
->   let captures_stack_10: { str } = @make_struct{ err };
->   let captures_box_10: box<{ str }> = @make_box(captures_stack_10);
+>   let captures_stack_10: { [] } = @make_struct{ err };
+>   let captures_box_10: box<{ [] }> = @make_box(captures_stack_10);
 >   let captures_10: box<erased> = @ptr_cast(captures_box_10 as box<erased>);
 >   let fn_ptr_10: *fn = @make_fn_ptr<clos10>;
 >   let var17: { *fn, box<erased> } = @make_struct{ fn_ptr_10, captures_10 };
@@ -472,11 +468,11 @@ run main_handler =
 > 
 > global fail2: { *fn, box<erased> } = @call_direct(fail_thunk1);
 > 
-> proc clos14(captures_14: box<erased>, result: [ `0 { str }, `1 { str } ]):
+> proc clos14(captures_14: box<erased>, result: [ `0 { [] }, `1 { str } ]):
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -497,8 +493,8 @@ run main_handler =
 >   let discr1: int = @get_union_id<result>;
 >   switch discr1 {
 >   0 -> {
->     let payload3: { str } = @get_union_struct<result>;
->     let e: str = @get_struct_field<payload3, 0>;
+>     let payload3: { [] } = @get_union_struct<result>;
+>     let e: [] = @get_struct_field<payload3, 0>;
 >     let fnptr9: *fn = @get_struct_field<fail2, 0>;
 >     let captures9: box<erased> = @get_struct_field<fail2, 1>;
 >     @call_indirect(fnptr9, captures9, e)
@@ -518,7 +514,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -530,7 +526,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -565,7 +561,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -632,7 +628,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -644,12 +640,12 @@ run main_handler =
 >   let fnptr11: *fn = @get_struct_field<toNext3, 0>;
 >   let captures11: box<erased> = @get_struct_field<toNext3, 1>;
 >   let struct5: { str } = @make_struct{ s1 };
->   let var29: [ `0 { str }, `1 { str } ] = @make_union<1, struct5>;
+>   let var29: [ `0 { [] }, `1 { str } ] = @make_union<1, struct5>;
 >   let var30:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -661,7 +657,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -677,7 +673,7 @@ run main_handler =
 >   let struct4: { { *fn, box<erased> } } = @make_struct{ var27 };
 >   let union1:
 >         [
->            `0 { [ `0 { str }, `1 { str } ] },
+>            `0 { [ `0 { [] }, `1 { str } ] },
 >            `1 { { *fn, box<erased> } },
 >            `2 { str, { *fn, box<erased> } }
 >         ]
@@ -686,7 +682,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -710,23 +706,23 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
 > {
->   let captures_box18: box<{ str }> = @ptr_cast(captures_18 as box<{ str }>);
->   let captures_stack18: { str } = @get_boxed<captures_box18>;
->   let err: str = @get_struct_field<captures_stack18, 0>;
+>   let captures_box18: box<{ [] }> = @ptr_cast(captures_18 as box<{ [] }>);
+>   let captures_stack18: { [] } = @get_boxed<captures_box18>;
+>   let err: [] = @get_struct_field<captures_stack18, 0>;
 >   let fnptr12: *fn = @get_struct_field<toNext1, 0>;
 >   let captures12: box<erased> = @get_struct_field<toNext1, 1>;
->   let struct6: { str } = @make_struct{ err };
->   let var33: [ `0 { str }, `1 { str } ] = @make_union<0, struct6>;
+>   let struct6: { [] } = @make_struct{ err };
+>   let var33: [ `0 { [] }, `1 { str } ] = @make_union<0, struct6>;
 >   let var34:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -734,12 +730,12 @@ run main_handler =
 >   return var34;
 > }
 > 
-> proc clos17(captures_17: box<erased>, err: str): { *fn, box<erased> }
+> proc clos17(captures_17: box<erased>, err: []): { *fn, box<erased> }
 > {
 >   let captures_box17: box<{}> = @ptr_cast(captures_17 as box<{}>);
 >   let captures_stack17: {} = @get_boxed<captures_box17>;
->   let captures_stack_18: { str } = @make_struct{ err };
->   let captures_box_18: box<{ str }> = @make_box(captures_stack_18);
+>   let captures_stack_18: { [] } = @make_struct{ err };
+>   let captures_box_18: box<{ [] }> = @make_box(captures_stack_18);
 >   let captures_18: box<erased> = @ptr_cast(captures_box_18 as box<erased>);
 >   let fn_ptr_18: *fn = @make_fn_ptr<clos18>;
 >   let var32: { *fn, box<erased> } = @make_struct{ fn_ptr_18, captures_18 };
@@ -758,11 +754,11 @@ run main_handler =
 > 
 > global fail3: { *fn, box<erased> } = @call_direct(fail_thunk2);
 > 
-> proc clos22(captures_22: box<erased>, result: [ `0 { str }, `1 { str } ]):
+> proc clos22(captures_22: box<erased>, result: [ `0 { [] }, `1 { str } ]):
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -783,8 +779,8 @@ run main_handler =
 >   let discr2: int = @get_union_id<result>;
 >   switch discr2 {
 >   0 -> {
->     let payload5: { str } = @get_union_struct<result>;
->     let e: str = @get_struct_field<payload5, 0>;
+>     let payload5: { [] } = @get_union_struct<result>;
+>     let e: [] = @get_struct_field<payload5, 0>;
 >     let fnptr15: *fn = @get_struct_field<fail3, 0>;
 >     let captures15: box<erased> = @get_struct_field<fail3, 1>;
 >     @call_indirect(fnptr15, captures15, e)
@@ -804,7 +800,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -816,7 +812,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -851,7 +847,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -918,7 +914,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -930,12 +926,12 @@ run main_handler =
 >   let fnptr17: *fn = @get_struct_field<toNext2, 0>;
 >   let captures17: box<erased> = @get_struct_field<toNext2, 1>;
 >   let struct8: { str } = @make_struct{ x };
->   let var45: [ `0 { str }, `1 { str } ] = @make_union<1, struct8>;
+>   let var45: [ `0 { [] }, `1 { str } ] = @make_union<1, struct8>;
 >   let var46:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -947,7 +943,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -964,7 +960,7 @@ run main_handler =
 >   let struct7: { str, { *fn, box<erased> } } = @make_struct{ s, var43 };
 >   let union2:
 >         [
->            `0 { [ `0 { str }, `1 { str } ] },
+>            `0 { [ `0 { [] }, `1 { str } ] },
 >            `1 { { *fn, box<erased> } },
 >            `2 { str, { *fn, box<erased> } }
 >         ]
@@ -973,7 +969,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1009,23 +1005,23 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
 > {
->   let captures_box27: box<{ str }> = @ptr_cast(captures_27 as box<{ str }>);
->   let captures_stack27: { str } = @get_boxed<captures_box27>;
->   let err: str = @get_struct_field<captures_stack27, 0>;
+>   let captures_box27: box<{ [] }> = @ptr_cast(captures_27 as box<{ [] }>);
+>   let captures_stack27: { [] } = @get_boxed<captures_box27>;
+>   let err: [] = @get_struct_field<captures_stack27, 0>;
 >   let fnptr18: *fn = @get_struct_field<toNext1, 0>;
 >   let captures18: box<erased> = @get_struct_field<toNext1, 1>;
->   let struct9: { str } = @make_struct{ err };
->   let var49: [ `0 { str }, `1 { str } ] = @make_union<0, struct9>;
+>   let struct9: { [] } = @make_struct{ err };
+>   let var49: [ `0 { [] }, `1 { str } ] = @make_union<0, struct9>;
 >   let var50:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1033,12 +1029,12 @@ run main_handler =
 >   return var50;
 > }
 > 
-> proc clos26(captures_26: box<erased>, err: str): { *fn, box<erased> }
+> proc clos26(captures_26: box<erased>, err: []): { *fn, box<erased> }
 > {
 >   let captures_box26: box<{}> = @ptr_cast(captures_26 as box<{}>);
 >   let captures_stack26: {} = @get_boxed<captures_box26>;
->   let captures_stack_27: { str } = @make_struct{ err };
->   let captures_box_27: box<{ str }> = @make_box(captures_stack_27);
+>   let captures_stack_27: { [] } = @make_struct{ err };
+>   let captures_box_27: box<{ [] }> = @make_box(captures_stack_27);
 >   let captures_27: box<erased> = @ptr_cast(captures_box_27 as box<erased>);
 >   let fn_ptr_27: *fn = @make_fn_ptr<clos27>;
 >   let var48: { *fn, box<erased> } = @make_struct{ fn_ptr_27, captures_27 };
@@ -1057,11 +1053,11 @@ run main_handler =
 > 
 > global fail4: { *fn, box<erased> } = @call_direct(fail_thunk3);
 > 
-> proc clos31(captures_31: box<erased>, result: [ `0 { str }, `1 { str } ]):
+> proc clos31(captures_31: box<erased>, result: [ `0 { [] }, `1 { str } ]):
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -1082,8 +1078,8 @@ run main_handler =
 >   let discr3: int = @get_union_id<result>;
 >   switch discr3 {
 >   0 -> {
->     let payload7: { str } = @get_union_struct<result>;
->     let e: str = @get_struct_field<payload7, 0>;
+>     let payload7: { [] } = @get_union_struct<result>;
+>     let e: [] = @get_struct_field<payload7, 0>;
 >     let fnptr21: *fn = @get_struct_field<fail4, 0>;
 >     let captures21: box<erased> = @get_struct_field<fail4, 1>;
 >     @call_indirect(fnptr21, captures21, e)
@@ -1103,7 +1099,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1115,7 +1111,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -1150,7 +1146,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1217,7 +1213,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -1229,12 +1225,12 @@ run main_handler =
 >   let fnptr23: *fn = @get_struct_field<toNext3, 0>;
 >   let captures23: box<erased> = @get_struct_field<toNext3, 1>;
 >   let struct11: { str } = @make_struct{ s1 };
->   let var60: [ `0 { str }, `1 { str } ] = @make_union<1, struct11>;
+>   let var60: [ `0 { [] }, `1 { str } ] = @make_union<1, struct11>;
 >   let var61:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1246,7 +1242,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -1262,7 +1258,7 @@ run main_handler =
 >   let struct10: { { *fn, box<erased> } } = @make_struct{ var58 };
 >   let union3:
 >         [
->            `0 { [ `0 { str }, `1 { str } ] },
+>            `0 { [ `0 { [] }, `1 { str } ] },
 >            `1 { { *fn, box<erased> } },
 >            `2 { str, { *fn, box<erased> } }
 >         ]
@@ -1271,7 +1267,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1295,7 +1291,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -1307,12 +1303,12 @@ run main_handler =
 >   let fnptr24: *fn = @get_struct_field<toNext2, 0>;
 >   let captures24: box<erased> = @get_struct_field<toNext2, 1>;
 >   let struct13: { str } = @make_struct{ x };
->   let var66: [ `0 { str }, `1 { str } ] = @make_union<1, struct13>;
+>   let var66: [ `0 { [] }, `1 { str } ] = @make_union<1, struct13>;
 >   let var67:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1324,7 +1320,7 @@ run main_handler =
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
@@ -1341,7 +1337,7 @@ run main_handler =
 >   let struct12: { str, { *fn, box<erased> } } = @make_struct{ s, var64 };
 >   let union4:
 >         [
->            `0 { [ `0 { str }, `1 { str } ] },
+>            `0 { [ `0 { [] }, `1 { str } ] },
 >            `1 { { *fn, box<erased> } },
 >            `2 { str, { *fn, box<erased> } }
 >         ]
@@ -1350,7 +1346,7 @@ run main_handler =
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
@@ -1392,9 +1388,11 @@ run main_handler =
 >   let outLine3: { *fn, box<erased> } = @get_struct_field<captures_stack40, 1>;
 >   let fnptr35: *fn = @get_struct_field<outLine3, 0>;
 >   let captures35: box<erased> = @get_struct_field<outLine3, 1>;
->   let var84: { *fn, box<erased> }
->     = @call_indirect(fnptr35, captures35, firstName);
->   return var84;
+>   let var84: str = " ";
+>   let var85: str = @call_kfn(str_concat, var84, lastName);
+>   let var86: str = @call_kfn(str_concat, firstName, var85);
+>   let var87: { *fn, box<erased> } = @call_indirect(fnptr35, captures35, var86);
+>   return var87;
 > }
 > 
 > proc clos39(captures_39: box<erased>, y: str): { *fn, box<erased> }
@@ -1637,35 +1635,157 @@ run main_handler =
 > 
 > global main1: { *fn, box<erased> } = @call_direct(main_thunk);
 > 
-> proc clos41(captures_41: box<erased>, x2: [ `0 { str }, `1 { str } ]):
+> proc clos41(captures_41: box<erased>, x2: [ `0 { [] }, `1 { str } ]):
 >   box<
 >     %type_0 =
 >     [
->        `0 { [ `0 { str }, `1 { str } ] },
+>        `0 { [ `0 { [] }, `1 { str } ] },
 >        `1 { { *fn, box<erased> } },
 >        `2 { str, { *fn, box<erased> } }
 >     ]>
 > {
 >   let captures_box41: box<{}> = @ptr_cast(captures_41 as box<{}>);
 >   let captures_stack41: {} = @get_boxed<captures_box41>;
->   let struct14: { [ `0 { str }, `1 { str } ] } = @make_struct{ x2 };
+>   let struct14: { [ `0 { [] }, `1 { str } ] } = @make_struct{ x2 };
 >   let union5:
 >         [
->            `0 { [ `0 { str }, `1 { str } ] },
+>            `0 { [ `0 { [] }, `1 { str } ] },
 >            `1 { { *fn, box<erased> } },
 >            `2 { str, { *fn, box<erased> } }
 >         ]
 >     = @make_union<0, struct14>;
->   let var87:
+>   let var92:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
 >     = @make_box(union5);
->   return var87;
+>   return var92;
+> }
+> 
+> proc clos42(captures_42: box<erased>, i: int): [ `0 { [] }, `1 { str } ]
+> {
+>   let captures_box43:
+>         box<
+>           {
+>            { *fn, box<erased> },
+>             box<
+>               %type_0 =
+>               [
+>                  `0 { [ `0 { [] }, `1 { str } ] },
+>                  `1 { { *fn, box<erased> } },
+>                  `2 { str, { *fn, box<erased> } }
+>               ]>
+>            ,
+>           }>
+>     = @ptr_cast(
+>         captures_42 as
+>         box<
+>           {
+>            { *fn, box<erased> },
+>             box<
+>               %type_0 =
+>               [
+>                  `0 { [ `0 { [] }, `1 { str } ] },
+>                  `1 { { *fn, box<erased> } },
+>                  `2 { str, { *fn, box<erased> } }
+>               ]>
+>            ,
+>           }>);
+>   let captures_stack43:
+>         {
+>          { *fn, box<erased> },
+>           box<
+>             %type_0 =
+>             [
+>                `0 { [ `0 { [] }, `1 { str } ] },
+>                `1 { { *fn, box<erased> } },
+>                `2 { str, { *fn, box<erased> } }
+>             ]>
+>          ,
+>         }
+>     = @get_boxed<captures_box43>;
+>   let handle: { *fn, box<erased> } = @get_struct_field<captures_stack43, 0>;
+>   let op1:
+>         box<
+>           %type_0 =
+>           [
+>              `0 { [ `0 { [] }, `1 { str } ] },
+>              `1 { { *fn, box<erased> } },
+>              `2 { str, { *fn, box<erased> } }
+>           ]>
+>     = @get_struct_field<captures_stack43, 1>;
+>   let inner1:
+>         [
+>            `0 { [ `0 { [] }, `1 { str } ] },
+>            `1 { { *fn, box<erased> } },
+>            `2 { str, { *fn, box<erased> } }
+>         ]
+>     = @get_boxed<op1>;
+>   let discr4: int = @get_union_id<inner1>;
+>   switch discr4 {
+>   0 -> {
+>     let payload10: { [ `0 { [] }, `1 { str } ] } = @get_union_struct<inner1>;
+>     let x3: [ `0 { [] }, `1 { str } ] = @get_struct_field<payload10, 0>;
+>     x3
+>   }
+>   1 -> {
+>     let payload8: { { *fn, box<erased> } } = @get_union_struct<inner1>;
+>     let f: { *fn, box<erased> } = @get_struct_field<payload8, 0>;
+>     let fnptr39: *fn = @get_struct_field<handle, 0>;
+>     let captures39: box<erased> = @get_struct_field<handle, 1>;
+>     let fnptr40: *fn = @get_struct_field<f, 0>;
+>     let captures40: box<erased> = @get_struct_field<f, 1>;
+>     let var94: str = "stdin";
+>     let var95: str = @call_kfn(itos, i);
+>     let var96: str = @call_kfn(str_concat, var94, var95);
+>     let var97:
+>           box<
+>             %type_0 =
+>             [
+>                `0 { [ `0 { [] }, `1 { str } ] },
+>                `1 { { *fn, box<erased> } },
+>                `2 { str, { *fn, box<erased> } }
+>             ]>
+>       = @call_indirect(fnptr40, captures40, var96);
+>     let var98: { *fn, box<erased> }
+>       = @call_indirect(fnptr39, captures39, var97);
+>     let fnptr41: *fn = @get_struct_field<var98, 0>;
+>     let captures41: box<erased> = @get_struct_field<var98, 1>;
+>     let var99: int = 1;
+>     let var100: int = @call_kfn(add, i, var99);
+>     @call_indirect(fnptr41, captures41, var100)
+>   }
+>   2 -> {
+>     let payload9: { str, { *fn, box<erased> } } = @get_union_struct<inner1>;
+>     let s2: str = @get_struct_field<payload9, 0>;
+>     let f1: { *fn, box<erased> } = @get_struct_field<payload9, 1>;
+>     let fnptr42: *fn = @get_struct_field<handle, 0>;
+>     let captures42: box<erased> = @get_struct_field<handle, 1>;
+>     let fnptr43: *fn = @get_struct_field<f1, 0>;
+>     let captures43: box<erased> = @get_struct_field<f1, 1>;
+>     let var101:
+>           box<
+>             %type_0 =
+>             [
+>                `0 { [ `0 { [] }, `1 { str } ] },
+>                `1 { { *fn, box<erased> } },
+>                `2 { str, { *fn, box<erased> } }
+>             ]>
+>       = @call_indirect(fnptr43, captures43, s2);
+>     let var102: { *fn, box<erased> }
+>       = @call_indirect(fnptr42, captures42, var101);
+>     let fnptr44: *fn = @get_struct_field<var102, 0>;
+>     let captures44: box<erased> = @get_struct_field<var102, 1>;
+>     let var103: int = 1;
+>     let var104: int = @call_kfn(add, i, var103);
+>     @call_indirect(fnptr44, captures44, var104)
+>   }
+>   } in join join4;
+>   return join4;
 > }
 > 
 > proc handle1(
@@ -1674,74 +1794,51 @@ run main_handler =
 >      box<
 >        %type_0 =
 >        [
->           `0 { [ `0 { str }, `1 { str } ] },
+>           `0 { [ `0 { [] }, `1 { str } ] },
 >           `1 { { *fn, box<erased> } },
 >           `2 { str, { *fn, box<erased> } }
 >        ]>):
->   [ `0 { str }, `1 { str } ]
+>   { *fn, box<erased> }
 > {
 >   let captures_box42: box<{}> = @ptr_cast(captures_handle as box<{}>);
 >   let captures_stack42: {} = @get_boxed<captures_box42>;
 >   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle1>;
 >   let handle: { *fn, box<erased> }
 >     = @make_struct{ rec_fn_ptr_handle, captures_handle };
->   let inner1:
->         [
->            `0 { [ `0 { str }, `1 { str } ] },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @get_boxed<op1>;
->   let discr5: int = @get_union_id<inner1>;
->   switch discr5 {
->   0 -> {
->     let payload12: { [ `0 { str }, `1 { str } ] } = @get_union_struct<inner1>;
->     let x3: [ `0 { str }, `1 { str } ] = @get_struct_field<payload12, 0>;
->     x3
->   }
->   1 -> {
->     let payload10: { { *fn, box<erased> } } = @get_union_struct<inner1>;
->     let f: { *fn, box<erased> } = @get_struct_field<payload10, 0>;
->     let fnptr38: *fn = @get_struct_field<handle, 0>;
->     let captures38: box<erased> = @get_struct_field<handle, 1>;
->     let fnptr39: *fn = @get_struct_field<f, 0>;
->     let captures39: box<erased> = @get_struct_field<f, 1>;
->     let var88: str = "hello";
->     let var89:
+>   let captures_stack_42:
+>         {
+>          { *fn, box<erased> },
 >           box<
 >             %type_0 =
 >             [
->                `0 { [ `0 { str }, `1 { str } ] },
+>                `0 { [ `0 { [] }, `1 { str } ] },
 >                `1 { { *fn, box<erased> } },
 >                `2 { str, { *fn, box<erased> } }
 >             ]>
->       = @call_indirect(fnptr39, captures39, var88);
->     @call_indirect(fnptr38, captures38, var89)
->   }
->   2 -> {
->     let payload11: { str, { *fn, box<erased> } } = @get_union_struct<inner1>;
->     let s2: str = @get_struct_field<payload11, 0>;
->     let f1: { *fn, box<erased> } = @get_struct_field<payload11, 1>;
->     let fnptr40: *fn = @get_struct_field<handle, 0>;
->     let captures40: box<erased> = @get_struct_field<handle, 1>;
->     let fnptr41: *fn = @get_struct_field<f1, 0>;
->     let captures41: box<erased> = @get_struct_field<f1, 1>;
->     let var90:
->           box<
->             %type_0 =
->             [
->                `0 { [ `0 { str }, `1 { str } ] },
->                `1 { { *fn, box<erased> } },
->                `2 { str, { *fn, box<erased> } }
->             ]>
->       = @call_indirect(fnptr41, captures41, s2);
->     @call_indirect(fnptr40, captures40, var90)
->   }
->   } in join join5;
->   return join5;
+>          ,
+>         }
+>     = @make_struct{ handle, op1 };
+>   let captures_box_42:
+>         box<
+>           {
+>            { *fn, box<erased> },
+>             box<
+>               %type_0 =
+>               [
+>                  `0 { [ `0 { [] }, `1 { str } ] },
+>                  `1 { { *fn, box<erased> } },
+>                  `2 { str, { *fn, box<erased> } }
+>               ]>
+>            ,
+>           }>
+>     = @make_box(captures_stack_42);
+>   let captures_42: box<erased> = @ptr_cast(captures_box_42 as box<erased>);
+>   let fn_ptr_42: *fn = @make_fn_ptr<clos42>;
+>   let var93: { *fn, box<erased> } = @make_struct{ fn_ptr_42, captures_42 };
+>   return var93;
 > }
 > 
-> proc main_handler_thunk(): str
+> proc main_handler_thunk(): [ `0 { [] }, `1 { str } ]
 > {
 >   let fnptr36: *fn = @get_struct_field<main1, 0>;
 >   let captures36: box<erased> = @get_struct_field<main1, 1>;
@@ -1749,16 +1846,16 @@ run main_handler =
 >   let captures_box_41: box<{}> = @make_box(captures_stack_41);
 >   let captures_41: box<erased> = @ptr_cast(captures_box_41 as box<erased>);
 >   let fn_ptr_41: *fn = @make_fn_ptr<clos41>;
->   let var85: { *fn, box<erased> } = @make_struct{ fn_ptr_41, captures_41 };
+>   let var88: { *fn, box<erased> } = @make_struct{ fn_ptr_41, captures_41 };
 >   let op:
 >         box<
 >           %type_0 =
 >           [
->              `0 { [ `0 { str }, `1 { str } ] },
+>              `0 { [ `0 { [] }, `1 { str } ] },
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
->     = @call_indirect(fnptr36, captures36, var85);
+>     = @call_indirect(fnptr36, captures36, var88);
 >   let captures_stack_handle: {} = @make_struct{};
 >   let captures_box_handle: box<{}> = @make_box(captures_stack_handle);
 >   let captures_handle: box<erased>
@@ -1768,28 +1865,23 @@ run main_handler =
 >     = @make_struct{ fn_ptr_handle, captures_handle };
 >   let fnptr37: *fn = @get_struct_field<handle, 0>;
 >   let captures37: box<erased> = @get_struct_field<handle, 1>;
->   let var86: [ `0 { str }, `1 { str } ]
->     = @call_indirect(fnptr37, captures37, op);
->   let discr4: int = @get_union_id<var86>;
->   switch discr4 {
->   0 -> {
->     let payload9: { str } = @get_union_struct<var86>;
->     let e1: str = @get_struct_field<payload9, 0>;
->     e1
->   }
->   1 -> {
->     let payload8: { str } = @get_union_struct<var86>;
->     let s3: str = @get_struct_field<payload8, 0>;
->     s3
->   }
->   } in join join4;
->   return join4;
+>   let var89: { *fn, box<erased> } = @call_indirect(fnptr37, captures37, op);
+>   let fnptr38: *fn = @get_struct_field<var89, 0>;
+>   let captures38: box<erased> = @get_struct_field<var89, 1>;
+>   let var90: int = 0;
+>   let var91: [ `0 { [] }, `1 { str } ]
+>     = @call_indirect(fnptr38, captures38, var90);
+>   return var91;
 > }
 > 
-> global main_handler: str = @call_direct(main_handler_thunk);
+> global main_handler:
+>   [ `0 { [] }, `1 { str } ]
+>   = @call_direct(main_handler_thunk);
 > 
 > entry main_handler;
 
 > cor-out +eval -print
-> main_handler = [104 101 108 108 111]
->              > "hello"
+> main_handler = [1
+>                [115 116 100 105 110 49 32 115 116
+>                100 105 110 51]]
+>              > Ok "stdin1 stdin3"
