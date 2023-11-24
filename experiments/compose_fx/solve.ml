@@ -236,7 +236,8 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
                   match ((only1, ext1), (only2, ext2)) with
                   | ([], ext1), ([], ext2) ->
                       unify ext1 ext2;
-                      TTag { tags = shared; ext = (noloc, ext1) }
+                      let tags = sort_tags shared in
+                      TTag { tags; ext = (noloc, ext1) }
                   | (others, ext1), ([], ext2) | ([], ext2), (others, ext1) ->
                       let other_tag_union =
                         fresh_tvar

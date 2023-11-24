@@ -44,8 +44,11 @@ let free : S.e_expr -> S.tvar SymbolMap.t =
         List.fold_left
           (fun acc e -> SymbolMap.union (go_expr e) acc)
           SymbolMap.empty es
-    | S.Let (_, (_, _, x), e, b) ->
+    | S.Let (letrec, (_, _, x), e, b) ->
         let free_e = go_expr e in
+        let free_e =
+          match letrec with `LetRec -> SymbolMap.remove x free_e | _ -> free_e
+        in
         let free_b = go_expr b in
         let free_b = SymbolMap.remove x free_b in
         SymbolMap.union free_e free_b

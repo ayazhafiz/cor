@@ -10,7 +10,12 @@ let layout_of_tvar : ctx -> S.tvar -> layout =
     let tvar = S.unlink_w_alias tvar in
     let var = S.tvar_v tvar in
     match List.assoc_opt var !cache with
-    | Some layout -> layout
+    | Some layout ->
+        if !layout = Union [] then
+          (* NB: late recursion-setting. If we failed to find a recursion point
+             earlier on, we opportunistically set it now. *)
+          S.tvar_set_recur tvar true;
+        layout
     | None ->
         let lay = ref @@ Union [] in
         cache := (var, lay) :: !cache;

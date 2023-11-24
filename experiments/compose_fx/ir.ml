@@ -1,7 +1,7 @@
 open Util
 open Language
 
-type rec_id = [ `Rec of int ]
+type rec_id = [ `Rec of int ] [@@deriving show]
 
 type layout_repr =
   | Str
@@ -78,72 +78,93 @@ let new_ctx symbols fresh_tvar =
 let pp_rec_id : Format.formatter -> rec_id -> unit =
  fun f (`Rec i) -> Format.fprintf f "%%type_%d" i
 
-let rec pp_layout : Format.formatter -> layout -> unit =
- fun f l ->
-  let open Format in
+let pp_layout : ?max_depth:int -> Format.formatter -> layout -> unit =
+ fun ?(max_depth = 100) f l ->
   let seen_recs : rec_id list ref = ref [] in
-  match !l with
-  | Str -> fprintf f "str"
-  | Int -> fprintf f "int"
-  | Struct [] -> fprintf f "{}"
-  | Struct layouts ->
-      (* format as { lay1, lay2, lay3 } *)
-      (* or
-         {
-           lay1,
-           lay2,
-           lay3,
-         }
-         if a break is required
-      *)
-      fprintf f "@[<hv 0>{@[<hv 0>@ ";
-      List.iteri
-        (fun i lay ->
-          pp_layout f lay;
-          if i < List.length layouts - 1 then fprintf f ",@, ")
-        layouts;
-      fprintf f "@ @]%t}@]"
-        (pp_print_custom_break ~fits:("", 0, "") ~breaks:(",", 0, ""))
-  | Union [] -> fprintf f "[]"
-  | Union variants ->
-      (* format as [ lay1, lay2, lay3 ] *)
-      (* or
-         [
-           lay1,
-           lay2,
-           lay3,
-         ]
-         if a break is required
-      *)
-      fprintf f "@[<hv 0>[@[<hv 2>";
-      List.iteri
-        (fun i lay ->
-          fprintf f "@ `%d %a" i pp_layout lay;
-          if i < List.length variants - 1 then fprintf f ",")
-        variants;
-      fprintf f "@]@ ]@]"
-  | Box (_, Some r) when List.mem r !seen_recs ->
-      fprintf f "@[<hv 2>box<%a>@]" pp_rec_id r
-  | Box (lay, Some r) ->
-      fprintf f "@[<hv 2>box<@,%a =@ %a>@]" pp_rec_id r pp_layout lay
-  | Box (lay, None) -> fprintf f "@[<hv 2>box<@,%a>@]" pp_layout lay
-  | Erased -> fprintf f "erased"
-  | FunctionPointer -> fprintf f "*fn"
+  let rec go ?(max_depth = 100) f l =
+    let go = go ~max_depth:(max_depth - 1) in
+    let open Format in
+    if max_depth <= 0 then fprintf f "..."
+    else
+      match !l with
+      | Str -> fprintf f "str"
+      | Int -> fprintf f "int"
+      | Struct [] -> fprintf f "{}"
+      | Struct layouts ->
+          (* format as { lay1, lay2, lay3 } *)
+          (* or
+             {
+               lay1,
+               lay2,
+               lay3,
+             }
+             if a break is required
+          *)
+          fprintf f "@[<hv 0>{@[<hv 0>@ ";
+          List.iteri
+            (fun i lay ->
+              go f lay;
+              if i < List.length layouts - 1 then fprintf f ",@, ")
+            layouts;
+          fprintf f "@ @]%t}@]"
+            (pp_print_custom_break ~fits:("", 0, "") ~breaks:(",", 0, ""))
+      | Union [] -> fprintf f "[]"
+      | Union variants ->
+          (* format as [ lay1, lay2, lay3 ] *)
+          (* or
+             [
+               lay1,
+               lay2,
+               lay3,
+             ]
+             if a break is required
+          *)
+          fprintf f "@[<hv 0>[@[<hv 2>";
+          List.iteri
+            (fun i lay ->
+              fprintf f "@ `%d %a" i go lay;
+              if i < List.length variants - 1 then fprintf f ",")
+            variants;
+          fprintf f "@]@ ]@]"
+      | Box (_, Some r) when List.mem r !seen_recs ->
+          fprintf f "@[<hv 2>box<%a>@]" pp_rec_id r
+      | Box (lay, Some r) ->
+          seen_recs := r :: !seen_recs;
+          fprintf f "@[<hv 2>box<@,%a =@ %a>@]" pp_rec_id r go lay
+      | Box (lay, None) -> fprintf f "@[<hv 2>box<@,%a>@]" go lay
+      | Erased -> fprintf f "erased"
+      | FunctionPointer -> fprintf f "*fn"
+  in
+  go ~max_depth f l
 
-let show_layout = Format.asprintf "%a" pp_layout
+let pp_layout_top = pp_layout ~max_depth:100
+let show_layout ?(max_depth = 100) = Format.asprintf "%a" (pp_layout ~max_depth)
+
+let rec show_layout_head l =
+  match !l with
+  | Str -> "str"
+  | Int -> "int"
+  | Struct [] -> "{}"
+  | Struct layouts -> Format.sprintf "{%d}" (List.length layouts)
+  | Union variants -> Format.sprintf "[%d]" (List.length variants)
+  | Box (l, None) -> Format.sprintf "box<%s>" (show_layout_head l)
+  | Box (l, Some r) ->
+      Format.sprintf "box<%s = %s>" (show_rec_id r) (show_layout_head l)
+  | Erased -> "erased"
+  | FunctionPointer -> "*fn"
 
 let pp_symbol : Format.formatter -> Symbol.symbol -> unit =
  fun f s -> Format.fprintf f "%s" (Symbol.norm_of s)
 
 let pp_var : Format.formatter -> var -> unit =
  fun f (lay, symbol) ->
-  Format.fprintf f "@[<hov 2>%a:@ %a@]" pp_symbol symbol pp_layout lay
+  Format.fprintf f "@[<hov 2>%a:@ %a@]" pp_symbol symbol pp_layout_top lay
 
 let pp_vars : Format.formatter -> var list -> unit =
  fun f vs ->
   List.iteri
     (fun i (lay, symbol) ->
-      Format.fprintf f "%a:@ %a" pp_symbol symbol pp_layout lay;
+      Format.fprintf f "%a:@ %a" pp_symbol symbol pp_layout_top lay;
       if i < List.length vs - 1 then Format.fprintf f ",@, ")
     vs
 
@@ -195,7 +216,8 @@ let pp_expr : Format.formatter -> expr -> unit =
     | MakeBox v -> fprintf f "@[<hv 2>@make_box(@,%a)@]" pp_v_name v
     | GetBoxed v -> fprintf f "@[<hv 2>@get_boxed<@,%a>@]" pp_v_name v
     | PtrCast (v, lay) ->
-        fprintf f "@[<hv 2>@ptr_cast(@,%a as@ %a)@]" pp_v_name v pp_layout lay
+        fprintf f "@[<hv 2>@ptr_cast(@,%a as@ %a)@]" pp_v_name v pp_layout_top
+          lay
     | MakeFnPtr fn -> fprintf f "@[<hv 2>@make_fn_ptr<@,%a>@]" pp_symbol fn
 
 let rec pp_stmt : Format.formatter -> stmt -> unit =
@@ -227,15 +249,15 @@ let pp_proc : Format.formatter -> proc -> unit =
 
     fprintf f
       "@[<hov 0>@[<hv 2>@[<hv 2>proc %a(@,%a)@]:@ %a@]@ @[{@;<0 2>@[<v 0>"
-      pp_symbol name pp_args args pp_layout ret_lay;
+      pp_symbol name pp_args args pp_layout_top ret_lay;
     List.iter (fun s -> fprintf f "%a@," pp_stmt s) body;
     fprintf f "return %a;@]@,@]}@]" pp_symbol ret_x
 
 let pp_global : Format.formatter -> global -> unit =
   let open Format in
   fun f { name; layout; init } ->
-    fprintf f "@[<hv 2>global %a:@ %a@ = %a;@]" pp_symbol name pp_layout layout
-      pp_expr init
+    fprintf f "@[<hv 2>global %a:@ %a@ = %a;@]" pp_symbol name pp_layout_top
+      layout pp_expr init
 
 let pp_definition : Format.formatter -> definition -> unit =
  fun f -> function Proc p -> pp_proc f p | Global g -> pp_global f g

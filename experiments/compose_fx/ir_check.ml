@@ -24,12 +24,8 @@ let ctx_join : string -> string -> string = fun ctx1 ctx2 -> ctx1 ^ ":" ^ ctx2
 
 let check_lay_equiv : string -> layout -> layout -> unit =
  fun ctx l1 l2 ->
-  let visited_pairs = ref [] in
+  let visited_recs = ref [] in
   let rec go l1 l2 =
-    let already_visited =
-      List.exists (fun (l1', l2') -> l1' == l1 && l2' == l2) !visited_pairs
-    in
-    if not already_visited then visited_pairs := (l1, l2) :: !visited_pairs;
     match (!l1, !l2) with
     | Str, Str -> ()
     | Int, Int -> ()
@@ -41,7 +37,19 @@ let check_lay_equiv : string -> layout -> layout -> unit =
         if List.length ls1 <> List.length ls2 then
           failctx ctx "Unions have different number of variants";
         List.iter2 go ls1 ls2
-    | Box (l1, _), Box (l2, _) -> go l1 l2
+    | Box (l1, Some x1), Box (l2, Some x2) ->
+        if x1 = x2 then ()
+        else if List.mem (x1, x2) !visited_recs then ()
+        else (
+          visited_recs := (x1, x2) :: !visited_recs;
+          go l1 l2)
+    | Box (l1, None), Box (l2, None) -> go l1 l2
+    | Box (l1, Some _), Box (l2, None) ->
+        failctx ctx @@ "box<" ^ show_layout_head l1 ^ "> vs non-rec box<"
+        ^ show_layout_head l2 ^ ">"
+    | Box (l1, None), Box (l2, Some _) ->
+        failctx ctx @@ "non-rec box<" ^ show_layout_head l1 ^ "> vs box<"
+        ^ show_layout_head l2 ^ ">"
     | Erased, Erased -> ()
     | FunctionPointer, FunctionPointer -> ()
     | _ ->
@@ -68,6 +76,12 @@ let get_struct lay =
 
 let get_struct_field : layout -> int -> layout =
  fun lay i -> List.nth (get_struct lay) i
+
+let get_boxed : layout -> layout =
+ fun lay ->
+  match !lay with
+  | Box (l, _) -> l
+  | _ -> failwith @@ "Not a box: " ^ show_layout lay
 
 let check_is_ptr_type : layout -> unit =
  fun lay ->
@@ -127,10 +141,12 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
       check_lay_equiv ctx proc_l_ret lay
   | MakeBox x ->
       let l_x = lookup_var ctx venv x in
-      check_lay_equiv ctx (ref @@ Box (l_x, None)) lay
+      let lay_inner = get_boxed lay in
+      check_lay_equiv ctx l_x lay_inner
   | GetBoxed x ->
       let l_x = lookup_var ctx venv x in
-      check_lay_equiv ctx l_x (ref @@ Box (lay, None))
+      let l_x_inner = get_boxed l_x in
+      check_lay_equiv ctx l_x_inner lay
   | PtrCast (x, new_l) ->
       let l_x = lookup_var ctx venv x in
       check_is_ptr_type l_x;
