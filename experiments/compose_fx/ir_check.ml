@@ -215,7 +215,7 @@ let check : program -> unit =
   let globals = globals_names definitions in
   let fenv = make_fenv definitions in
   List.iter
-    (fun ep ->
+    (fun (ep, _) ->
       if not (List.mem ep globals) then
         failwith ("Entry point " ^ Symbol.show_symbol_raw ep ^ " not found"))
     entry_points;

@@ -41,7 +41,7 @@ module Compose_fx : LANGUAGE = struct
   }
 
   type ir_program = { symbols : Symbol.t; program : Ir.program }
-  type evaled_program = unit
+  type evaled_program = { symbols : Symbol.t; evaled : Eval.evaled list }
 
   let parse s =
     let lexbuf = Lexer.from_string s in
@@ -84,7 +84,9 @@ module Compose_fx : LANGUAGE = struct
     Ir_check.check compiled;
     Ok { symbols; program = compiled }
 
-  let eval _ = failwith "todo"
+  let eval ({ program; symbols } : ir_program) =
+    let evaled = Eval.eval_program program in
+    Ok { symbols; evaled }
 
   let print_parsed ?(width = default_width)
       ({ symbols; syn; _ } : parsed_program) =
@@ -101,9 +103,9 @@ module Compose_fx : LANGUAGE = struct
   let print_ir ?(width = 80) ({ program; _ } : ir_program) =
     Ir.string_of_program ~width program
 
-  let print_evaled ?(width = default_width) _ =
-    let _ = width in
-    failwith "todo"
+  let print_evaled ?(width = default_width)
+      ({ evaled; symbols } : evaled_program) =
+    Eval.string_of_evaled ~width symbols evaled
 
   let print_type ?(width = default_width) (_, { symbols; names; tvar }) =
     string_of_tvar width symbols names tvar

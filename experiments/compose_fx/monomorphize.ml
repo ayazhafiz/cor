@@ -7,8 +7,8 @@ type needed_specialization = [ `Needed of symbol * symbol * tvar ]
 type queue = needed_specialization list
 type fenv = (symbol * e_expr) list
 
-let symbol_of_needed_specialization : needed_specialization -> symbol =
- fun (`Needed (sym, _, _)) -> sym
+let symbol_of_needed_specialization : needed_specialization -> symbol * tvar =
+ fun (`Needed (sym, _, var)) -> (sym, var)
 
 let find_entry_points : e_def list -> needed_specialization list =
  fun defs ->
@@ -153,7 +153,7 @@ let specialize_queue : ctx -> fenv -> queue -> ready_specialization list =
 
 type specialized = {
   specializations : ready_specialization list;
-  entry_points : symbol list;
+  entry_points : (symbol * tvar) list;
 }
 
 let specialize : ctx -> Syntax.program -> specialized =
@@ -168,7 +168,7 @@ let specialize : ctx -> Syntax.program -> specialized =
 
 let pp_specialized : Symbol.t -> Format.formatter -> specialized -> unit =
  fun symbols f { specializations; entry_points } ->
-  let pp_entry_point f sym =
+  let pp_entry_point f (sym, _) =
     Format.fprintf f "@[<hov 2>%s@]@." (Symbol.norm_of sym)
   in
   let pp_specialization f = function

@@ -52,7 +52,7 @@ type definition = Proc of proc | Global of global
 
 type program = {
   definitions : definition list;
-  entry_points : Symbol.symbol list;
+  entry_points : (Symbol.symbol * Syntax.tvar) list;
 }
 
 type fresh_rec_id = unit -> rec_id
@@ -268,7 +268,7 @@ let pp_program : Format.formatter -> program -> unit =
     fprintf f "@[<v 0>";
     List.iter (fun p -> fprintf f "%a@,@," pp_definition p) definitions;
     List.iteri
-      (fun i name ->
+      (fun i (name, _) ->
         fprintf f "@[entry %a;@]" pp_symbol name;
         if i < List.length entry_points - 1 then fprintf f "@,")
       entry_points;

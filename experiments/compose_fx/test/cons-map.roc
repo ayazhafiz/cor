@@ -1,5 +1,6 @@
 # cor +solve -elab
 # cor +ir -print
+# cor +eval -print
 List a : [ Nil, Cons a (List a) ]
 
 sig map : (a -> b) -> List a -> List b
@@ -241,3 +242,7 @@ run main = map mapper l;;
 >   = @call_direct(main_thunk);
 > 
 > entry main;
+
+> cor-out +eval -print
+> main = [0 [0 1] [0 [0 2] [1]]]
+>      > Cons (A 1) (Cons (A 2) (Nil ))
