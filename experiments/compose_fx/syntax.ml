@@ -92,12 +92,15 @@ let string_of_kernelfn : (kernelfn * string) list =
 let kernelfn_of_string : (string * kernelfn) list =
   List.map (fun (a, b) -> (b, a)) string_of_kernelfn
 
-type kernel_sig = { args : tvar list; ret : tvar }
+type kernel_sig = {
+  args : [ `Variadic of tvar | `List of tvar list ];
+  ret : tvar;
+}
 
 let kernel_sig : kernelfn -> kernel_sig = function
-  | `StrConcat -> { args = [ tvar_str; tvar_str ]; ret = tvar_str }
-  | `Add -> { args = [ tvar_int; tvar_int ]; ret = tvar_int }
-  | `Itos -> { args = [ tvar_int ]; ret = tvar_str }
+  | `StrConcat -> { args = `Variadic tvar_str; ret = tvar_str }
+  | `Add -> { args = `Variadic tvar_int; ret = tvar_int }
+  | `Itos -> { args = `List [ tvar_int ]; ret = tvar_str }
 
 type e_expr = loc * tvar * expr
 (** An elaborated expression *)

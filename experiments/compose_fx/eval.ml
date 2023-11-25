@@ -24,20 +24,18 @@ let get_string cell =
 let make_string s =
   block @@ List.map word @@ List.map Char.code @@ List.of_seq @@ String.to_seq s
 
-let arity2 = function [ x1; x2 ] -> (x1, x2) | _ -> failwith "not arity 2"
-
 let eval_kcall : Syntax.kernelfn -> memory_cell list -> memory_cell =
  fun kfn args ->
   match kfn with
   | `StrConcat ->
-      let s1, s2 = arity2 @@ List.map get_string args in
-      make_string @@ s1 ^ s2
+      let ss = List.map get_string args in
+      make_string @@ String.concat "" ss
   | `Itos ->
       let i = get_word @@ List.hd args in
       make_string @@ string_of_int i
   | `Add ->
-      let i1, i2 = arity2 @@ List.map get_word args in
-      word @@ (i1 + i2)
+      let is = List.map get_word args in
+      word @@ List.fold_left ( + ) 0 is
 
 let rec eval_expr : procs -> memory -> expr -> memory_cell =
  fun procs memory expr ->
