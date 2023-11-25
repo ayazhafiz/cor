@@ -11,10 +11,10 @@ Op a : [
 
 Task ok err op : ([ Ok ok, Err err ] -> op) -> op
 
-sig succeed : ok -> Task ok * (Op *)
+sig succeed : ok -> Task ok * *
 let succeed = \ok -> \toNext -> toNext (Ok ok);;
 
-sig fail : err -> Task * err (Op *)
+sig fail : err -> Task * err *
 let fail = \err-> \toNext -> toNext (Err err);;
 
 sig await : Task ok1 err op -> (ok1 -> Task ok2 err op) -> Task ok2 err op
@@ -69,10 +69,10 @@ run main_handler =
 > 
 > Task ok err op : ([ Ok ok, Err err ] -> op) -> op
 > 
-> sig succeed : ok -> Task ok * (Op *)
+> sig succeed : ok -> Task ok * *
 > let succeed = \ok -> \toNext -> toNext (Ok ok);;
 > 
-> sig fail : err -> Task * err (Op *)
+> sig fail : err -> Task * err *
 > let fail = \err-> \toNext -> toNext (Err err);;
 > 
 > sig await : Task ok1 err op -> (ok1 -> Task ok2 err op) -> Task ok2 err op
