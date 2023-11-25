@@ -327,19 +327,19 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           in
           let ext = (noloc, fresh_tvar @@ Unbd None) in
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
-      | Let (letrec, (_, (_, t_x), x), e, b) -> (
-          match letrec with
-          | `LetRec ->
+      | Let { recursive; bind = _, (_, t_x), x; expr = e; body = b } -> (
+          match !recursive with
+          | true ->
               let t_x' = fresh_tvar @@ Unbd None in
               unify ("rec def " ^ Symbol.syn_of symbols x) t_x t_x';
               let t_x'' = infer ((x, t_x) :: venv) e in
               unify ("rec def " ^ Symbol.syn_of symbols x) t_x' t_x'';
               infer ((x, t_x) :: venv) b
-          | `Let ->
+          | false ->
               let t_x' = infer venv e in
               unify ("let " ^ Symbol.syn_of symbols x) t_x t_x';
               infer ((x, t_x) :: venv) b)
-      | Clos ((_, (_, t_x), x), e) ->
+      | Clos { arg = _, (_, t_x), x; body = e } ->
           let t_ret = infer ((x, t_x) :: venv) e in
           fresh_tvar @@ Content (TFn ((noloc, t_x), (noloc, t_ret)))
       | Call (e1, e2) ->
@@ -378,7 +378,8 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
 type ctx = { fresh_tvar : fresh_tvar; symbols : Symbol.t }
 
 let infer_def : ctx -> venv -> Canonical.can_def -> tvar =
- fun { symbols; fresh_tvar } venv { name; ty; def; sig_; run = _ } ->
+ fun { symbols; fresh_tvar } venv { recursive; name; ty; def; sig_; run = _ } ->
+  let venv = if recursive then (name, ty) :: venv else venv in
   let t = infer_expr symbols fresh_tvar venv def in
   Option.iter
     (fun t_sig ->

@@ -37,3 +37,23 @@ let syn_of { idents; _ } s =
   | None ->
       let (`Sym s) = s in
       s
+
+module SymbolMap = struct
+  include Map.Make (struct
+    type t = symbol
+
+    let compare = compare
+  end)
+
+  let union u v =
+    let f _ x _ = Some x in
+    union f u v
+
+  let diff u v =
+    let f _ x y = match (x, y) with Some x, None -> Some x | _ -> None in
+    merge f u v
+
+  let remove_keys (keys : symbol list) m =
+    let f k _ = not (List.mem k keys) in
+    filter f m
+end

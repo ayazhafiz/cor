@@ -79,8 +79,6 @@ let chase_tags tags ext : ty_tag list * tvar =
   in
   go tags ext
 
-type letrec = [ `Let | `LetRec ] [@@deriving show]
-
 type e_pat = loc * tvar * pat
 (** An elaborated pattern *)
 
@@ -110,9 +108,13 @@ and expr =
   | Str of string
   | Unit
   | Tag of string * e_expr list
-  | Let of letrec * (loc * loc_tvar * symbol) * e_expr * e_expr
-      (** let x = e in b *)
-  | Clos of (loc * loc_tvar * symbol) * e_expr
+  | Let of {
+      recursive : bool ref;
+      bind : loc * loc_tvar * symbol;
+      expr : e_expr;
+      body : e_expr;
+    }
+  | Clos of { arg : loc * loc_tvar * symbol; body : e_expr }
   | Call of e_expr * e_expr
   | KCall of kernelfn * e_expr list
   | When of e_expr * branch list
@@ -460,11 +462,11 @@ let tightest_node_at_expr : loc -> e_expr -> found_node =
     let deeper =
       match e with
       | Var _ | Int _ | Str _ | Unit -> None
-      | Let (_, (l, ty, x), e1, e2) ->
+      | Let { recursive = _; bind = l, ty, x; expr = e1; body = e2 } ->
           if within loc l then Some (l, snd ty, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
       | Tag (_, tags) -> List.find_map (fun tag -> expr tag) tags
-      | Clos ((l, ty, x), e) ->
+      | Clos { arg = l, ty, x; body = e } ->
           if within loc l then Some (l, snd ty, `Var x) else expr e
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)
       | KCall (_, es) -> List.find_map (fun e -> expr e) es
@@ -571,10 +573,6 @@ let pp_pat symbols f p =
   in
   go `Free p
 
-let pp_letrec f = function
-  | `Let -> Format.pp_print_string f "let"
-  | `LetRec -> Format.pp_print_string f "let rec"
-
 let pp_expr symbols f =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
@@ -599,17 +597,17 @@ let pp_expr symbols f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | Let (letrec, (_, _, x), rhs, body) ->
+    | Let { recursive = _; bind = _, _, x; expr = rhs; body } ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<hv 2>%a %a =@ " pp_letrec letrec (pp_symbol symbols) x;
+          fprintf f "@[<hv 2>let %a =@ " (pp_symbol symbols) x;
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free body
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | Clos ((_, _, x), e) ->
+    | Clos { arg = _, _, x; body = e } ->
         fprintf f "@[<hov 2>\\%a ->@ " (pp_symbol symbols) x;
         go `Apply e;
         fprintf f "@]"

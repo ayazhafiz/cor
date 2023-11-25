@@ -3,22 +3,6 @@ open Ir_layout
 open Symbol
 module S = Syntax
 
-module SymbolMap = struct
-  include Map.Make (struct
-    type t = Symbol.symbol
-
-    let compare = compare
-  end)
-
-  let union u v =
-    let f _ x _ = Some x in
-    union f u v
-
-  let diff u v =
-    let f _ x y = match (x, y) with Some x, None -> Some x | _ -> None in
-    merge f u v
-end
-
 let vars_of_pat : S.e_pat -> S.tvar SymbolMap.t =
   let rec go_pat (_, t, p) =
     match p with
@@ -44,15 +28,17 @@ let free : S.e_expr -> S.tvar SymbolMap.t =
         List.fold_left
           (fun acc e -> SymbolMap.union (go_expr e) acc)
           SymbolMap.empty es
-    | S.Let (letrec, (_, _, x), e, b) ->
-        let free_e = go_expr e in
+    | S.Let { recursive; bind = _, _, x; expr; body } ->
+        let free_e = go_expr expr in
         let free_e =
-          match letrec with `LetRec -> SymbolMap.remove x free_e | _ -> free_e
+          match !recursive with
+          | true -> SymbolMap.remove x free_e
+          | false -> free_e
         in
-        let free_b = go_expr b in
+        let free_b = go_expr body in
         let free_b = SymbolMap.remove x free_b in
         SymbolMap.union free_e free_b
-    | S.Clos ((_, _, a), b) -> SymbolMap.remove a (go_expr b)
+    | S.Clos { arg = _, _, a; body } -> SymbolMap.remove a (go_expr body)
     | S.Call (e1, e2) ->
         let free_e1 = go_expr e1 in
         let free_e2 = go_expr e2 in
@@ -167,14 +153,14 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         in
         let tag_asgns, expr = build_union layout in
         (arg_asgns @ tag_asgns, (layout, expr))
-    | S.Let (letrec, (_, (_, x_ty), x), e, b) ->
+    | S.Let { recursive; bind = _, (_, x_ty), x; expr; body } ->
         let x_layout = layout_of_tvar ctx x_ty in
         let x_var = (x_layout, x) in
-        let rec_name = match letrec with `LetRec -> Some x | _ -> None in
+        let rec_name = match !recursive with true -> Some x | _ -> None in
         let e_asgns, (_, e_expr) =
-          go ~name_hint:(Some (Symbol.syn_of ctx.symbols x)) ~rec_name e
+          go ~name_hint:(Some (Symbol.syn_of ctx.symbols x)) ~rec_name expr
         in
-        let b_asgns, b_expr = go b in
+        let b_asgns, b_expr = go body in
         let asgns = e_asgns @ [ Let (x_var, e_expr) ] @ b_asgns in
         (asgns, b_expr)
     | S.Call (f, a) ->
@@ -195,7 +181,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let args_asgns, arg_vars = List.split @@ List.map go_var args in
         let asgns = List.concat args_asgns in
         (asgns, (layout, CallKFn (kfn, arg_vars)))
-    | S.Clos ((_, (_, a_ty), a), e) ->
+    | S.Clos { arg = _, (_, a_ty), a; body = e } ->
         let a_layout = layout_of_tvar ctx a_ty in
         let a_var = (a_layout, a) in
         let free_in_e : S.tvar SymbolMap.t = free e in

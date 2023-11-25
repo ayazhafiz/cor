@@ -6,7 +6,7 @@ List a : [ Nil, Cons a (List a) ]
 sig map : (a -> b) -> List a -> List b
 #   ^^^
 let map = \f -> \xs ->
-  let rec go = \xs ->
+  let go = \xs ->
     when xs is
 #        ^^
       | Nil -> Nil
@@ -31,7 +31,7 @@ run main = map mapper l;;
 > sig map : (a -> b) -> List a -> List b
 > #   ^^^ ('a -> 'b) -> %(List 'a1) -> %List 'b1
 > let map = \f -> \xs ->
->   let rec go = \xs ->
+>   let go = \xs ->
 >     when xs is
 > #        ^^ %List 'a
 >       | Nil -> Nil

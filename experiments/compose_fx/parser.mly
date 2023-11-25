@@ -30,7 +30,6 @@ let xv = Syntax.xv
 %token <Syntax.loc * string> KERNELFN
 
 %token <Syntax.loc> LET
-%token <Syntax.loc> REC
 %token <Syntax.loc> SIG
 %token <Syntax.loc> RUN
 %token <Syntax.loc> WHEN
@@ -140,7 +139,7 @@ expr:
       exit_scope ctx sym_arg;
       let loc = range lam (xloc body) in
       let arg = (loc_arg, (noloc, ctx.fresh_tvar @@ Unbd None), sym_arg) in
-      (loc, ctx.fresh_tvar @@ Unbd None, Clos(arg, body))
+      (loc, ctx.fresh_tvar @@ Unbd None, Clos{arg; body})
   }
   | w=WHEN e=expr IS branches=branch_seq { fun ctx ->
       let e = e ctx in
@@ -177,16 +176,16 @@ expr_atom_list:
   | e=expr_atom rest=expr_atom_list { fun ctx -> (e ctx)::(rest ctx) }
 
 expr_lets:
-  | l=LET r=letrec loc_x=LOWER EQ e=expr IN body=expr { fun c ->
+  | l=LET loc_x=LOWER EQ e=expr IN body=expr { fun c ->
       let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
       let e = e c in
       let body = body c in
       exit_scope c sym_x;
       let loc = range l (xloc body) in
       let x = (loc_x, (noloc, c.fresh_tvar @@ Unbd None), sym_x) in
-      (loc, c.fresh_tvar @@ Unbd None, Let(r, x, e, body))
+      (loc, c.fresh_tvar @@ Unbd None, Let{recursive=ref false; bind=x; expr=e; body})
   }
-  | l=LET r=letrec loc_x=LOWER COLON t=ty EQ e=expr IN body=expr { fun c ->
+  | l=LET loc_x=LOWER COLON t=ty EQ e=expr IN body=expr { fun c ->
       let (loc_x, sym_x) = add_scoped_def_sym c loc_x in
       let e = e c in
       let ty = t c in
@@ -194,14 +193,7 @@ expr_lets:
       exit_scope c sym_x;
       let loc = range l (xloc body) in
       let x = (loc_x, ty, sym_x) in
-      (loc, c.fresh_tvar @@ Unbd None, Let(r, x, e, body))
-  }
-
-letrec:
-  | r=option(REC) {
-    match r with
-    | None -> `Let
-    | Some _ -> `LetRec
+      (loc, c.fresh_tvar @@ Unbd None, Let{recursive=ref false; bind=x; expr=e; body})
   }
 
 expr_atom:

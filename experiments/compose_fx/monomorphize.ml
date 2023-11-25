@@ -115,15 +115,16 @@ let clone_expr : ctx -> fenv -> e_expr -> e_expr * queue =
       | Tag (t, es) ->
           let es, needed = List.split @@ List.map go es in
           (Tag (t, es), List.concat needed)
-      | Let (letrec, (l_x, (l_tx, tx), x), e, b) ->
+      | Let { recursive; bind = l_x, (l_tx, tx), x; expr; body } ->
           let tx = clone_type ctx.fresh_tvar type_cache tx in
-          let e, e_needed = go e in
-          let b, b_needed = go b in
-          (Let (letrec, (l_x, (l_tx, tx), x), e, b), e_needed @ b_needed)
-      | Clos ((l_a, (l_ta, ta), a), b) ->
+          let expr, e_needed = go expr in
+          let body, b_needed = go body in
+          ( Let { recursive; bind = (l_x, (l_tx, tx), x); expr; body },
+            e_needed @ b_needed )
+      | Clos { arg = l_a, (l_ta, ta), a; body } ->
           let ta = clone_type ctx.fresh_tvar type_cache ta in
-          let b, b_needed = go b in
-          (Clos ((l_a, (l_ta, ta), a), b), b_needed)
+          let body, b_needed = go body in
+          (Clos { arg = (l_a, (l_ta, ta), a); body }, b_needed)
       | Call (e1, e2) ->
           let e1, e1_needed = go e1 in
           let e2, e2_needed = go e2 in

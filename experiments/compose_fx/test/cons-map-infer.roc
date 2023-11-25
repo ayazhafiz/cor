@@ -2,7 +2,7 @@
 # cor +ir -print
 # cor +eval -print
 let map = \f -> \xs ->
-  let rec go = \xs ->
+  let go = \xs ->
     when xs is
 #        ^^
       | Nil -> Nil
@@ -23,7 +23,7 @@ run main = map mapper l;;
 
 > cor-out +solve -elab
 > let map = \f -> \xs ->
->   let rec go = \xs ->
+>   let go = \xs ->
 >     when xs is
 > #        ^^ [Cons '* <..[Cons .. .., Nil]'*>, Nil]'*
 >       | Nil -> Nil

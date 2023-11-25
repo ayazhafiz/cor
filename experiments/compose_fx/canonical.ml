@@ -35,6 +35,13 @@ let rec collect_aliases : program -> alias_definition list = function
       :: collect_aliases rest
   | _ :: rest -> collect_aliases rest
 
+let rec collect_globals : program -> symbol list = function
+  | [] -> []
+  | (_, _, TyAlias _) :: rest -> collect_globals rest
+  | (_, _, (Sig ((_, x), _) | Def ((_, x), _))) :: rest ->
+      x :: collect_globals rest
+  | (_, _, Run _) :: rest -> collect_globals rest
+
 (** Must be called on a type before canonicalization (i.e. no links expected) *)
 let rec extract_all_named_vars : tvar -> named_var list =
  fun tvar ->
@@ -242,7 +249,66 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
   let arg_map = sig_arg_map tvar in
   tvar_set tvar @@ Link (inst_ty arg_map tvar)
 
+let vars_of_pat : e_pat -> tvar SymbolMap.t =
+  let rec go_pat (_, t, p) =
+    match p with
+    | PVar (_, x) -> SymbolMap.singleton x t
+    | PTag (_, ps) ->
+        List.fold_left
+          (fun acc p -> SymbolMap.union (go_pat p) acc)
+          SymbolMap.empty ps
+  in
+  go_pat
+
+type canonicalized_expr_output = { references : tvar SymbolMap.t }
+
+let canonicalize_expr :
+    globals:symbol list -> e_expr -> canonicalized_expr_output =
+ fun ~globals e ->
+  let rec go_branch (p, e) =
+    let defined_p = vars_of_pat p in
+    let free_e = go_expr e in
+    SymbolMap.diff free_e defined_p
+  and go_expr (_, t, e) =
+    match e with
+    | Var x -> SymbolMap.singleton x t
+    | Str _ | Int _ | Unit -> SymbolMap.empty
+    | Tag (_, es) ->
+        List.fold_left
+          (fun acc e -> SymbolMap.union (go_expr e) acc)
+          SymbolMap.empty es
+    | Let { recursive; bind = _, _, x; expr; body } ->
+        let free_e = go_expr expr in
+        recursive := SymbolMap.mem x free_e;
+
+        let free_e = SymbolMap.remove x free_e in
+        let free_b = go_expr body in
+        let free_b = SymbolMap.remove x free_b in
+        SymbolMap.union free_e free_b
+    | Clos { arg = _, _, a; body } ->
+        let captures =
+          SymbolMap.remove_keys globals @@ SymbolMap.remove a (go_expr body)
+        in
+        captures
+    | Call (e1, e2) ->
+        let free_e1 = go_expr e1 in
+        let free_e2 = go_expr e2 in
+        SymbolMap.union free_e1 free_e2
+    | KCall (_kfn, es) ->
+        List.fold_left
+          (fun acc e -> SymbolMap.union (go_expr e) acc)
+          SymbolMap.empty es
+    | When (e, branches) ->
+        let free_e = go_expr e in
+        List.fold_left
+          (fun acc branch -> SymbolMap.union (go_branch branch) acc)
+          free_e branches
+  in
+  let references = go_expr e in
+  { references }
+
 type can_def = {
+  recursive : bool;
   name : symbol;
   ty : tvar;
   def : e_expr;
@@ -250,8 +316,13 @@ type can_def = {
   run : bool;
 }
 
-let canonicalize_defs : ctx -> alias_map -> e_def list -> can_def list =
- fun ctx alias_map defs ->
+let canonicalize_defs :
+    ctx:ctx ->
+    globals:symbol list ->
+    alias_map:alias_map ->
+    e_def list ->
+    can_def list =
+ fun ~ctx ~globals ~alias_map defs ->
   let rec inner = function
     | [] -> []
     | (_, _, TyAlias _) :: rest -> inner rest
@@ -267,11 +338,33 @@ let canonicalize_defs : ctx -> alias_map -> e_def list -> can_def list =
         (* Link the signature type to the signature def. We'll check that the
            signature matches the definition during solving. *)
         tvar_set sig_t @@ Link sig_;
-        let def = { name = x; ty = def_t; def = expr; sig_ = Some sig_; run } in
+
+        let { references } = canonicalize_expr ~globals:[] expr in
+        let recursive = SymbolMap.mem x references in
+
+        let references =
+          SymbolMap.remove_keys globals @@ SymbolMap.remove x references
+        in
+        assert (SymbolMap.is_empty references);
+
+        let def =
+          { recursive; name = x; ty = def_t; def = expr; sig_ = Some sig_; run }
+        in
         def :: inner rest
     | (_, def_t, ((Def ((_, x), expr) | Run ((_, x), expr)) as def)) :: rest ->
         let run = match def with Run _ -> true | _ -> false in
-        let def = { name = x; ty = def_t; def = expr; sig_ = None; run } in
+
+        let { references } = canonicalize_expr ~globals expr in
+        let recursive = SymbolMap.mem x references in
+
+        let references =
+          SymbolMap.remove_keys globals @@ SymbolMap.remove x references
+        in
+        assert (SymbolMap.is_empty references);
+
+        let def =
+          { recursive; name = x; ty = def_t; def = expr; sig_ = None; run }
+        in
         def :: inner rest
     | (_, sig_t, Sig ((_, x), (_, sig_))) :: rest ->
         instantiate_signature ctx alias_map sig_;
@@ -293,5 +386,6 @@ let canonicalize : ctx -> Syntax.program -> program =
   let alias_map =
     List.map (fun (alias : alias_definition) -> (alias.name, alias)) aliases
   in
-  let defs = canonicalize_defs ctx alias_map program in
+  let globals = collect_globals program in
+  let defs = canonicalize_defs ~ctx ~globals ~alias_map program in
   defs
