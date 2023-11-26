@@ -120,10 +120,12 @@ and find_specialization ~(ctx : Ir.ctx) ~specs ~fenv ~kind ~t_needed =
   let type_cache = ref [] in
 
   let t_x, x = bind_of_fenv kind in
+  let new_sym, spec_kind =
+    Mono_symbol.add_specialization ~ctx specs x t_needed
+  in
+
   let t_x = clone_type ctx.fresh_tvar type_cache t_x in
   unify ctx.symbols "find_specialization" ctx.fresh_tvar t_x t_needed;
-
-  let new_sym, spec_kind = Mono_symbol.add_specialization ~ctx specs x t_x in
 
   match spec_kind with
   | `Existing -> (new_sym, [])
