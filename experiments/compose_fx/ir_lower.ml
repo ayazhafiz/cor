@@ -93,6 +93,43 @@ let unpack_boxed_union : ctx -> var -> stmt list * var =
   in
   go tag
 
+let build_possibly_boxed ~ctx ~build_unboxed ~layout =
+  let rec go layout =
+    match !layout with
+    | Box (inner, _) ->
+        let inner_asgns, inner_expr = go inner in
+        let unboxed_var = (inner, ctx.symbols.fresh_symbol "unboxed") in
+        let asgns = inner_asgns @ [ Let (unboxed_var, inner_expr) ] in
+        (asgns, MakeBox unboxed_var)
+    | _ -> build_unboxed layout
+  in
+  go layout
+
+let build_possibly_boxed_struct ~ctx ~arg_vars ~layout =
+  let build_unboxed l =
+    match !l with
+    | Struct _ ->
+        let asgns = [] in
+        (asgns, MakeStruct arg_vars)
+    | _ -> failwith "non-struct layout for struct"
+  in
+  build_possibly_boxed ~ctx ~build_unboxed ~layout
+
+let build_possibly_boxed_union ~ctx ~arg_vars ~union_id ~layout =
+  let build_unboxed l =
+    match !l with
+    | Union struct_layouts ->
+        let struct_layout = List.nth struct_layouts union_id in
+        let struct_asgns, struct_expr =
+          build_possibly_boxed_struct ~ctx ~arg_vars ~layout:struct_layout
+        in
+        let struct_var = (struct_layout, ctx.symbols.fresh_symbol "struct") in
+        let asgns = struct_asgns @ [ Let (struct_var, struct_expr) ] in
+        (asgns, MakeUnion (union_id, struct_var))
+    | _ -> failwith "non-union layout for union"
+  in
+  build_possibly_boxed ~ctx ~build_unboxed ~layout
+
 let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
  fun ctx expr ->
   let pending_procs : pending_proc list ref = ref [] in
@@ -135,24 +172,10 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let id = tag_id ctor ty in
         let arg_asgns, arg_vars = List.split @@ List.map go_var args in
         let arg_asgns = List.concat arg_asgns in
-        let rec build_union : layout -> stmt list * expr =
-         fun layout ->
-          match !layout with
-          | Union struct_layouts ->
-              let struct_layout = List.nth struct_layouts id in
-              let make_struct = MakeStruct arg_vars in
-              let struct_var =
-                (struct_layout, ctx.symbols.fresh_symbol "struct")
-              in
-              ([ Let (struct_var, make_struct) ], MakeUnion (id, struct_var))
-          | Box (inner, _) ->
-              let inner_asgns, inner_expr = build_union inner in
-              let union_var = (inner, ctx.symbols.fresh_symbol "union") in
-              (inner_asgns @ [ Let (union_var, inner_expr) ], MakeBox union_var)
-          | _ -> failwith "impossible: non-union layout"
+        let union_asngs, expr =
+          build_possibly_boxed_union ~ctx ~arg_vars ~union_id:id ~layout
         in
-        let tag_asgns, expr = build_union layout in
-        (arg_asgns @ tag_asgns, (layout, expr))
+        (arg_asgns @ union_asngs, (layout, expr))
     | S.Let { recursive; bind = _, (_, x_ty), x; expr; body } ->
         let x_layout = layout_of_tvar ctx x_ty in
         let x_var = (x_layout, x) in

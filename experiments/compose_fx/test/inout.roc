@@ -280,7 +280,7 @@ run main_handler =
 >   let fn_ptr_5: *fn = @make_fn_ptr<clos5>;
 >   let var7: { *fn, box<erased> } = @make_struct{ fn_ptr_5, captures_5 };
 >   let struct: { { *fn, box<erased> } } = @make_struct{ var7 };
->   let union:
+>   let unboxed:
 >         [
 >            `0 { str },
 >            `1 { { *fn, box<erased> } },
@@ -295,7 +295,7 @@ run main_handler =
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
->     = @make_box(union);
+>     = @make_box(unboxed);
 >   return var8;
 > }
 > 
@@ -351,7 +351,7 @@ run main_handler =
 >   let fn_ptr_8: *fn = @make_fn_ptr<clos8>;
 >   let var12: { *fn, box<erased> } = @make_struct{ fn_ptr_8, captures_8 };
 >   let struct1: { str, { *fn, box<erased> } } = @make_struct{ s1, var12 };
->   let union1:
+>   let unboxed1:
 >         [
 >            `0 { str },
 >            `1 { { *fn, box<erased> } },
@@ -366,7 +366,7 @@ run main_handler =
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
->     = @make_box(union1);
+>     = @make_box(unboxed1);
 >   return var13;
 > }
 > 
@@ -434,7 +434,7 @@ run main_handler =
 >   let captures_box10: box<{}> = @ptr_cast(captures_10 as box<{}>);
 >   let captures_stack10: {} = @get_boxed<captures_box10>;
 >   let struct2: { str } = @make_struct{ x1 };
->   let union2:
+>   let unboxed2:
 >         [
 >            `0 { str },
 >            `1 { { *fn, box<erased> } },
@@ -449,7 +449,7 @@ run main_handler =
 >              `1 { { *fn, box<erased> } },
 >              `2 { str, { *fn, box<erased> } }
 >           ]>
->     = @make_box(union2);
+>     = @make_box(unboxed2);
 >   return var21;
 > }
 > 

@@ -90,7 +90,7 @@ run main = map mapper l;;
 >            ,
 >           }
 >       = @make_struct{ var3, var4 };
->     let union1:
+>     let unboxed1:
 >           [
 >              `0 {
 >                  [ `0 { int } ],
@@ -100,12 +100,12 @@ run main = map mapper l;;
 >              `1 {}
 >           ]
 >       = @make_union<0, struct1>;
->     @make_box(union1)
+>     @make_box(unboxed1)
 >   }
 >   1 -> {
 >     let payload: {} = @get_union_struct<inner>;
 >     let struct: {} = @make_struct{};
->     let union:
+>     let unboxed:
 >           [
 >              `0 {
 >                  [ `0 { int } ],
@@ -115,7 +115,7 @@ run main = map mapper l;;
 >              `1 {}
 >           ]
 >       = @make_union<1, struct>;
->     @make_box(union)
+>     @make_box(unboxed)
 >   }
 >   } in join join;
 >   return join;
@@ -195,28 +195,28 @@ run main = map mapper l;;
 >   let var7: int = 1;
 >   let var8: int = 2;
 >   let struct3: {} = @make_struct{};
->   let union2:
+>   let unboxed2:
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<1, struct3>;
 >   let var9: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
->     = @make_box(union2);
+>     = @make_box(unboxed2);
 >   let struct4: { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }
 >     = @make_struct{ var8, var9 };
->   let union3:
+>   let unboxed3:
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<0, struct4>;
 >   let var10: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
->     = @make_box(union3);
+>     = @make_box(unboxed3);
 >   let struct5: { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }
 >     = @make_struct{ var7, var10 };
->   let union4:
+>   let unboxed4:
 >         [ `0 { int, box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]> }, `1 {}
 >         ]
 >     = @make_union<0, struct5>;
 >   let var11: box<%type_0 = [ `0 { int, box<%type_0> }, `1 {} ]>
->     = @make_box(union4);
+>     = @make_box(unboxed4);
 >   return var11;
 > }
 > 
