@@ -4,8 +4,11 @@
 
 (library
  (name compose_fx)
- (modules compose_fx symbol syntax lexer parser canonical solve
-          monomorphize ir ir_layout ir_lower ir_check
+ (modules compose_fx symbol syntax lexer parser
+          can canonical
+          solve
+          monomorphize
+          ir ir_layout ir_lower ir_check
           eval
           util)
  (libraries language sedlex menhirLib)
