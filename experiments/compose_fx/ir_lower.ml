@@ -79,39 +79,41 @@ let get_pat_arg_var : ctx -> S.e_pat -> var =
       (layout, v)
   | _ -> failwith "non-var pattern not yet supported"
 
-let unpack_boxed_union : ctx -> var -> stmt list * var =
- fun ctx tag ->
-  let rec go (l_x, x) =
+let unpack_possibly_boxed ~ctx ~unpack_unboxed ~var =
+  let go (l_x, x) =
     match !l_x with
-    | Union _ -> ([], (l_x, x))
     | Box (inner, _) ->
         let inner_var = (inner, ctx.symbols.fresh_symbol "inner") in
-        let asgns, (l_inner, inner) = go inner_var in
-        let asgns = asgns @ [ Let (inner_var, GetBoxed (l_x, x)) ] in
+        let asgns, (l_inner, inner) = unpack_unboxed inner_var in
+        let asgns = asgns @ [ Let (inner_var, GetBoxed var) ] in
         (asgns, (l_inner, inner))
+    | _ -> unpack_unboxed (l_x, x)
+  in
+  go var
+
+let unpack_boxed_union : ctx -> var -> stmt list * var =
+ fun ctx tag ->
+  let unpack_unboxed (l_x, x) =
+    match !l_x with
+    | Union _ -> ([], (l_x, x))
     | _ -> failwith "non-union layout for union"
   in
-  go tag
+  unpack_possibly_boxed ~ctx ~unpack_unboxed ~var:tag
 
 let unpack_boxed_struct : ctx -> var -> stmt list * var =
  fun ctx tag ->
-  let rec go (l_x, x) =
+  let unpack_unboxed (l_x, x) =
     match !l_x with
     | Struct _ -> ([], (l_x, x))
-    | Box (inner, _) ->
-        let inner_var = (inner, ctx.symbols.fresh_symbol "inner") in
-        let asgns, (l_inner, inner) = go inner_var in
-        let asgns = asgns @ [ Let (inner_var, GetBoxed (l_x, x)) ] in
-        (asgns, (l_inner, inner))
     | _ -> failwith "non-struct layout for struct"
   in
-  go tag
+  unpack_possibly_boxed ~ctx ~unpack_unboxed ~var:tag
 
 let build_possibly_boxed ~ctx ~build_unboxed ~layout =
-  let rec go layout =
+  let go layout =
     match !layout with
     | Box (inner, _) ->
-        let inner_asgns, inner_expr = go inner in
+        let inner_asgns, inner_expr = build_unboxed inner in
         let unboxed_var = (inner, ctx.symbols.fresh_symbol "unboxed") in
         let asgns = inner_asgns @ [ Let (unboxed_var, inner_expr) ] in
         (asgns, MakeBox unboxed_var)
