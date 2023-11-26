@@ -62,7 +62,7 @@ type ctx = {
   symbols : Symbol.t;
   cache : layout_cache;
   fresh_rec_id : fresh_rec_id;
-  fresh_tvar : Syntax.fresh_tvar;
+  fresh_tvar : fresh_tvar;
 }
 
 let new_ctx symbols fresh_tvar =

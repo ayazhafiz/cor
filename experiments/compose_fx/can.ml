@@ -50,7 +50,7 @@ let name_of_def = function
       x
   | Run { bind = _, x; _ } -> x
 
-let pp_symbol = Syntax.pp_symbol
+let pp_symbol = Symbol.pp_symbol
 let with_parens = Syntax.with_parens
 
 let pp_pat symbols f (p : e_pat) =

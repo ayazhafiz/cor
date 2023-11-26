@@ -2,8 +2,6 @@ open Ir
 open Symbol
 
 type memory_cell = Word of int | Label of symbol | Block of memory_cell list
-[@@deriving show]
-
 type memory = (symbol * memory_cell) list
 type procs = (symbol * proc) list
 

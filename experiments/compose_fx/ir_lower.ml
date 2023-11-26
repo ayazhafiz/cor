@@ -431,8 +431,7 @@ let compile_defs :
   go specs;
   compile_pending_procs ctx @@ List.rev !pending_procs
 
-let compile :
-    Symbol.t -> Syntax.fresh_tvar -> Monomorphize.specialized -> program =
+let compile : Symbol.t -> fresh_tvar -> Monomorphize.specialized -> program =
  fun symbols fresh_tvar
      ({ specializations; entry_points } : Monomorphize.specialized) ->
   let ctx = new_ctx symbols fresh_tvar in

@@ -1,4 +1,3 @@
-open Syntax
 open Symbol
 open Type
 open Loc
@@ -390,6 +389,7 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
           unify "call" t_fn t_fn_expected;
           t_ret
       | Can.KCall (kernelfn, args) ->
+          let open Syntax in
           let { args = kargs; ret = kret } = kernel_sig kernelfn in
           let arg_tys = List.map (infer venv) @@ args in
           let ctx = "call " ^ List.assoc kernelfn string_of_kernelfn in

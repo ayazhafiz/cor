@@ -10,7 +10,7 @@ let fresh_parse_ctx () : parse_ctx =
     incr n;
     !n
   in
-  let fresh_tvar : fresh_tvar =
+  let fresh_tvar : Type.fresh_tvar =
    fun ty -> { ty = ref ty; var = `Var (fresh_int ()); recur = ref false }
   in
   let symbols = Symbol.make () in
@@ -19,24 +19,24 @@ let fresh_parse_ctx () : parse_ctx =
 module Compose_fx : LANGUAGE = struct
   let name = "compose_fx"
 
-  type ty = { symbols : Symbol.t; names : named_vars; tvar : Type.tvar }
+  type ty = { symbols : Symbol.t; names : Type.named_vars; tvar : Type.tvar }
 
   type parsed_program = {
     symbols : Symbol.t;
-    fresh_tvar : fresh_tvar;
+    fresh_tvar : Type.fresh_tvar;
     syn : Syntax.program;
   }
 
   type canonicalized_program = {
     symbols : Symbol.t;
-    fresh_tvar : fresh_tvar;
+    fresh_tvar : Type.fresh_tvar;
     syn : Syntax.program;
     can : Can.program;
   }
 
   type solved_program = {
     symbols : Symbol.t;
-    fresh_tvar : fresh_tvar;
+    fresh_tvar : Type.fresh_tvar;
     syn : Syntax.program;
     can : Can.program;
   }
@@ -110,10 +110,10 @@ module Compose_fx : LANGUAGE = struct
     Eval.string_of_evaled ~width symbols evaled
 
   let print_type ?(width = default_width) (_, { symbols; names; tvar }) =
-    string_of_tvar width symbols names tvar
+    Type.string_of_tvar width symbols names tvar
 
   let types_at locs ({ symbols; syn; _ } : solved_program) =
-    let add_names ty = { symbols; names = name_vars [ ty ]; tvar = ty } in
+    let add_names ty = { symbols; names = Type.name_vars [ ty ]; tvar = ty } in
     let type_and_names l = type_at l syn |> Option.map add_names in
     List.map (fun l -> (l, type_and_names l)) locs
 

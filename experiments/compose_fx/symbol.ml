@@ -59,3 +59,6 @@ module SymbolMap = struct
 end
 
 type loc_symbol = Loc.loc * symbol [@@deriving show]
+
+let pp_symbol : t -> Format.formatter -> symbol -> unit =
+ fun symbols f s -> Format.pp_print_string f (syn_of symbols s)

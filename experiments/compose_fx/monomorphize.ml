@@ -180,8 +180,7 @@ let pp_specialized : Symbol.t -> Format.formatter -> specialized -> unit =
   let pp_specialization f = function
     | `Ready (sym, e, tvar) ->
         Format.fprintf f "@[<hv 2>%s:@ %a =@ %a@]" (Symbol.norm_of sym)
-          (Syntax.pp_tvar symbols [] [])
-          tvar (Syntax.pp_expr symbols) e
+          (pp_tvar symbols [] []) tvar (Syntax.pp_expr symbols) e
   in
   Format.fprintf f "@[<v 2>entry_points:@,";
   List.iter (pp_entry_point f) entry_points;
