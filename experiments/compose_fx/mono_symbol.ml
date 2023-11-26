@@ -29,7 +29,7 @@ let equiv_specialization specialization ~name ~args ~ret =
   else if not @@ List.for_all2 Ir_layout.is_lay_equiv specialization.args args
   then false
   else if not @@ Ir_layout.is_lay_equiv specialization.ret ret then false
-  else false
+  else true
 
 let add_specialization ~(ctx : ctx) { specializations } name tvar :
     symbol * [ `New | `Existing ] =

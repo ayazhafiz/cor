@@ -89,22 +89,12 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
   in
   go tvar
 
-let ty_of_fenv = function
-  | `Fn letfn -> type_of_letfn letfn
-  | `Val letval -> type_of_letval letval
+let bind_of_fenv = function
+  | `Fn (Letfn { bind; _ }) -> bind
+  | `Val (Letval { bind; _ }) -> bind
 
-let rec create_specialization ~(ctx : Ir.ctx) ~specs ~fenv ~kind ~t_needed ~sym
-    =
-  let type_cache = ref [] in
-
-  let t_x = ty_of_fenv kind in
-  let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-  unify ctx.symbols "create_specialization" ctx.fresh_tvar t_x t_needed;
-
-  let new_sym =
-    ctx.symbols.fresh_symbol_named @@ Symbol.syn_of ctx.symbols sym
-  in
-
+let rec create_specialization ~(ctx : Ir.ctx) ~specs ~fenv ~kind ~new_sym
+    ~type_cache ~t_x =
   match kind with
   | `Fn (Letfn { recursive; bind = _; arg = t_a, a; body; sig_; captures }) ->
       let t_a = clone_type ctx.fresh_tvar type_cache t_a in
@@ -125,6 +115,20 @@ let rec create_specialization ~(ctx : Ir.ctx) ~specs ~fenv ~kind ~t_needed ~sym
       let letval = Letval { bind = (t_x, new_sym); body; sig_ } in
       let spec_procs = needed @ [ `Letval letval ] in
       (new_sym, spec_procs)
+
+and find_specialization ~(ctx : Ir.ctx) ~specs ~fenv ~kind ~t_needed =
+  let type_cache = ref [] in
+
+  let t_x, x = bind_of_fenv kind in
+  let t_x = clone_type ctx.fresh_tvar type_cache t_x in
+  unify ctx.symbols "find_specialization" ctx.fresh_tvar t_x t_needed;
+
+  let new_sym, spec_kind = Mono_symbol.add_specialization ~ctx specs x t_x in
+
+  match spec_kind with
+  | `Existing -> (new_sym, [])
+  | `New ->
+      create_specialization ~ctx ~specs ~fenv ~kind ~t_x ~new_sym ~type_cache
 
 and clone_captures ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~captures :
     typed_symbol list * spec_procs =
@@ -170,7 +174,7 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr :
           match List.assoc_opt x fenv with
           | Some kind ->
               let new_x, spec_procs =
-                create_specialization ~ctx ~specs ~fenv ~kind ~t_needed:t ~sym:x
+                find_specialization ~ctx ~specs ~fenv ~kind ~t_needed:t
               in
               (Var new_x, spec_procs)
           | None -> (Var x, []))
