@@ -69,10 +69,10 @@ module Compose_fx : LANGUAGE = struct
 
   let canonicalize ({ symbols; syn; fresh_tvar } : parsed_program) =
     try
-      let can = Canonical.canonicalize { symbols; fresh_tvar } syn in
+      let can = Can_lower.canonicalize { symbols; fresh_tvar } syn in
       let program : canonicalized_program = { symbols; fresh_tvar; syn; can } in
       Ok program
-    with Canonical.Can_error e -> Error e
+    with Can_lower.Can_error e -> Error e
 
   let solve ({ symbols; syn; can; fresh_tvar } : canonicalized_program) =
     try

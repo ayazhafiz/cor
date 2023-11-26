@@ -5,7 +5,7 @@
 (library
  (name compose_fx)
  (modules compose_fx symbol syntax lexer parser
-          can canonical
+          can can_lower
           solve
           monomorphize
           ir ir_layout ir_lower ir_check
