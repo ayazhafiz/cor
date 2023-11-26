@@ -38,8 +38,10 @@ and expr =
 
 and branch = e_pat * e_expr
 
+type let_def = { kind : [ `Letfn of letfn | `Letval of letval ] }
+
 type def =
-  | Def of { kind : [ `Letfn of letfn | `Letval of letval ] }
+  | Def of let_def
   | Run of { bind : typed_symbol; body : e_expr; sig_ : tvar option }
 
 type program = def list
@@ -50,10 +52,12 @@ let name_of_def = function
       x
   | Run { bind = _, x; _ } -> x
 
-let pp_symbol = Symbol.pp_symbol
+let pp_symbol f symbol =
+  Format.pp_print_string f (Symbol.show_symbol_raw symbol)
+
 let with_parens = Syntax.with_parens
 
-let pp_pat symbols f (p : e_pat) =
+let pp_pat f (p : e_pat) =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
@@ -72,18 +76,18 @@ let pp_pat symbols f (p : e_pat) =
         in
         with_parens f (parens >> `Free) printer;
         fprintf f "@]"
-    | PVar x -> pp_symbol symbols f x
+    | PVar x -> pp_symbol f x
   in
   go `Free p
 
-let pp_expr symbols f =
+let pp_expr f =
   let open Format in
   let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
 
   let rec go parens (_, e) =
     match e with
-    | Var x -> pp_symbol symbols f x
+    | Var x -> pp_symbol f x
     | Int i -> pp_print_int f i
     | Str s -> fprintf f "\"%s\"" (String.escaped s)
     | Unit -> pp_print_string f "{}"
@@ -107,7 +111,7 @@ let pp_expr symbols f =
     | Let (Letval { bind = _, x; body = rhs; _ }, rest) ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<hv 2>let %a =@ " (pp_symbol symbols) x;
+          fprintf f "@[<hv 2>let %a =@ " pp_symbol x;
           go `Free rhs;
           fprintf f "@]@ in@]@,";
           go `Free rest
@@ -115,7 +119,7 @@ let pp_expr symbols f =
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
     | Clos { arg = _, x; body = e; _ } ->
-        fprintf f "@[<hov 2>\\%a ->@ " (pp_symbol symbols) x;
+        fprintf f "@[<hov 2>\\%a ->@ " pp_symbol x;
         go `Apply e;
         fprintf f "@]"
     | Call (head, arg) ->
@@ -138,7 +142,7 @@ let pp_expr symbols f =
         fprintf f " is@]@ @[<hv 2>";
         List.iteri
           (fun i (pat, body) ->
-            fprintf f "|@ %a ->@ " (pp_pat symbols) pat;
+            fprintf f "|@ %a ->@ " pp_pat pat;
             go `Free body;
             if i < List.length branches - 1 then fprintf f "@ ")
           branches;
@@ -146,35 +150,38 @@ let pp_expr symbols f =
   in
   go `Free
 
-let pp_def : Symbol.t -> Format.formatter -> def -> unit =
- fun symbols f def ->
+let pp_letfn f (Letfn { bind; arg; body; _ }) =
+  let open Format in
+  fprintf f "@[<v 0>@[<hv 2>let %a =@ " pp_symbol (snd bind);
+  fprintf f "@[<hv 2>\\%a ->@ " pp_symbol (snd arg);
+  pp_expr f body;
+  fprintf f "@]@]@]"
+
+let pp_letval f (Letval { bind; body; _ }) =
+  let open Format in
+  fprintf f "@[<v 0>@[<hv 2>let %a =@ %a@]@]" pp_symbol (snd bind) pp_expr body
+
+let pp_def : Format.formatter -> def -> unit =
+ fun f def ->
   let open Format in
   match def with
   | Def { kind } -> (
       match kind with
-      | `Letfn (Letfn { bind; arg; body; _ }) ->
-          fprintf f "@[<v 0>@[<hv 2>let %a =@ " (pp_symbol symbols) (snd bind);
-          fprintf f "@[<hv 2>\\%a ->@ " (pp_symbol symbols) (snd arg);
-          pp_expr symbols f body;
-          fprintf f "@]@]@]"
-      | `Letval (Letval { bind; body; _ }) ->
-          fprintf f "@[<v 0>@[<hv 2>let %a =@ %a@]@]" (pp_symbol symbols)
-            (snd bind) (pp_expr symbols) body)
-  | Run { bind; body; _ } ->
-      fprintf f "@[<v 0>@[<hv 2>run %a =@ %a@]@]" (pp_symbol symbols) (snd bind)
-        (pp_expr symbols) body
+      | `Letfn letfn -> fprintf f "@[%a@]" pp_letfn letfn
+      | `Letval letval -> fprintf f "@[%a@]" pp_letval letval)
+  | Run { bind; body; sig_ } ->
+      fprintf f "@[%a@]" pp_letval (Letval { bind; body; sig_ })
 
-let pp_defs : Symbol.t -> Format.formatter -> def list -> unit =
- fun symbols f defs ->
+let pp_defs : Format.formatter -> def list -> unit =
+ fun f defs ->
   let open Format in
   fprintf f "@[<v 0>";
   List.iteri
     (fun i def ->
       if i > 0 then fprintf f "@,";
-      pp_def symbols f def)
+      pp_def f def)
     defs;
   fprintf f "@]"
 
-let string_of_program ?(width = default_width) (symbols : Symbol.t)
-    (program : program) =
-  with_buffer (fun f -> pp_defs symbols f program) width
+let string_of_program ?(width = default_width) (program : program) =
+  with_buffer (fun f -> pp_defs f program) width

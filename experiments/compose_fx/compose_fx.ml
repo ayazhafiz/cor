@@ -80,9 +80,10 @@ module Compose_fx : LANGUAGE = struct
       Ok { symbols; fresh_tvar; syn; can }
     with Solve.Solve_err e -> Error e
 
-  let ir ({ symbols; fresh_tvar; syn; can = _ } : solved_program) =
-    let specialized = Monomorphize.specialize { symbols; fresh_tvar } syn in
-    let compiled = Ir_lower.compile symbols fresh_tvar specialized in
+  let ir ({ symbols; fresh_tvar; syn = _; can } : solved_program) =
+    let ctx = Ir.new_ctx symbols fresh_tvar in
+    let specialized = Monomorphize.specialize ctx can in
+    let compiled = Ir_lower.compile ~ctx specialized in
     Ir_check.check compiled;
     Ok { symbols; program = compiled }
 

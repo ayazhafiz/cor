@@ -315,6 +315,8 @@ let canonicalize_expr :
                    the bind variable now. *)
                 tvar_set t_expr @@ Link t_x;
 
+                let captures = List.filter (fun (_, s) -> s <> x) captures in
+
                 let letfn =
                   Can.Letfn
                     {

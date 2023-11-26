@@ -1,81 +1,27 @@
 open Ir
 open Ir_layout
 open Symbol
-open Type
-module S = Syntax
-
-let vars_of_pat : S.e_pat -> tvar SymbolMap.t =
-  let rec go_pat (_, t, p) =
-    match p with
-    | S.PVar (_, x) -> SymbolMap.singleton x t
-    | S.PTag (_, ps) ->
-        List.fold_left
-          (fun acc p -> SymbolMap.union (go_pat p) acc)
-          SymbolMap.empty ps
-  in
-  go_pat
-
-let free : S.e_expr -> tvar SymbolMap.t =
- fun e ->
-  let rec go_branch (p, e) =
-    let defined_p = vars_of_pat p in
-    let free_e = go_expr e in
-    SymbolMap.diff free_e defined_p
-  and go_expr (_, t, e) =
-    match e with
-    | S.Var x -> SymbolMap.singleton x t
-    | S.Str _ | S.Int _ | S.Unit -> SymbolMap.empty
-    | S.Tag (_, es) ->
-        List.fold_left
-          (fun acc e -> SymbolMap.union (go_expr e) acc)
-          SymbolMap.empty es
-    | S.Let { recursive; bind = _, _, x; expr; body } ->
-        let free_e = go_expr expr in
-        let free_e =
-          match !recursive with
-          | true -> SymbolMap.remove x free_e
-          | false -> free_e
-        in
-        let free_b = go_expr body in
-        let free_b = SymbolMap.remove x free_b in
-        SymbolMap.union free_e free_b
-    | S.Clos { arg = _, _, a; body } -> SymbolMap.remove a (go_expr body)
-    | S.Call (e1, e2) ->
-        let free_e1 = go_expr e1 in
-        let free_e2 = go_expr e2 in
-        SymbolMap.union free_e1 free_e2
-    | S.KCall (_kfn, es) ->
-        List.fold_left
-          (fun acc e -> SymbolMap.union (go_expr e) acc)
-          SymbolMap.empty es
-    | S.When (e, branches) ->
-        let free_e = go_expr e in
-        List.fold_left
-          (fun acc branch -> SymbolMap.union (go_branch branch) acc)
-          free_e branches
-  in
-  go_expr e
 
 type pending_closure = {
   proc_name : symbol;
   arg : var;
   captures : var * var list;
-  body : S.e_expr;
+  body : Can.e_expr;
   (* Some (symbol) if this is a recursive closure bound to the symbol. *)
   rec_name : symbol option;
 }
 
-type pending_thunk = { proc_name : symbol; body : S.e_expr }
+type pending_thunk = { proc_name : symbol; body : Can.e_expr }
 
 type pending_proc =
   [ `Closure of pending_closure
   | `Thunk of pending_thunk
   | `Ready of definition ]
 
-let get_pat_arg_var : ctx -> S.e_pat -> var =
+let get_pat_arg_var : ctx -> Can.e_pat -> var =
  fun ctx pat ->
   match pat with
-  | _, t, S.PVar (_, v) ->
+  | t, PVar v ->
       let layout = layout_of_tvar ctx t in
       (layout, v)
   | _ -> failwith "non-var pattern not yet supported"
@@ -148,7 +94,78 @@ let build_possibly_boxed_union ~ctx ~arg_vars ~union_id ~layout =
   in
   build_possibly_boxed ~ctx ~build_unboxed ~layout
 
-let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
+let vars_of_captures ~ctx captures =
+  List.map (fun (t, v) -> (layout_of_tvar ctx t, v)) captures
+
+let build_closure ~ctx ~captures ~proc_name ~layout : stmt list * expr =
+  (* put the captures in a record *)
+  let stack_captures_name = ctx.symbols.fresh_symbol @@ "captures_stack_" in
+  let captures_layouts = List.map fst @@ captures in
+  let stack_captures_lay = ref @@ Struct captures_layouts in
+  let stack_captures_var = (stack_captures_lay, stack_captures_name) in
+  let stack_captures_asgn = Let (stack_captures_var, MakeStruct captures) in
+  (* box the captures *)
+  let box_captures_name = ctx.symbols.fresh_symbol @@ "captures_box_" in
+  let box_captures_var =
+    (ref @@ Box (stack_captures_lay, None), box_captures_name)
+  in
+  let box_captures_asgn = Let (box_captures_var, MakeBox stack_captures_var) in
+  (* erase the boxed captures *)
+  let captures_name = ctx.symbols.fresh_symbol @@ "captures_" in
+  let captures_var = (erased_captures_lay, captures_name) in
+  let captures_asgn =
+    Let (captures_var, PtrCast (box_captures_var, erased_captures_lay))
+  in
+
+  let fn_ptr_name = ctx.symbols.fresh_symbol @@ "fn_ptr_" in
+  let fn_ptr_var = (ref @@ FunctionPointer, fn_ptr_name) in
+  let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr proc_name) in
+
+  let closure_struct_asgns, closure_struct =
+    build_possibly_boxed_struct ~ctx
+      ~arg_vars:[ fn_ptr_var; captures_var ]
+      ~layout
+  in
+
+  let asgns =
+    [ stack_captures_asgn; box_captures_asgn; captures_asgn; fn_ptr_asgn ]
+    @ closure_struct_asgns
+  in
+
+  (asgns, closure_struct)
+
+let compile_closure ~ctx ~layout ~arg:(t_a, a) ~body ~captures ~rec_name =
+  let a_layout = layout_of_tvar ctx t_a in
+  let a_var = (a_layout, a) in
+  let syn_name =
+    match rec_name with Some x -> Symbol.syn_of ctx.symbols x | None -> ""
+  in
+
+  let captures = vars_of_captures ~ctx captures in
+
+  let proc_name = ctx.symbols.fresh_symbol @@ "clos_" ^ syn_name in
+
+  let closure_struct_asgns, closure_struct =
+    build_closure ~ctx ~captures ~proc_name ~layout
+  in
+
+  let captures_name = ctx.symbols.fresh_symbol @@ "captures_" ^ syn_name in
+  let captures_var = (erased_captures_lay, captures_name) in
+
+  let pending_clos =
+    `Closure
+      {
+        proc_name;
+        arg = a_var;
+        captures = (captures_var, captures);
+        body;
+        rec_name;
+      }
+  in
+
+  (pending_clos, closure_struct_asgns, closure_struct)
+
+let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
  fun ctx expr ->
   let pending_procs : pending_proc list ref = ref [] in
   let rec go_var e =
@@ -159,10 +176,10 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let var = (lay, ctx.symbols.fresh_symbol "var") in
         let asgns = asgns @ [ Let (var, expr) ] in
         (asgns, var)
-  and compile_branch : var -> S.branch -> int * (stmt list * expr) =
+  and compile_branch : var -> Can.branch -> int * (stmt list * expr) =
    fun tag_var (pat, body) ->
     match pat with
-    | _, p_ty, S.PTag ((_, tag), args) ->
+    | p_ty, PTag (tag, args) ->
         let tag_id = tag_id tag p_ty in
         let arg_vars = List.map (get_pat_arg_var ctx) args in
         let payload_layout = ref @@ Struct (List.map fst arg_vars) in
@@ -179,14 +196,14 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let asgns = [ tag_payload_asgn ] @ arg_destructs @ body_asgns in
         (tag_id, (asgns, body_expr))
     | _ -> failwith "non-tag pattern not yet supported"
-  and go ?(name_hint = None) ?(rec_name = None) (_, ty, e) =
+  and go (ty, e) =
     let layout = layout_of_tvar ctx ty in
     match e with
-    | S.Str s -> ([], (layout, Lit (`String s)))
-    | S.Int i -> ([], (layout, Lit (`Int i)))
-    | S.Unit -> ([], (layout, MakeStruct []))
-    | S.Var s -> ([], (layout, Var (layout, s)))
-    | S.Tag (ctor, args) ->
+    | Str s -> ([], (layout, Lit (`String s)))
+    | Int i -> ([], (layout, Lit (`Int i)))
+    | Unit -> ([], (layout, MakeStruct []))
+    | Var s -> ([], (layout, Var (layout, s)))
+    | Tag (ctor, args) ->
         let id = tag_id ctor ty in
         let arg_asgns, arg_vars = List.split @@ List.map go_var args in
         let arg_asgns = List.concat arg_asgns in
@@ -194,119 +211,53 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
           build_possibly_boxed_union ~ctx ~arg_vars ~union_id:id ~layout
         in
         (arg_asgns @ union_asngs, (layout, expr))
-    | S.Let { recursive; bind = _, (_, x_ty), x; expr; body } ->
-        let x_layout = layout_of_tvar ctx x_ty in
+    | Let (Letval { bind = t_x, x; body; sig_ = _ }, rest) ->
+        let x_layout = layout_of_tvar ctx t_x in
         let x_var = (x_layout, x) in
-        let rec_name = match !recursive with true -> Some x | _ -> None in
-        let e_asgns, (_, e_expr) =
-          go ~name_hint:(Some (Symbol.syn_of ctx.symbols x)) ~rec_name expr
-        in
-        let b_asgns, b_expr = go body in
-        let asgns = e_asgns @ [ Let (x_var, e_expr) ] @ b_asgns in
-        (asgns, b_expr)
-    | S.Call (f, a) ->
+        let b_asgns, (_, b_expr) = go body in
+        let r_asgns, r_expr = go rest in
+        let asgns = b_asgns @ [ Let (x_var, b_expr) ] @ r_asgns in
+        (asgns, r_expr)
+    | Call (f, a) ->
         let clos_asgns, clos_var = go_var f in
         let unpack_asgns, clos_var = unpack_boxed_struct ctx clos_var in
-        (* *)
+
         let fn_name = ctx.symbols.fresh_symbol "fnptr" in
         let fn_var = (ref @@ FunctionPointer, fn_name) in
         let fn_asgn = Let (fn_var, GetStructField (clos_var, 0)) in
-        (* *)
+
         let captures_name = ctx.symbols.fresh_symbol "captures" in
         let captures_var = (erased_captures_lay, captures_name) in
         let captures_asgn = Let (captures_var, GetStructField (clos_var, 1)) in
-        (* *)
+
         let a_asgns, a_var = go_var a in
         let asgns =
           clos_asgns @ unpack_asgns @ [ fn_asgn; captures_asgn ] @ a_asgns
         in
         (asgns, (layout, CallIndirect (fn_var, [ captures_var; a_var ])))
-    | S.KCall (kfn, args) ->
+    | KCall (kfn, args) ->
         let args_asgns, arg_vars = List.split @@ List.map go_var args in
         let asgns = List.concat args_asgns in
         (asgns, (layout, CallKFn (kfn, arg_vars)))
-    | S.Clos { arg = _, (_, a_ty), a; body = e } ->
-        let a_layout = layout_of_tvar ctx a_ty in
-        let a_var = (a_layout, a) in
-        let free_in_e : tvar SymbolMap.t = free e in
-
-        let free = SymbolMap.remove a free_in_e in
-        let free =
-          match rec_name with
-          | Some name -> SymbolMap.remove name free
-          | _ -> free
+    | LetFn (Letfn { recursive; bind; arg; body; captures; sig_ = _ }, rest) ->
+        let t_x, x = bind in
+        let layout_x = layout_of_tvar ctx t_x in
+        let rec_name = if recursive then Some x else None in
+        let pending_clos, asgns, closure =
+          compile_closure ~ctx ~layout:layout_x ~arg ~body ~captures ~rec_name
         in
-        let free : var list =
-          List.map (fun (v, t) -> (layout_of_tvar ctx t, v))
-          @@ SymbolMap.bindings free
+        pending_procs := pending_clos :: !pending_procs;
+        let x_var = (layout_x, x) in
+        let asgns = asgns @ [ Let (x_var, closure) ] in
+        let e_asgns, e_expr = go rest in
+        (asgns @ e_asgns, e_expr)
+    | Clos { arg; body; captures } ->
+        let pending_clos, asgns, closure =
+          compile_closure ~ctx ~layout ~arg ~body ~captures ~rec_name:None
         in
-
-        let proc_name =
-          ctx.symbols.fresh_symbol @@ Option.value ~default:"clos" name_hint
-        in
-        (* put the captures in a record *)
-        let stack_captures_name =
-          ctx.symbols.fresh_symbol @@ "captures_stack_"
-          ^ Option.value ~default:"" name_hint
-        in
-        let captures_layouts = List.map fst @@ free in
-        let stack_captures_lay = ref @@ Struct captures_layouts in
-        let stack_captures_var = (stack_captures_lay, stack_captures_name) in
-        let stack_captures_asgn = Let (stack_captures_var, MakeStruct free) in
-        (* box the captures *)
-        let box_captures_name =
-          ctx.symbols.fresh_symbol @@ "captures_box_"
-          ^ Option.value ~default:"" name_hint
-        in
-        let box_captures_var =
-          (ref @@ Box (stack_captures_lay, None), box_captures_name)
-        in
-        let box_captures_asgn =
-          Let (box_captures_var, MakeBox stack_captures_var)
-        in
-        (* erase the boxed captures *)
-        let captures_name =
-          ctx.symbols.fresh_symbol @@ "captures_"
-          ^ Option.value ~default:"" name_hint
-        in
-        let captures_var = (erased_captures_lay, captures_name) in
-        let captures_asgn =
-          Let (captures_var, PtrCast (box_captures_var, erased_captures_lay))
-        in
-
-        pending_procs :=
-          `Closure
-            {
-              proc_name;
-              arg = a_var;
-              captures = (captures_var, free);
-              body = e;
-              rec_name;
-            }
-          :: !pending_procs;
-
-        let fn_ptr_name =
-          ctx.symbols.fresh_symbol @@ "fn_ptr_"
-          ^ Option.value ~default:"" name_hint
-        in
-        let fn_ptr_var = (ref @@ FunctionPointer, fn_ptr_name) in
-        let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr proc_name) in
-
-        let closure_struct_asgns, closure_struct =
-          build_possibly_boxed_struct ~ctx
-            ~arg_vars:[ fn_ptr_var; captures_var ]
-            ~layout
-        in
-
-        let asgns =
-          [ stack_captures_asgn; box_captures_asgn; captures_asgn; fn_ptr_asgn ]
-          @ closure_struct_asgns
-        in
-
-        let expr = (layout, closure_struct) in
-
-        (asgns, expr)
-    | S.When (tag_e, branches) ->
+        pending_procs := pending_clos :: !pending_procs;
+        (asgns, (layout, closure))
+    | When (tag_e, branches) ->
         let tag_asgns, tag_var = go_var tag_e in
         let unpack_asgns, tag_var = unpack_boxed_union ctx tag_var in
         let discr_var = (ref @@ Int, ctx.symbols.fresh_symbol "discr") in
@@ -416,24 +367,56 @@ let compile_defs :
   let pending_procs : pending_proc list ref = ref [] in
   let rec go : Monomorphize.ready_specialization list -> unit = function
     | [] -> ()
-    | `Ready (x, e, t) :: defs ->
+    | `Letval (Letval { bind = t_x, x; body; sig_ = _ }) :: defs ->
         let thunk_name =
           ctx.symbols.fresh_symbol (Symbol.syn_of ctx.symbols x ^ "_thunk")
         in
-        let x_lay = layout_of_tvar ctx t in
+        let x_lay = layout_of_tvar ctx t_x in
         let init = CallDirect (thunk_name, []) in
-        let pending_thunk = { proc_name = thunk_name; body = e } in
+        let pending_thunk = { proc_name = thunk_name; body } in
         pending_procs := `Thunk pending_thunk :: !pending_procs;
         pending_procs :=
           `Ready (Global { name = x; layout = x_lay; init }) :: !pending_procs;
+        go defs
+    | `Letfn (Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ })
+      :: defs ->
+        (*
+        if List.length captures > 0 then
+          failwith @@ "captured on toplevel: " ^ String.concat ", "
+          @@ List.map show_symbol @@ List.map snd @@ captures;
+        *)
+        let rec_name = if recursive then Some x else None in
+        let layout_x = layout_of_tvar ctx t_x in
+        let pending_clos, closure_asgns, closure_struct =
+          compile_closure ~ctx ~rec_name ~layout:layout_x ~arg ~body ~captures
+        in
+
+        let syn_name = Symbol.syn_of ctx.symbols x in
+
+        let thunk_name = ctx.symbols.fresh_symbol @@ syn_name ^ "_thunk" in
+        let thunk =
+          let closure_struct_name =
+            ctx.symbols.fresh_symbol @@ syn_name ^ "_closure"
+          in
+          let ret = (layout_x, closure_struct_name) in
+          let args = [] in
+          let body = closure_asgns @ [ Let (ret, closure_struct) ] in
+          Proc { name = thunk_name; args; body; ret }
+        in
+
+        let global =
+          Global
+            { name = x; layout = layout_x; init = CallDirect (thunk_name, []) }
+        in
+
+        pending_procs :=
+          pending_clos :: `Ready thunk :: `Ready global :: !pending_procs;
         go defs
   in
   go specs;
   compile_pending_procs ctx @@ List.rev !pending_procs
 
-let compile : Symbol.t -> fresh_tvar -> Monomorphize.specialized -> program =
- fun symbols fresh_tvar
-     ({ specializations; entry_points } : Monomorphize.specialized) ->
-  let ctx = new_ctx symbols fresh_tvar in
+let compile ~ctx ({ specializations; entry_points } : Monomorphize.specialized)
+    =
   let definitions = compile_defs ctx specializations in
   { definitions; entry_points }
