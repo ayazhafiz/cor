@@ -17,9 +17,10 @@ let mapper = \x -> A x;;
 #   ^^^^^^
 
 let l = Cons 1 (Cons 2 Nil);;
+#   ^
 
 run main = map mapper l;;
-#   ^^^^   ^^^
+#   ^^^^   ^^^        ^
 
 > cor-out +solve -elab
 > let map = \f -> \xs ->
@@ -39,8 +40,10 @@ run main = map mapper l;;
 > #   ^^^^^^ 'a -> [A 'a]'*
 > 
 > let l = Cons 1 (Cons 2 Nil);;
+> #   ^ [Cons Int [Cons Int [Nil]'*]'*]'*
 > 
 > run main = map mapper l;;
+> #                     ^ [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
 > #          ^^^ (Int -> [A Int]?a)
 > #          ^^^   -> [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
 > #          ^^^        -> [
