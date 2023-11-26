@@ -5,9 +5,6 @@ open Type
 type ready_specialization = [ `Letval of letval | `Letfn of letfn ]
 type val_specialization = [ `Val of letval ]
 
-type needed_specialization =
-  [ `Needed of symbol * symbol * tvar | val_specialization ]
-
 type specialized = {
   specializations : ready_specialization list;
   entry_points : (symbol * tvar) list;

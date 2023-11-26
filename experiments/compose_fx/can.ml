@@ -38,6 +38,9 @@ and expr =
 
 and branch = e_pat * e_expr
 
+let type_of_letfn = function Letfn { bind = ty, _; _ } -> ty
+let type_of_letval = function Letval { bind = ty, _; _ } -> ty
+
 type let_def = { kind : [ `Letfn of letfn | `Letval of letval ] }
 
 type def =

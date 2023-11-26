@@ -4,7 +4,8 @@ open Solve
 open Type
 open Mono
 
-type queue = needed_specialization list
+type queue = val_specialization list
+type spec_procs = ready_specialization list
 type fenv = (symbol * [ `Fn of letfn | `Val of letval ]) list
 
 let symbol_of_needed_specialization : val_specialization -> symbol * tvar =
@@ -17,8 +18,6 @@ let find_entry_points defs =
     | _ :: rest -> go rest
   in
   go defs
-
-let ty_of_letval (Letval { bind = t_x, _; _ }) = t_x
 
 let find_toplevel_values : def list -> val_specialization list =
  fun defs ->
@@ -90,8 +89,45 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
   in
   go tvar
 
-let rec clone_captures ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~captures :
-    typed_symbol list * queue =
+let ty_of_fenv = function
+  | `Fn letfn -> type_of_letfn letfn
+  | `Val letval -> type_of_letval letval
+
+let rec create_specialization ~(ctx : Ir.ctx) ~specs ~fenv ~kind ~t_needed ~sym
+    =
+  let type_cache = ref [] in
+
+  let t_x = ty_of_fenv kind in
+  let t_x = clone_type ctx.fresh_tvar type_cache t_x in
+  unify ctx.symbols "create_specialization" ctx.fresh_tvar t_x t_needed;
+
+  let new_sym =
+    ctx.symbols.fresh_symbol_named @@ Symbol.syn_of ctx.symbols sym
+  in
+
+  match kind with
+  | `Fn (Letfn { recursive; bind = _; arg = t_a, a; body; sig_; captures }) ->
+      let t_a = clone_type ctx.fresh_tvar type_cache t_a in
+      let body, needed = clone_expr ~ctx ~specs ~fenv ~type_cache ~expr:body in
+      let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
+      let captures, captures_needed =
+        clone_captures ~ctx ~specs ~fenv ~type_cache ~captures
+      in
+      let bind = (t_x, new_sym) in
+      let arg = (t_a, a) in
+      let letfn = Letfn { recursive; bind; arg; body; sig_; captures } in
+      let spec_procs = needed @ captures_needed @ [ `Letfn letfn ] in
+      (new_sym, spec_procs)
+  | `Val (Letval { bind = _; body; sig_ }) ->
+      let body, needed = clone_expr ~ctx ~specs ~fenv ~type_cache ~expr:body in
+      let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
+
+      let letval = Letval { bind = (t_x, new_sym); body; sig_ } in
+      let spec_procs = needed @ [ `Letval letval ] in
+      (new_sym, spec_procs)
+
+and clone_captures ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~captures :
+    typed_symbol list * spec_procs =
   let go_capture (t_x, x) =
     let x, needed =
       clone_expr ~ctx ~specs ~fenv ~type_cache ~expr:(t_x, Var x)
@@ -104,8 +140,9 @@ let rec clone_captures ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~captures :
   let captures, needed = List.split @@ List.map go_capture captures in
   (captures, List.concat needed)
 
-and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
-  let rec go_pat : e_pat -> e_pat * queue =
+and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr :
+    e_expr * spec_procs =
+  let rec go_pat : e_pat -> e_pat * spec_procs =
    fun (t, p) ->
     let t = clone_type ctx.fresh_tvar type_cache t in
     let p, needed =
@@ -116,12 +153,12 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
           (PTag (tag, args), List.concat needed)
     in
     ((t, p), needed)
-  and go_branch : branch -> branch * queue =
+  and go_branch : branch -> branch * spec_procs =
    fun (p, e) ->
     let p, p_needed = go_pat p in
     let e, e_needed = go e in
     ((p, e), p_needed @ e_needed)
-  and go : e_expr -> e_expr * queue =
+  and go : e_expr -> e_expr * spec_procs =
    fun (t, e) ->
     let t = clone_type ctx.fresh_tvar type_cache t in
     let e, needed =
@@ -131,11 +168,11 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
       | Unit -> (Unit, [])
       | Var x -> (
           match List.assoc_opt x fenv with
-          | Some _ ->
-              let new_x =
-                ctx.symbols.fresh_symbol_named (Symbol.syn_of ctx.symbols x)
+          | Some kind ->
+              let new_x, spec_procs =
+                create_specialization ~ctx ~specs ~fenv ~kind ~t_needed:t ~sym:x
               in
-              (Var new_x, [ `Needed (new_x, x, t) ])
+              (Var new_x, spec_procs)
           | None -> (Var x, []))
       | Tag (t, es) ->
           let es, needed = List.split @@ List.map go es in
@@ -203,55 +240,14 @@ let specialize_queue ~(ctx : Ir.ctx) ~specs ~fenv ~queue =
     let letval = Letval { bind = (t_x, new_sym); body; sig_ } in
     (letval, needed)
   in
-  let specialize_let_fn ~t_needed ~new_sym
-      (Letfn
-        { recursive; bind = t_x, _old_sym; arg = t_a, a; body; sig_; captures })
-      =
-    let type_cache : type_cache = ref [] in
-    let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-    unify ctx.symbols "specialize" ctx.fresh_tvar t_x t_needed;
-
-    let t_a = clone_type ctx.fresh_tvar type_cache t_a in
-    let body, needed = clone_expr ~ctx ~specs ~fenv ~type_cache ~expr:body in
-    let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
-    let captures, captures_needed =
-      clone_captures ~ctx ~specs ~fenv ~type_cache ~captures
-    in
-    let letfn =
-      Letfn
-        {
-          recursive;
-          bind = (t_x, new_sym);
-          arg = (t_a, a);
-          body;
-          sig_;
-          captures;
-        }
-    in
-    (letfn, needed @ captures_needed)
-  in
   let rec go : queue -> ready_specialization list = function
     | [] -> []
-    | `Needed (new_sym, sym, t_needed) :: rest ->
-        let kind = List.assoc sym fenv in
-        let needed, ready =
-          match kind with
-          | `Fn letfn ->
-              let letfn, needed = specialize_let_fn ~t_needed ~new_sym letfn in
-              (needed, `Letfn letfn)
-          | `Val letval ->
-              let letval, needed =
-                specialize_let_val ~t_needed ~new_sym letval
-              in
-              (needed, `Letval letval)
-        in
-        (go needed @ [ ready ]) @ go rest
     | `Val letval :: rest ->
         let (Letval { bind = t_x, x; _ }) = letval in
-        let letval, needed =
+        let letval, specs =
           specialize_let_val letval ~t_needed:t_x ~new_sym:x
         in
-        (go needed @ [ `Letval letval ]) @ go rest
+        (specs @ [ `Letval letval ]) @ go rest
   in
   go queue
 
