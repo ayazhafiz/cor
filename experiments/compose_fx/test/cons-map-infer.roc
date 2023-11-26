@@ -41,13 +41,13 @@ run main = map mapper l;;
 > let l = Cons 1 (Cons 2 Nil);;
 > 
 > run main = map mapper l;;
-> #          ^^^ (Int -> [A Int]'a)
+> #          ^^^ (Int -> [A Int]?a)
 > #          ^^^   -> [Cons Int <..[Cons .. .., Nil]?*>, Nil]?*
 > #          ^^^        -> [
-> #          ^^^             Cons [A Int]'a <..[Cons .. .., Nil]'*>,
+> #          ^^^             Cons [A Int]?a <..[Cons .. .., Nil]?*>,
 > #          ^^^             Nil
-> #          ^^^             ]'*
-> #   ^^^^ [Cons [A Int]'* <..[Cons .. .., Nil]'*>, Nil]'*
+> #          ^^^             ]?*
+> #   ^^^^ [Cons [A Int]?* <..[Cons .. .., Nil]?*>, Nil]?*
 > 
 
 > cor-out +ir -print

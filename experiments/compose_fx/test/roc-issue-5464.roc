@@ -104,19 +104,19 @@ run main_handler =
 > 
 > run main_handler =
 > #   ^^^^^^^^^^^^ [
-> #   ^^^^^^^^^^^^   Done [Err 'err, Ok {}]
+> #   ^^^^^^^^^^^^   Done [Err ?err, Ok {}]
 > #   ^^^^^^^^^^^^     [
 > #   ^^^^^^^^^^^^       EntryPoint,
 > #   ^^^^^^^^^^^^       Stdin
-> #   ^^^^^^^^^^^^         <..[EntryPoint, Stdin .., Stdout .. ..]'*>,
+> #   ^^^^^^^^^^^^         <..[EntryPoint, Stdin .., Stdout .. ..]?*>,
 > #   ^^^^^^^^^^^^       Stdout Str
-> #   ^^^^^^^^^^^^         <..[EntryPoint, Stdin .., Stdout .. ..]'*>
-> #   ^^^^^^^^^^^^       ]'*
-> #   ^^^^^^^^^^^^   ]'*
+> #   ^^^^^^^^^^^^         <..[EntryPoint, Stdin .., Stdout .. ..]?*>
+> #   ^^^^^^^^^^^^       ]?*
+> #   ^^^^^^^^^^^^   ]?*
 >     let op = main (\x -> Done x) in
-> #       ^^ %Op [Err 'err, Ok {}]
+> #       ^^ %Op [Err ?err, Ok {}]
 >     let handle = \op -> \i -> \t -> when op is
-> #       ^^^^^^ %(Op [Err 'err, Ok {}])
+> #       ^^^^^^ %(Op [Err ?err, Ok {}])
 > #       ^^^^^^   -> Int
 > #       ^^^^^^        -> [
 > #       ^^^^^^             EntryPoint,
@@ -125,16 +125,16 @@ run main_handler =
 > #       ^^^^^^                    EntryPoint,
 > #       ^^^^^^                    Stdin ..,
 > #       ^^^^^^                    Stdout .. ..
-> #       ^^^^^^                    ]'a>,
+> #       ^^^^^^                    ]?a>,
 > #       ^^^^^^             Stdout Str
 > #       ^^^^^^               <..[
 > #       ^^^^^^                    EntryPoint,
 > #       ^^^^^^                    Stdin ..,
 > #       ^^^^^^                    Stdout .. ..
-> #       ^^^^^^                    ]'a>
-> #       ^^^^^^             ]'a
+> #       ^^^^^^                    ]?a>
+> #       ^^^^^^             ]?a
 > #       ^^^^^^             -> [
-> #       ^^^^^^                  Done [Err 'err, Ok {}]
+> #       ^^^^^^                  Done [Err ?err, Ok {}]
 > #       ^^^^^^                    [
 > #       ^^^^^^                      EntryPoint,
 > #       ^^^^^^                      Stdin
@@ -142,15 +142,15 @@ run main_handler =
 > #       ^^^^^^                             EntryPoint,
 > #       ^^^^^^                             Stdin ..,
 > #       ^^^^^^                             Stdout .. ..
-> #       ^^^^^^                             ]'a>,
+> #       ^^^^^^                             ]?a>,
 > #       ^^^^^^                      Stdout Str
 > #       ^^^^^^                        <..[
 > #       ^^^^^^                             EntryPoint,
 > #       ^^^^^^                             Stdin ..,
 > #       ^^^^^^                             Stdout .. ..
-> #       ^^^^^^                             ]'a>
-> #       ^^^^^^                      ]'a
-> #       ^^^^^^                  ]'*
+> #       ^^^^^^                             ]?a>
+> #       ^^^^^^                      ]?a
+> #       ^^^^^^                  ]?*
 >         | StdinLine f -> handle (f (~str_concat "stdin" (~itos i))) (~add i 1) (Stdin t)
 >         | StdoutLine s f -> handle (f {}) (~add i 1) (Stdout s t)
 >         | Done x -> Done x t

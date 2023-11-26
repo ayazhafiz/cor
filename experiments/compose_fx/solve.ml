@@ -445,7 +445,7 @@ let infer_def : ctx -> venv -> Can.def -> tvar =
       let symbol = Symbol.syn_of symbols x in
 
       set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top:t_x ~t_infer:t_body
-        ~t_sig:sig_ ~generalize:true
+        ~t_sig:sig_ ~generalize:false
 
 let infer_program : ctx -> Can.program -> unit =
  fun ctx defs ->
