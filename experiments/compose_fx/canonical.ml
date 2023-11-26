@@ -305,9 +305,15 @@ let canonicalize_expr :
           let body, free_b = go_expr body in
           let free_b = SymbolMap.remove x free_b in
 
+          let t_expr, expr = expr in
+
           let can_let =
-            match snd expr with
+            match expr with
             | Can.Clos { arg; body = clos_body; captures } ->
+                (* We drop the closure can_expr type in the canonicalized def, so tie it to
+                   the bind variable now. *)
+                tvar_set t_expr @@ Link t_x;
+
                 let letfn =
                   Can.Letfn
                     {
@@ -322,7 +328,9 @@ let canonicalize_expr :
                 Can.LetFn (letfn, body)
             | _ ->
                 Can.Let
-                  (Letval { bind = (t_x, x); body = expr; sig_ = None }, body)
+                  ( Letval
+                      { bind = (t_x, x); body = (t_expr, expr); sig_ = None },
+                    body )
           in
 
           (can_let, SymbolMap.union free_e free_b)

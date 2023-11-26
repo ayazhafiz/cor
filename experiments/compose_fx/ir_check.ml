@@ -23,7 +23,7 @@ let failctx : string -> string -> 'a =
 let ctx_join : string -> string -> string = fun ctx1 ctx2 -> ctx1 ^ ":" ^ ctx2
 
 let check_lay_equiv : string -> layout -> layout -> unit =
- fun ctx l1 l2 ->
+ fun ctx ol1 ol2 ->
   let visited_recs = ref [] in
   let rec go l1 l2 =
     match (!l1, !l2) with
@@ -53,10 +53,10 @@ let check_lay_equiv : string -> layout -> layout -> unit =
     | Erased, Erased -> ()
     | FunctionPointer, FunctionPointer -> ()
     | _ ->
-        failctx ctx @@ "Layouts are not equivalent: " ^ show_layout l1 ^ " and "
-        ^ show_layout l2
+        failctx ctx @@ "Layouts are not equivalent: " ^ show_layout ol1
+        ^ " and " ^ show_layout ol2
   in
-  go l1 l2
+  go ol1 ol2
 
 let get_union : layout -> layout list =
  fun lay ->
@@ -69,13 +69,12 @@ let get_union_variant : layout -> int -> layout =
 
 let check_is_union : layout -> unit = fun lay -> ignore @@ get_union lay
 
-let get_struct lay =
+let get_struct ctx lay =
   match !lay with
   | Struct ls -> ls
-  | _ -> failwith @@ "Not a struct: " ^ show_layout lay
+  | _ -> failctx ctx @@ "Not a struct: " ^ show_layout lay
 
-let get_struct_field : layout -> int -> layout =
- fun lay i -> List.nth (get_struct lay) i
+let get_struct_field ctx lay i = List.nth (get_struct ctx lay) i
 
 let get_boxed : layout -> layout =
  fun lay ->
@@ -116,7 +115,7 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
   | Lit (`Int _) -> check_lay_equiv ctx (ref Int) lay
   | Var x ->
       let l_x = lookup_var ctx venv x in
-      check_lay_equiv ctx l_x lay
+      check_lay_equiv (ctx_join ctx "l_x vs lay") l_x lay
   | MakeUnion (i, x) ->
       let l_variant = get_union_variant lay i in
       let l_x = lookup_var ctx venv x in
@@ -129,10 +128,12 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
       check_is_union l_x
   | MakeStruct xs ->
       let ls = List.map (lookup_var ctx venv) xs in
-      check_lay_equiv ctx (ref @@ Struct ls) lay
+      check_lay_equiv
+        (ctx_join ctx "expected struct vs outer")
+        (ref @@ Struct ls) lay
   | GetStructField (x, i) ->
       let l_x = lookup_var ctx venv x in
-      let l_field = get_struct_field l_x i in
+      let l_field = get_struct_field ctx l_x i in
       check_lay_equiv ctx l_field lay
   | CallIndirect (f, args) ->
       let l_f = lookup_var (ctx_join ctx "find_f") venv f in

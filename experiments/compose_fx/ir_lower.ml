@@ -93,6 +93,20 @@ let unpack_boxed_union : ctx -> var -> stmt list * var =
   in
   go tag
 
+let unpack_boxed_struct : ctx -> var -> stmt list * var =
+ fun ctx tag ->
+  let rec go (l_x, x) =
+    match !l_x with
+    | Struct _ -> ([], (l_x, x))
+    | Box (inner, _) ->
+        let inner_var = (inner, ctx.symbols.fresh_symbol "inner") in
+        let asgns, (l_inner, inner) = go inner_var in
+        let asgns = asgns @ [ Let (inner_var, GetBoxed (l_x, x)) ] in
+        (asgns, (l_inner, inner))
+    | _ -> failwith "non-struct layout for struct"
+  in
+  go tag
+
 let build_possibly_boxed ~ctx ~build_unboxed ~layout =
   let rec go layout =
     match !layout with
@@ -111,7 +125,10 @@ let build_possibly_boxed_struct ~ctx ~arg_vars ~layout =
     | Struct _ ->
         let asgns = [] in
         (asgns, MakeStruct arg_vars)
-    | _ -> failwith "non-struct layout for struct"
+    | _ ->
+        failwith
+          ("non-struct layout for struct: "
+          ^ Format.asprintf "%a" pp_layout_top l)
   in
   build_possibly_boxed ~ctx ~build_unboxed ~layout
 
@@ -120,11 +137,9 @@ let build_possibly_boxed_union ~ctx ~arg_vars ~union_id ~layout =
     match !l with
     | Union struct_layouts ->
         let struct_layout = List.nth struct_layouts union_id in
-        let struct_asgns, struct_expr =
-          build_possibly_boxed_struct ~ctx ~arg_vars ~layout:struct_layout
-        in
+        let struct_expr = MakeStruct arg_vars in
         let struct_var = (struct_layout, ctx.symbols.fresh_symbol "struct") in
-        let asgns = struct_asgns @ [ Let (struct_var, struct_expr) ] in
+        let asgns = [ Let (struct_var, struct_expr) ] in
         (asgns, MakeUnion (union_id, struct_var))
     | _ -> failwith "non-union layout for union"
   in
@@ -188,6 +203,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         (asgns, b_expr)
     | S.Call (f, a) ->
         let clos_asgns, clos_var = go_var f in
+        let unpack_asgns, clos_var = unpack_boxed_struct ctx clos_var in
         (* *)
         let fn_name = ctx.symbols.fresh_symbol "fnptr" in
         let fn_var = (ref @@ FunctionPointer, fn_name) in
@@ -198,7 +214,9 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         let captures_asgn = Let (captures_var, GetStructField (clos_var, 1)) in
         (* *)
         let a_asgns, a_var = go_var a in
-        let asgns = clos_asgns @ [ fn_asgn; captures_asgn ] @ a_asgns in
+        let asgns =
+          clos_asgns @ unpack_asgns @ [ fn_asgn; captures_asgn ] @ a_asgns
+        in
         (asgns, (layout, CallIndirect (fn_var, [ captures_var; a_var ])))
     | S.KCall (kfn, args) ->
         let args_asgns, arg_vars = List.split @@ List.map go_var args in
@@ -270,8 +288,21 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
         in
         let fn_ptr_var = (ref @@ FunctionPointer, fn_ptr_name) in
         let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr proc_name) in
-        ( [ stack_captures_asgn; box_captures_asgn; captures_asgn; fn_ptr_asgn ],
-          (ref closure_repr, MakeStruct [ fn_ptr_var; captures_var ]) )
+
+        let closure_struct_asgns, closure_struct =
+          build_possibly_boxed_struct ~ctx
+            ~arg_vars:[ fn_ptr_var; captures_var ]
+            ~layout
+        in
+
+        let asgns =
+          [ stack_captures_asgn; box_captures_asgn; captures_asgn; fn_ptr_asgn ]
+          @ closure_struct_asgns
+        in
+
+        let expr = (layout, closure_struct) in
+
+        (asgns, expr)
     | S.When (tag_e, branches) ->
         let tag_asgns, tag_var = go_var tag_e in
         let unpack_asgns, tag_var = unpack_boxed_union ctx tag_var in
