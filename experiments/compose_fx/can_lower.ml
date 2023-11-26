@@ -397,7 +397,19 @@ let mk_canonical_def ~expr ~globals ~bind ~sig_ ~run =
          the bind variable now. *)
       tvar_set t_can_expr @@ Link t_bind_x;
 
-      let letfn = Can.Letfn { recursive; bind; arg; body; sig_; captures } in
+      let captures =
+        List.filter
+          (fun (_, s) -> s <> bind_x && not (List.mem s globals))
+          captures
+      in
+
+      if List.length captures > 0 then
+        failwith @@ "captured on toplevel: " ^ String.concat ", "
+        @@ List.map show_symbol @@ List.map snd @@ captures;
+
+      let letfn =
+        Can.Letfn { recursive; bind; arg; body; sig_; captures = [] }
+      in
       Can.Def { kind = `Letfn letfn }
   | false, _ ->
       if recursive then

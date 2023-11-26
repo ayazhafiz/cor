@@ -380,11 +380,9 @@ let compile_defs :
         go defs
     | `Letfn (Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ })
       :: defs ->
-        (*
         if List.length captures > 0 then
           failwith @@ "captured on toplevel: " ^ String.concat ", "
           @@ List.map show_symbol @@ List.map snd @@ captures;
-        *)
         let rec_name = if recursive then Some x else None in
         let layout_x = layout_of_tvar ctx t_x in
         let pending_clos, closure_asgns, closure_struct =
