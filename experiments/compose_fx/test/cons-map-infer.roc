@@ -551,14 +551,14 @@ run main = map mapper l;;
 >   = @call_direct(l_thunk);
 > 
 > proc main_thunk():
->   box<%type_5 = [ `0 { [ `0 { int } ], box<%type_5> }, `1 {} ]>
+>   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
 > {
 >   let fnptr3: *fn = @get_struct_field<map1, 0>;
 >   let captures3: box<erased> = @get_struct_field<map1, 1>;
 >   let var10: { *fn, box<erased> } = @call_indirect(fnptr3, captures3, mapper1);
 >   let fnptr4: *fn = @get_struct_field<var10, 0>;
 >   let captures4: box<erased> = @get_struct_field<var10, 1>;
->   let var11: box<%type_5 = [ `0 { [ `0 { int } ], box<%type_5> }, `1 {} ]>
+>   let var11: box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
 >     = @call_indirect(fnptr4, captures4, l1);
 >   return var11;
 > }

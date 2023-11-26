@@ -3,7 +3,6 @@ open Symbol
 open Type
 
 type ready_specialization = [ `Letval of letval | `Letfn of letfn ]
-type val_specialization = [ `Val of letval ]
 
 type specialized = {
   specializations : ready_specialization list;

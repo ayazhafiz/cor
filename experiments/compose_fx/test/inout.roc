@@ -429,7 +429,7 @@ run main_handler =
 > 
 > proc clos_10(captures_21: box<erased>, x1: str):
 >   box<
->     %type_2 =
+>     %type_0 =
 >     [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } }
 >     ]>
 > {
@@ -445,7 +445,7 @@ run main_handler =
 >     = @make_union<0, struct2>;
 >   let var18:
 >         box<
->           %type_2 =
+>           %type_0 =
 >           [
 >              `0 { str },
 >              `1 { { *fn, box<erased> } },
@@ -459,7 +459,7 @@ run main_handler =
 >   captures_handle: box<erased>,
 >    op1:
 >      box<
->        %type_2 =
+>        %type_0 =
 >        [
 >           `0 { str },
 >           `1 { { *fn, box<erased> } },
@@ -496,7 +496,7 @@ run main_handler =
 >     let var19: str = "hello";
 >     let var20:
 >           box<
->             %type_2 =
+>             %type_0 =
 >             [
 >                `0 { str },
 >                `1 { { *fn, box<erased> } },
@@ -515,7 +515,7 @@ run main_handler =
 >     let captures13: box<erased> = @get_struct_field<f1, 1>;
 >     let var21:
 >           box<
->             %type_2 =
+>             %type_0 =
 >             [
 >                `0 { str },
 >                `1 { { *fn, box<erased> } },
@@ -539,7 +539,7 @@ run main_handler =
 >   let var16: { *fn, box<erased> } = @make_struct{ fn_ptr_10, captures_20 };
 >   let op:
 >         box<
->           %type_2 =
+>           %type_0 =
 >           [
 >              `0 { str },
 >              `1 { { *fn, box<erased> } },
