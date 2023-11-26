@@ -4,20 +4,34 @@ open Solve
 open Type
 
 type ready_specialization = [ `Letval of letval | `Letfn of letfn ]
-type needed_specialization = [ `Needed of symbol * symbol * tvar ]
+type val_specialization = [ `Val of letval ]
+
+type needed_specialization =
+  [ `Needed of symbol * symbol * tvar | val_specialization ]
+
 type queue = needed_specialization list
-type fenv = (symbol * def) list
+type fenv = (symbol * [ `Fn of letfn | `Val of letval ]) list
 
-let symbol_of_needed_specialization : needed_specialization -> symbol * tvar =
- fun (`Needed (sym, _, var)) -> (sym, var)
+let symbol_of_needed_specialization : val_specialization -> symbol * tvar =
+ fun (`Val (Letval { bind = t_x, x; _ })) -> (x, t_x)
 
-let find_entry_points : fresh_tvar -> def list -> needed_specialization list =
- fun fresh_tvar defs ->
+let find_entry_points defs =
   let rec go = function
     | [] -> []
-    | Run { bind = t_x, x; _ } :: rest ->
-        (* TODO get rid of inst since run is no longer generalized *)
-        `Needed (x, x, inst fresh_tvar t_x) :: go rest
+    | Run { bind = t_x, x; _ } :: rest -> (x, t_x) :: go rest
+    | _ :: rest -> go rest
+  in
+  go defs
+
+let ty_of_letval (Letval { bind = t_x, _; _ }) = t_x
+
+let find_toplevel_values : def list -> val_specialization list =
+ fun defs ->
+  let rec go = function
+    | [] -> []
+    | Run { bind; body; sig_ } :: rest ->
+        let letval = Letval { bind; body; sig_ } in
+        `Val letval :: go rest
     | _ :: rest -> go rest
   in
   go defs
@@ -27,9 +41,13 @@ let find_fenv : def list -> fenv =
   let rec go : fenv -> def list -> fenv =
    fun fenv -> function
     | [] -> fenv
-    | def :: rest ->
+    | (Def { kind = `Letfn letfn } as def) :: rest ->
         let x = name_of_def def in
-        go ((x, def) :: fenv) rest
+        go ((x, `Fn letfn) :: fenv) rest
+    | (Def { kind = `Letval letval } as def) :: rest ->
+        let x = name_of_def def in
+        go ((x, `Val letval) :: fenv) rest
+    | _ :: rest -> go fenv rest
   in
   go [] defs
 
@@ -177,14 +195,15 @@ and clone_expr ~(ctx : Ir.ctx) ~fenv ~type_cache ~expr : e_expr * queue =
 
 let specialize_queue : Ir.ctx -> fenv -> queue -> ready_specialization list =
  fun ctx fenv queue ->
-  let specialize_let_val ~t_needed ~new_sym
-      (Letval { bind = t_x, _old_sym; body; sig_ }) =
+  let specialize_let_val (Letval { bind = t_x, _old_sym; body; sig_ }) ~t_needed
+      ~new_sym =
     let type_cache : type_cache = ref [] in
     let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-
     unify ctx.symbols "specialize" ctx.fresh_tvar t_x t_needed;
+
     let body, needed = clone_expr ~ctx ~fenv ~type_cache ~expr:body in
     let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
+
     let letval = Letval { bind = (t_x, new_sym); body; sig_ } in
     (letval, needed)
   in
@@ -195,6 +214,7 @@ let specialize_queue : Ir.ctx -> fenv -> queue -> ready_specialization list =
     let type_cache : type_cache = ref [] in
     let t_x = clone_type ctx.fresh_tvar type_cache t_x in
     unify ctx.symbols "specialize" ctx.fresh_tvar t_x t_needed;
+
     let t_a = clone_type ctx.fresh_tvar type_cache t_a in
     let body, needed = clone_expr ~ctx ~fenv ~type_cache ~expr:body in
     let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
@@ -217,29 +237,25 @@ let specialize_queue : Ir.ctx -> fenv -> queue -> ready_specialization list =
   let rec go : queue -> ready_specialization list = function
     | [] -> []
     | `Needed (new_sym, sym, t_needed) :: rest ->
-        let def = List.assoc sym fenv in
-        let ready, needed =
-          match def with
-          | Def { kind } -> (
-              match kind with
-              | `Letfn letfn ->
-                  let letfn, needed =
-                    specialize_let_fn ~t_needed ~new_sym letfn
-                  in
-                  (`Letfn letfn, needed)
-              | `Letval letval ->
-                  let letval, needed =
-                    specialize_let_val ~t_needed ~new_sym letval
-                  in
-                  (`Letval letval, needed))
-          | Run { bind; body; sig_ } ->
+        let kind = List.assoc sym fenv in
+        let needed, ready =
+          match kind with
+          | `Fn letfn ->
+              let letfn, needed = specialize_let_fn ~t_needed ~new_sym letfn in
+              (needed, `Letfn letfn)
+          | `Val letval ->
               let letval, needed =
-                specialize_let_val ~t_needed ~new_sym
-                  (Letval { bind; body; sig_ })
+                specialize_let_val ~t_needed ~new_sym letval
               in
-              (`Letval letval, needed)
+              (needed, `Letval letval)
         in
         (go needed @ [ ready ]) @ go rest
+    | `Val letval :: rest ->
+        let (Letval { bind = t_x, x; _ }) = letval in
+        let letval, needed =
+          specialize_let_val letval ~t_needed:t_x ~new_sym:x
+        in
+        (go needed @ [ `Letval letval ]) @ go rest
   in
   go queue
 
@@ -250,12 +266,11 @@ type specialized = {
 
 let specialize : Ir.ctx -> Can.program -> specialized =
  fun ctx program ->
-  let entry_points = find_entry_points ctx.fresh_tvar program in
-  let entry_point_symbols =
-    List.map symbol_of_needed_specialization entry_points
-  in
+  let entry_point_symbols = find_entry_points program in
+  let toplevel_values = find_toplevel_values program in
   let fenv = find_fenv program in
-  let specializations = specialize_queue ctx fenv entry_points in
+  let queue = List.map (function `Val ep -> `Val ep) toplevel_values in
+  let specializations = specialize_queue ctx fenv queue in
   { specializations; entry_points = entry_point_symbols }
 
 let pp_specialized : Format.formatter -> specialized -> unit =
