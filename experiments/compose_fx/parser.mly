@@ -1,4 +1,5 @@
 %{
+open Loc
 open Syntax
 
 let range: loc -> loc -> loc = fun (start, _) (_, fin) -> (start, fin)
@@ -23,34 +24,34 @@ let xv = Syntax.xv
 %}
 
 
-%token <Syntax.loc * string> LOWER
-%token <Syntax.loc * string> UPPER
-%token <Syntax.loc * int> NUMBER
-%token <Syntax.loc * string> STRING
-%token <Syntax.loc * string> KERNELFN
+%token <Loc.loc * string> LOWER
+%token <Loc.loc * string> UPPER
+%token <Loc.loc * int> NUMBER
+%token <Loc.loc * string> STRING
+%token <Loc.loc * string> KERNELFN
 
-%token <Syntax.loc> LET
-%token <Syntax.loc> SIG
-%token <Syntax.loc> RUN
-%token <Syntax.loc> WHEN
-%token <Syntax.loc> IS
-%token <Syntax.loc> END
-%token <Syntax.loc> STR
-%token <Syntax.loc> INT
-%token <Syntax.loc> UNIT
-%token <Syntax.loc> IN
-%token <Syntax.loc> COMMA
-%token <Syntax.loc> LPAREN
-%token <Syntax.loc> RPAREN
-%token <Syntax.loc> LBRACKET
-%token <Syntax.loc> RBRACKET
-%token <Syntax.loc> EQ
-%token <Syntax.loc> COLON
-%token <Syntax.loc> SEMI
-%token <Syntax.loc> ARROW
-%token <Syntax.loc> STAR
-%token <Syntax.loc> PIPE
-%token <Syntax.loc> LAMBDA
+%token <Loc.loc> LET
+%token <Loc.loc> SIG
+%token <Loc.loc> RUN
+%token <Loc.loc> WHEN
+%token <Loc.loc> IS
+%token <Loc.loc> END
+%token <Loc.loc> STR
+%token <Loc.loc> INT
+%token <Loc.loc> UNIT
+%token <Loc.loc> IN
+%token <Loc.loc> COMMA
+%token <Loc.loc> LPAREN
+%token <Loc.loc> RPAREN
+%token <Loc.loc> LBRACKET
+%token <Loc.loc> RBRACKET
+%token <Loc.loc> EQ
+%token <Loc.loc> COLON
+%token <Loc.loc> SEMI
+%token <Loc.loc> ARROW
+%token <Loc.loc> STAR
+%token <Loc.loc> PIPE
+%token <Loc.loc> LAMBDA
 %token EOF
 
 %start toplevel
@@ -58,8 +59,8 @@ let xv = Syntax.xv
 %type <Syntax.parse_ctx -> Syntax.e_def list> def
 %type <Syntax.parse_ctx -> Syntax.e_expr> expr
 %type <Syntax.parse_ctx -> Syntax.e_expr list> expr_atom_list
-%type <Syntax.parse_ctx -> Syntax.loc_tvar> ty
-%type <Syntax.parse_ctx -> Syntax.loc_tvar> ty_atom
+%type <Syntax.parse_ctx -> Type.loc_tvar> ty
+%type <Syntax.parse_ctx -> Type.loc_tvar> ty_atom
 %%
 
 toplevel:
@@ -297,7 +298,7 @@ ty_atom:
   | LPAREN t=ty RPAREN { fun ctx -> t ctx }
   | lb=LBRACKET tags=ty_tags RBRACKET ext=ty_atom { fun ctx ->
       let tags = tags ctx in
-      let ext: loc_tvar = ext ctx in
+      let ext: Type.loc_tvar = ext ctx in
       let t = ctx.fresh_tvar @@ Content (TTag {tags; ext}) in
       let l = range lb (fst ext) in
       (l, t)

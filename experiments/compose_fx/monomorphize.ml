@@ -1,6 +1,7 @@
 open Symbol
 open Syntax
 open Solve
+open Type
 
 type ready_specialization = [ `Ready of symbol * e_expr * tvar ]
 type needed_specialization = [ `Needed of symbol * symbol * tvar ]

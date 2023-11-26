@@ -1,5 +1,6 @@
 open Syntax
 open Symbol
+open Type
 
 exception Can_error of string
 
@@ -220,21 +221,21 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
             | Content (TFn ((_, t1), (_, t2))) ->
                 let t1' = ctx.fresh_tvar @@ Link (inst_ty t1) in
                 let t2' = ctx.fresh_tvar @@ Link (inst_ty t2) in
-                Content (TFn ((noloc, t1'), (noloc, t2')))
+                Content (TFn ((Loc.noloc, t1'), (Loc.noloc, t2')))
             | Content (TTag { tags; ext = _, ext }) ->
                 let map_tag : ty_tag -> ty_tag =
                  fun (tag, vars) ->
                   let vars' =
                     List.map
                       (fun (_, t) ->
-                        (noloc, ctx.fresh_tvar @@ Link (inst_ty t)))
+                        (Loc.noloc, ctx.fresh_tvar @@ Link (inst_ty t)))
                       vars
                   in
                   (tag, vars')
                 in
                 let tags' = List.map map_tag tags in
                 let ext' = ctx.fresh_tvar @@ Link (inst_ty ext) in
-                Content (TTag { tags = tags'; ext = (noloc, ext') })
+                Content (TTag { tags = tags'; ext = (Loc.noloc, ext') })
             | Alias alias_content ->
                 let real_ty = inst_alias arg_map t' alias_content in
                 tvar_set alias_content.real (Link real_ty);

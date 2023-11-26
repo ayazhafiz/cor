@@ -5,7 +5,7 @@ let string_of_position ({ pos_lnum; pos_cnum; pos_bol; _ } : Lexing.position) =
   Printf.sprintf "%d:%d" pos_lnum (pos_cnum - pos_bol + 1)
 
 let fresh_parse_ctx () : parse_ctx =
-  let n = ref min_var in
+  let n = ref Type.min_var in
   let fresh_int () =
     incr n;
     !n
@@ -19,7 +19,7 @@ let fresh_parse_ctx () : parse_ctx =
 module Compose_fx : LANGUAGE = struct
   let name = "compose_fx"
 
-  type ty = { symbols : Symbol.t; names : named_vars; tvar : Syntax.tvar }
+  type ty = { symbols : Symbol.t; names : named_vars; tvar : Type.tvar }
 
   type parsed_program = {
     symbols : Symbol.t;

@@ -1,13 +1,11 @@
 open Ir
+open Symbol
 
-type memory_cell =
-  | Word of int
-  | Label of Symbol.symbol
-  | Block of memory_cell list
+type memory_cell = Word of int | Label of symbol | Block of memory_cell list
 [@@deriving show]
 
-type memory = (Symbol.symbol * memory_cell) list
-type procs = (Symbol.symbol * proc) list
+type memory = (symbol * memory_cell) list
+type procs = (symbol * proc) list
 
 let word i = Word i
 let label l = Label l
@@ -80,8 +78,7 @@ and eval_stmt : procs -> memory -> stmt -> memory =
 and eval_stmts : procs -> memory -> stmt list -> memory =
  fun procs memory stmts -> List.fold_left (eval_stmt procs) memory stmts
 
-and eval_call :
-    procs -> memory -> Symbol.symbol -> memory_cell list -> memory_cell =
+and eval_call : procs -> memory -> symbol -> memory_cell list -> memory_cell =
  fun procs memory fn args ->
   let { args = arg_vars; body; ret; name = _ } = List.assoc fn procs in
   let arg_syms = List.map snd arg_vars in
@@ -106,7 +103,7 @@ let rec find_procs = function
   | Proc ({ name; _ } as proc) :: rest -> (name, proc) :: find_procs rest
   | _ :: rest -> find_procs rest
 
-type evaled = { symbol : Symbol.symbol; cell : memory_cell; var : Syntax.tvar }
+type evaled = { symbol : symbol; cell : memory_cell; var : Type.tvar }
 
 let eval_program : program -> evaled list =
  fun { definitions; entry_points } ->
@@ -129,9 +126,10 @@ let pp_memory_cell f cell =
   in
   go f cell
 
-let readback : Symbol.t -> memory_cell -> Syntax.tvar -> Syntax.e_expr =
+let readback : Symbol.t -> memory_cell -> Type.tvar -> Syntax.e_expr =
  fun symbols cell tvar ->
   let open Syntax in
+  let open Type in
   let rec go cell t =
     let t = unlink_w_alias t in
     let expr =
@@ -158,7 +156,7 @@ let readback : Symbol.t -> memory_cell -> Syntax.tvar -> Syntax.e_expr =
       | Content (TFn _) -> Var (symbols.fresh_symbol "<fn>")
       | Alias _ -> failwith "alias after unlink"
     in
-    (noloc, t, expr)
+    (Loc.noloc, t, expr)
   in
   go cell tvar
 
@@ -173,6 +171,6 @@ let pp_evaled symbols f { symbol; cell; var } =
 let pp_evaled_list f symbols (l : evaled list) =
   Format.fprintf f "@[<v 0>%a@]" (Format.pp_print_list (pp_evaled symbols)) l
 
-let string_of_evaled ?(width = Syntax.default_width) symbols
-    (list : evaled list) =
+let string_of_evaled ?(width = Util.default_width) symbols (list : evaled list)
+    =
   Util.with_buffer (fun f -> pp_evaled_list f symbols list) width

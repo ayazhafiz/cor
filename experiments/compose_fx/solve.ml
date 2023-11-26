@@ -1,10 +1,13 @@
 open Syntax
+open Symbol
+open Type
+open Loc
 
 exception Solve_err of string
 
 let failsolve f s = raise (Solve_err (f ^ ": " ^ s))
 
-type venv = (Symbol.symbol * tvar) list
+type venv = (symbol * tvar) list
 
 let show_venv venv =
   let show (sym, _) = Printf.sprintf "%s: <ty>" (Symbol.norm_of sym) in
@@ -170,9 +173,9 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
   let error prefix =
     failsolve "unify"
       ("(" ^ ctx ^ ")" ^ prefix ^ " at "
-      ^ string_of_tvar default_width symbols [] a
+      ^ string_of_tvar Util.default_width symbols [] a
       ^ " ~ "
-      ^ string_of_tvar default_width symbols [] b)
+      ^ string_of_tvar Util.default_width symbols [] b)
   in
   let rec unify_tags : _ -> ty_tag -> ty_tag -> unit =
    fun visited (t1, args1) (t2, args2) ->
@@ -268,9 +271,9 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
               | _ ->
                   error
                     ("incompatible"
-                    ^ string_of_tvar default_width symbols [] a
+                    ^ string_of_tvar Util.default_width symbols [] a
                     ^ " ~ "
-                    ^ string_of_tvar default_width symbols [] b)
+                    ^ string_of_tvar Util.default_width symbols [] b)
             in
             Content c'
       in

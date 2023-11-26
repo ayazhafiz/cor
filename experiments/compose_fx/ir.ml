@@ -1,5 +1,7 @@
 open Util
 open Language
+open Type
+open Symbol
 
 type rec_id = [ `Rec of int ] [@@deriving show]
 
@@ -17,7 +19,7 @@ and layout = layout_repr ref
 let layout_str = ref Str
 let layout_int = ref Int
 
-type var = layout * Symbol.symbol
+type var = layout * symbol
 type lit = [ `Int of int | `String of string ]
 
 type expr =
@@ -29,12 +31,12 @@ type expr =
   | MakeStruct of var list
   | GetStructField of var * int
   | CallIndirect of var * var list
-  | CallDirect of Symbol.symbol * var list
+  | CallDirect of symbol * var list
   | CallKFn of Syntax.kernelfn * var list
   | MakeBox of var
   | GetBoxed of var
   | PtrCast of var * layout
-  | MakeFnPtr of Symbol.symbol
+  | MakeFnPtr of symbol
 
 type stmt =
   | Let of var * expr
@@ -44,23 +46,17 @@ type stmt =
       join : var;
     }
 
-type proc = {
-  name : Symbol.symbol;
-  args : var list;
-  body : stmt list;
-  ret : var;
-}
-
-type global = { name : Symbol.symbol; layout : layout; init : expr }
+type proc = { name : symbol; args : var list; body : stmt list; ret : var }
+type global = { name : symbol; layout : layout; init : expr }
 type definition = Proc of proc | Global of global
 
 type program = {
   definitions : definition list;
-  entry_points : (Symbol.symbol * Syntax.tvar) list;
+  entry_points : (symbol * tvar) list;
 }
 
 type fresh_rec_id = unit -> rec_id
-type layout_cache = (Syntax.variable * layout) list ref
+type layout_cache = (variable * layout) list ref
 
 type ctx = {
   symbols : Symbol.t;
@@ -157,7 +153,7 @@ let rec show_layout_head l =
   | Erased -> "erased"
   | FunctionPointer -> "*fn"
 
-let pp_symbol : Format.formatter -> Symbol.symbol -> unit =
+let pp_symbol : Format.formatter -> symbol -> unit =
  fun f s -> Format.fprintf f "%s" (Symbol.norm_of s)
 
 let pp_var : Format.formatter -> var -> unit =

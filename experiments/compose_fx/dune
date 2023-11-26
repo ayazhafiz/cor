@@ -4,7 +4,9 @@
 
 (library
  (name compose_fx)
- (modules compose_fx symbol syntax lexer parser
+ (modules compose_fx
+          loc symbol type syntax
+          lexer parser
           can can_lower
           solve
           monomorphize

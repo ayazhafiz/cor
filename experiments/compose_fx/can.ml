@@ -1,13 +1,14 @@
 open Symbol
 open Util
+open Type
 module S = Syntax
 
-type typed_symbol = S.tvar * symbol
+type typed_symbol = tvar * symbol
 
-type e_pat = S.tvar * pat
+type e_pat = tvar * pat
 and pat = PTag of string * e_pat list | PVar of symbol
 
-type e_expr = S.tvar * expr
+type e_expr = tvar * expr
 
 and letfn =
   | Letfn of {
@@ -15,12 +16,12 @@ and letfn =
       bind : typed_symbol;
       arg : typed_symbol;
       body : e_expr;
-      sig_ : S.tvar option;
+      sig_ : tvar option;
       captures : typed_symbol list;
     }
 
 and letval =
-  | Letval of { bind : typed_symbol; body : e_expr; sig_ : S.tvar option }
+  | Letval of { bind : typed_symbol; body : e_expr; sig_ : tvar option }
 
 and expr =
   | Var of symbol
@@ -30,11 +31,7 @@ and expr =
   | Tag of string * e_expr list
   | LetFn of letfn * e_expr
   | Let of letval * e_expr
-  | Clos of {
-      arg : S.tvar * symbol;
-      body : e_expr;
-      captures : typed_symbol list;
-    }
+  | Clos of { arg : tvar * symbol; body : e_expr; captures : typed_symbol list }
   | Call of e_expr * e_expr
   | KCall of S.kernelfn * e_expr list
   | When of e_expr * branch list
@@ -43,7 +40,7 @@ and branch = e_pat * e_expr
 
 type def =
   | Def of { kind : [ `Letfn of letfn | `Letval of letval ] }
-  | Run of { bind : typed_symbol; body : e_expr; sig_ : S.tvar option }
+  | Run of { bind : typed_symbol; body : e_expr; sig_ : tvar option }
 
 type program = def list
 
@@ -178,6 +175,6 @@ let pp_defs : Symbol.t -> Format.formatter -> def list -> unit =
     defs;
   fprintf f "@]"
 
-let string_of_program ?(width = Syntax.default_width) (symbols : Symbol.t)
+let string_of_program ?(width = default_width) (symbols : Symbol.t)
     (program : program) =
   with_buffer (fun f -> pp_defs symbols f program) width

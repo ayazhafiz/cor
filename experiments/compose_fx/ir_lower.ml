@@ -1,9 +1,10 @@
 open Ir
 open Ir_layout
 open Symbol
+open Type
 module S = Syntax
 
-let vars_of_pat : S.e_pat -> S.tvar SymbolMap.t =
+let vars_of_pat : S.e_pat -> tvar SymbolMap.t =
   let rec go_pat (_, t, p) =
     match p with
     | S.PVar (_, x) -> SymbolMap.singleton x t
@@ -14,7 +15,7 @@ let vars_of_pat : S.e_pat -> S.tvar SymbolMap.t =
   in
   go_pat
 
-let free : S.e_expr -> S.tvar SymbolMap.t =
+let free : S.e_expr -> tvar SymbolMap.t =
  fun e ->
   let rec go_branch (p, e) =
     let defined_p = vars_of_pat p in
@@ -227,7 +228,7 @@ let stmt_of_expr : ctx -> S.e_expr -> (stmt list * var) * pending_proc list =
     | S.Clos { arg = _, (_, a_ty), a; body = e } ->
         let a_layout = layout_of_tvar ctx a_ty in
         let a_var = (a_layout, a) in
-        let free_in_e : S.tvar SymbolMap.t = free e in
+        let free_in_e : tvar SymbolMap.t = free e in
 
         let free = SymbolMap.remove a free_in_e in
         let free =

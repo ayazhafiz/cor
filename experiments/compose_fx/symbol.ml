@@ -57,3 +57,5 @@ module SymbolMap = struct
     let f k _ = not (List.mem k keys) in
     filter f m
 end
+
+type loc_symbol = Loc.loc * symbol [@@deriving show]
