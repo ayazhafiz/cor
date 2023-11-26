@@ -1,9 +1,6 @@
 open Ir
 open Type
 
-let erased_captures_lay = ref @@ Box (ref @@ Erased, None)
-let closure_repr = Struct [ ref @@ FunctionPointer; erased_captures_lay ]
-
 let layout_of_tvar : ctx -> tvar -> layout =
  fun { cache; fresh_rec_id; _ } tvar ->
   let rec go tvar : layout =
@@ -55,3 +52,31 @@ let tag_id ctor ty =
   | Content (TTag { tags; ext = _ }) ->
       Util.index_of (fun (name, _) -> name = ctor) tags
   | _ -> failwith "unreachable"
+
+let is_lay_equiv : layout -> layout -> bool =
+ fun l1 l2 ->
+  let visited_recs = ref [] in
+  let rec go l1 l2 =
+    match (!l1, !l2) with
+    | Str, Str -> true
+    | Int, Int -> true
+    | Struct ls1, Struct ls2 ->
+        if List.length ls1 <> List.length ls2 then false
+        else List.for_all2 go ls1 ls2
+    | Union ls1, Union ls2 ->
+        if List.length ls1 <> List.length ls2 then false
+        else List.for_all2 go ls1 ls2
+    | Box (l1, Some x1), Box (l2, Some x2) ->
+        if x1 = x2 then true
+        else if List.mem (x1, x2) !visited_recs then true
+        else (
+          visited_recs := (x1, x2) :: !visited_recs;
+          go l1 l2)
+    | Box (l1, None), Box (l2, None) -> go l1 l2
+    | Box (_, Some _), Box (_, None) -> false
+    | Box (_, None), Box (_, Some _) -> false
+    | Erased, Erased -> true
+    | FunctionPointer, FunctionPointer -> true
+    | _ -> false
+  in
+  go l1 l2

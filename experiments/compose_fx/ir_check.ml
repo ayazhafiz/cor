@@ -24,39 +24,9 @@ let ctx_join : string -> string -> string = fun ctx1 ctx2 -> ctx1 ^ ":" ^ ctx2
 
 let check_lay_equiv : string -> layout -> layout -> unit =
  fun ctx ol1 ol2 ->
-  let visited_recs = ref [] in
-  let rec go l1 l2 =
-    match (!l1, !l2) with
-    | Str, Str -> ()
-    | Int, Int -> ()
-    | Struct ls1, Struct ls2 ->
-        if List.length ls1 <> List.length ls2 then
-          failctx ctx "Structs have different number of fields";
-        List.iter2 go ls1 ls2
-    | Union ls1, Union ls2 ->
-        if List.length ls1 <> List.length ls2 then
-          failctx ctx "Unions have different number of variants";
-        List.iter2 go ls1 ls2
-    | Box (l1, Some x1), Box (l2, Some x2) ->
-        if x1 = x2 then ()
-        else if List.mem (x1, x2) !visited_recs then ()
-        else (
-          visited_recs := (x1, x2) :: !visited_recs;
-          go l1 l2)
-    | Box (l1, None), Box (l2, None) -> go l1 l2
-    | Box (l1, Some _), Box (l2, None) ->
-        failctx ctx @@ "box<" ^ show_layout_head l1 ^ "> vs non-rec box<"
-        ^ show_layout_head l2 ^ ">"
-    | Box (l1, None), Box (l2, Some _) ->
-        failctx ctx @@ "non-rec box<" ^ show_layout_head l1 ^ "> vs box<"
-        ^ show_layout_head l2 ^ ">"
-    | Erased, Erased -> ()
-    | FunctionPointer, FunctionPointer -> ()
-    | _ ->
-        failctx ctx @@ "Layouts are not equivalent: " ^ show_layout ol1
-        ^ " and " ^ show_layout ol2
-  in
-  go ol1 ol2
+  if not @@ Ir_layout.is_lay_equiv ol1 ol2 then
+    failctx ctx @@ "Layouts are not equivalent: " ^ show_layout ol1 ^ " and "
+    ^ show_layout ol2
 
 let get_union : layout -> layout list =
  fun lay ->

@@ -361,11 +361,10 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
   in
   go pending_procs
 
-let compile_defs :
-    ctx -> Monomorphize.ready_specialization list -> definition list =
+let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
  fun ctx specs ->
   let pending_procs : pending_proc list ref = ref [] in
-  let rec go : Monomorphize.ready_specialization list -> unit = function
+  let rec go : Mono.ready_specialization list -> unit = function
     | [] -> ()
     | `Letval (Letval { bind = t_x, x; body; sig_ = _ }) :: defs ->
         let thunk_name =
@@ -414,7 +413,6 @@ let compile_defs :
   go specs;
   compile_pending_procs ctx @@ List.rev !pending_procs
 
-let compile ~ctx ({ specializations; entry_points } : Monomorphize.specialized)
-    =
+let compile ~ctx ({ specializations; entry_points } : Mono.specialized) =
   let definitions = compile_defs ctx specializations in
   { definitions; entry_points }

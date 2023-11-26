@@ -9,8 +9,9 @@
           lexer parser
           can can_lower
           solve
-          monomorphize
-          ir ir_layout ir_lower ir_check
+          ir ir_layout
+          mono mono_lower mono_symbol
+          ir_lower ir_check
           eval
           util)
  (libraries language sedlex menhirLib)
