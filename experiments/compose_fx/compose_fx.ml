@@ -31,13 +31,14 @@ module Compose_fx : LANGUAGE = struct
     symbols : Symbol.t;
     fresh_tvar : fresh_tvar;
     syn : Syntax.program;
-    can : Canonical.program;
+    can : Can.program;
   }
 
   type solved_program = {
     symbols : Symbol.t;
     fresh_tvar : fresh_tvar;
     syn : Syntax.program;
+    can : Can.program;
   }
 
   type ir_program = { symbols : Symbol.t; program : Ir.program }
@@ -69,16 +70,17 @@ module Compose_fx : LANGUAGE = struct
   let canonicalize ({ symbols; syn; fresh_tvar } : parsed_program) =
     try
       let can = Canonical.canonicalize { symbols; fresh_tvar } syn in
-      Ok { symbols; fresh_tvar; syn; can }
+      let program : canonicalized_program = { symbols; fresh_tvar; syn; can } in
+      Ok program
     with Canonical.Can_error e -> Error e
 
   let solve ({ symbols; syn; can; fresh_tvar } : canonicalized_program) =
     try
       Solve.infer_program { symbols; fresh_tvar } can;
-      Ok { symbols; fresh_tvar; syn }
+      Ok { symbols; fresh_tvar; syn; can }
     with Solve.Solve_err e -> Error e
 
-  let ir ({ symbols; fresh_tvar; syn } : solved_program) =
+  let ir ({ symbols; fresh_tvar; syn; can = _ } : solved_program) =
     let specialized = Monomorphize.specialize { symbols; fresh_tvar } syn in
     let compiled = Ir_lower.compile symbols fresh_tvar specialized in
     Ir_check.check compiled;

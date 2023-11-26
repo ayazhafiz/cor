@@ -249,79 +249,158 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
   let arg_map = sig_arg_map tvar in
   tvar_set tvar @@ Link (inst_ty arg_map tvar)
 
-let vars_of_pat : e_pat -> tvar SymbolMap.t =
+let canonicalize_pat : e_pat -> Can.e_pat * tvar SymbolMap.t =
   let rec go_pat (_, t, p) =
     match p with
-    | PVar (_, x) -> SymbolMap.singleton x t
-    | PTag (_, ps) ->
-        List.fold_left
-          (fun acc p -> SymbolMap.union (go_pat p) acc)
-          SymbolMap.empty ps
+    | PVar (_, x) ->
+        let can_pat = (t, Can.PVar x) in
+        (can_pat, SymbolMap.singleton x t)
+    | PTag ((_, tag), ps) ->
+        let can_pats, refs = List.split @@ List.map go_pat ps in
+        let can_pat = (t, Can.PTag (tag, can_pats)) in
+        let refs = List.fold_left SymbolMap.union SymbolMap.empty refs in
+        (can_pat, refs)
   in
   go_pat
 
-type canonicalized_expr_output = { references : tvar SymbolMap.t }
+type canonicalized_expr_output = {
+  can_expr : Can.e_expr;
+  references : tvar SymbolMap.t;
+}
 
 let canonicalize_expr :
     globals:symbol list -> e_expr -> canonicalized_expr_output =
  fun ~globals e ->
   let rec go_branch (p, e) =
-    let defined_p = vars_of_pat p in
-    let free_e = go_expr e in
-    SymbolMap.diff free_e defined_p
+    let can_pat, defined_p = canonicalize_pat p in
+    let can_expr, free_e = go_expr e in
+    ((can_pat, can_expr), SymbolMap.diff free_e defined_p)
   and go_expr (_, t, e) =
-    match e with
-    | Var x -> SymbolMap.singleton x t
-    | Str _ | Int _ | Unit -> SymbolMap.empty
-    | Tag (_, es) ->
-        List.fold_left
-          (fun acc e -> SymbolMap.union (go_expr e) acc)
-          SymbolMap.empty es
-    | Let { recursive; bind = _, _, x; expr; body } ->
-        let free_e = go_expr expr in
-        recursive := SymbolMap.mem x free_e;
+    let can_expr, free =
+      match e with
+      | Var x ->
+          let can_var = Can.Var x in
+          (can_var, SymbolMap.singleton x t)
+      | Str s ->
+          let can_str = Can.Str s in
+          (can_str, SymbolMap.empty)
+      | Int i ->
+          let can_int = Can.Int i in
+          (can_int, SymbolMap.empty)
+      | Unit ->
+          let can_unit = Can.Unit in
+          (can_unit, SymbolMap.empty)
+      | Tag (tag, es) ->
+          let can_exprs, free_es = List.split @@ List.map go_expr es in
+          let free_es =
+            List.fold_left SymbolMap.union SymbolMap.empty free_es
+          in
+          let can_tag = Can.Tag (tag, can_exprs) in
+          (can_tag, free_es)
+      | Let { recursive; bind = _, (_, t_x), x; expr; body } ->
+          let expr, free_e = go_expr expr in
+          recursive := SymbolMap.mem x free_e;
+          let free_e = SymbolMap.remove x free_e in
 
-        let free_e = SymbolMap.remove x free_e in
-        let free_b = go_expr body in
-        let free_b = SymbolMap.remove x free_b in
-        SymbolMap.union free_e free_b
-    | Clos { arg = _, _, a; body } ->
-        let captures =
-          SymbolMap.remove_keys globals @@ SymbolMap.remove a (go_expr body)
-        in
-        captures
-    | Call (e1, e2) ->
-        let free_e1 = go_expr e1 in
-        let free_e2 = go_expr e2 in
-        SymbolMap.union free_e1 free_e2
-    | KCall (_kfn, es) ->
-        List.fold_left
-          (fun acc e -> SymbolMap.union (go_expr e) acc)
-          SymbolMap.empty es
-    | When (e, branches) ->
-        let free_e = go_expr e in
-        List.fold_left
-          (fun acc branch -> SymbolMap.union (go_branch branch) acc)
-          free_e branches
+          let body, free_b = go_expr body in
+          let free_b = SymbolMap.remove x free_b in
+
+          let can_let =
+            match snd expr with
+            | Can.Clos { arg; body = clos_body; captures } ->
+                let letfn =
+                  Can.Letfn
+                    {
+                      recursive = !recursive;
+                      bind = (t_x, x);
+                      arg;
+                      body = clos_body;
+                      captures;
+                      sig_ = None;
+                    }
+                in
+                Can.LetFn (letfn, body)
+            | _ ->
+                Can.Let
+                  (Letval { bind = (t_x, x); body = expr; sig_ = None }, body)
+          in
+
+          (can_let, SymbolMap.union free_e free_b)
+      | Clos { arg = _, (_, t_a), a; body } ->
+          let body, free_b = go_expr body in
+          let free = SymbolMap.remove a free_b in
+          let captures =
+            List.map (fun (s, t) -> (t, s))
+            @@ SymbolMap.bindings
+            @@ SymbolMap.remove_keys globals free
+          in
+          let can_clos = Can.Clos { arg = (t_a, a); body; captures } in
+          (can_clos, free)
+      | Call (e1, e2) ->
+          let can_e1, free_e1 = go_expr e1 in
+          let can_e2, free_e2 = go_expr e2 in
+          let free = SymbolMap.union free_e1 free_e2 in
+          let can_call = Can.Call (can_e1, can_e2) in
+          (can_call, free)
+      | KCall (kfn, es) ->
+          let can_es, free_es = List.split @@ List.map go_expr es in
+          let free = List.fold_left SymbolMap.union SymbolMap.empty free_es in
+          let can_kcall = Can.KCall (kfn, can_es) in
+          (can_kcall, free)
+      | When (e, branches) ->
+          let can_e, free_e = go_expr e in
+          let can_branches, free_branches =
+            List.split @@ List.map go_branch branches
+          in
+          let free_branches =
+            List.fold_left SymbolMap.union SymbolMap.empty free_branches
+          in
+          let free = SymbolMap.union free_e free_branches in
+          let can_when = Can.When (can_e, can_branches) in
+          (can_when, free)
+    in
+    ((t, can_expr), free)
   in
-  let references = go_expr e in
-  { references }
+  let can_expr, references = go_expr e in
+  { can_expr; references }
 
-type can_def = {
-  recursive : bool;
-  name : symbol;
-  ty : tvar;
-  def : e_expr;
-  sig_ : tvar option;
-  run : bool;
-}
+let mk_canonical_def ~expr ~globals ~bind ~sig_ ~run =
+  let { can_expr; references } = canonicalize_expr ~globals:[] expr in
+  let t_bind_x, bind_x = bind in
+  let recursive = SymbolMap.mem bind_x references in
+
+  let t_can_expr, can_expr = can_expr in
+
+  let references =
+    SymbolMap.remove_keys globals @@ SymbolMap.remove bind_x references
+  in
+  assert (SymbolMap.is_empty references);
+
+  match (run, can_expr) with
+  | true, _ ->
+      if recursive then
+        can_error "canonicalize_defs" "run definitions cannot be recursive";
+      Can.Run { bind; body = (t_can_expr, can_expr); sig_ }
+  | false, Clos { arg; body; captures } ->
+      (* We drop the closure can_expr type in the canonicalized def, so tie it to
+         the bind variable now. *)
+      tvar_set t_can_expr @@ Link t_bind_x;
+
+      let letfn = Can.Letfn { recursive; bind; arg; body; sig_; captures } in
+      Can.Def { kind = `Letfn letfn }
+  | false, _ ->
+      if recursive then
+        can_error "canonicalize_defs"
+          "non-closure definitions cannot be recursive";
+      let letval = Can.Letval { bind; body = (t_can_expr, can_expr); sig_ } in
+      Can.Def { kind = `Letval letval }
 
 let canonicalize_defs :
     ctx:ctx ->
     globals:symbol list ->
     alias_map:alias_map ->
     e_def list ->
-    can_def list =
+    Can.def list =
  fun ~ctx ~globals ~alias_map defs ->
   let rec inner = function
     | [] -> []
@@ -339,32 +418,18 @@ let canonicalize_defs :
            signature matches the definition during solving. *)
         tvar_set sig_t @@ Link sig_;
 
-        let { references } = canonicalize_expr ~globals:[] expr in
-        let recursive = SymbolMap.mem x references in
+        let bind : Can.typed_symbol = (def_t, y) in
+        let sig_ = Some sig_ in
 
-        let references =
-          SymbolMap.remove_keys globals @@ SymbolMap.remove x references
-        in
-        assert (SymbolMap.is_empty references);
-
-        let def =
-          { recursive; name = x; ty = def_t; def = expr; sig_ = Some sig_; run }
-        in
+        let def = mk_canonical_def ~expr ~globals ~bind ~sig_ ~run in
         def :: inner rest
     | (_, def_t, ((Def ((_, x), expr) | Run ((_, x), expr)) as def)) :: rest ->
         let run = match def with Run _ -> true | _ -> false in
 
-        let { references } = canonicalize_expr ~globals expr in
-        let recursive = SymbolMap.mem x references in
+        let bind : Can.typed_symbol = (def_t, x) in
+        let sig_ = None in
 
-        let references =
-          SymbolMap.remove_keys globals @@ SymbolMap.remove x references
-        in
-        assert (SymbolMap.is_empty references);
-
-        let def =
-          { recursive; name = x; ty = def_t; def = expr; sig_ = None; run }
-        in
+        let def = mk_canonical_def ~expr ~globals ~bind ~sig_ ~run in
         def :: inner rest
     | (_, sig_t, Sig ((_, x), (_, sig_))) :: rest ->
         instantiate_signature ctx alias_map sig_;
@@ -377,9 +442,7 @@ let canonicalize_defs :
 
   inner @@ defs
 
-type program = can_def list
-
-let canonicalize : ctx -> Syntax.program -> program =
+let canonicalize : ctx -> Syntax.program -> Can.program =
  fun ctx program ->
   let aliases = collect_aliases program in
   List.iter canonicalize_alias aliases;

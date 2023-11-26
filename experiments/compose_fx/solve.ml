@@ -284,14 +284,25 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
   in
   unify [] a b
 
-let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
+let set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top ~t_infer ~t_sig
+    ~generalize =
+  Option.iter
+    (fun t_sig ->
+      let t_sig = inst fresh_tvar t_sig in
+      unify symbols ("with sig " ^ symbol) fresh_tvar t_infer t_sig)
+    t_sig;
+  unify symbols ("with toplevel def" ^ symbol) fresh_tvar t_infer t_top;
+  if generalize then gen venv t_top;
+  t_top
+
+let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
  fun symbols fresh_tvar venv expr ->
   let unify c = unify symbols c fresh_tvar in
-  let rec infer_pat : venv -> e_pat -> venv * tvar =
-   fun venv (_, t, p) ->
+  let rec infer_pat : venv -> Can.e_pat -> venv * tvar =
+   fun venv (t, p) ->
     let venv, ty =
       match p with
-      | PTag ((_, tag), args) ->
+      | PTag (tag, args) ->
           let arg_venvs, arg_tys =
             List.split @@ List.map (infer_pat venv) args
           in
@@ -301,48 +312,72 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           let tag_ty = TTag { tags = [ tag ]; ext } in
           let ty = fresh_tvar @@ Content tag_ty in
           (args_venv, ty)
-      | PVar (_, x) ->
+      | PVar x ->
           let t = fresh_tvar @@ Unbd None in
           ([ (x, t) ], t)
     in
     unify "pattern" t ty;
     (venv, ty)
-  and infer : venv -> e_expr -> tvar =
-   fun venv (_, t, e) ->
+  and infer : venv -> Can.e_expr -> tvar =
+   fun venv (t, e) ->
     let ty =
       match e with
-      | Str _ -> fresh_tvar @@ Content (TPrim `Str)
-      | Int _ -> fresh_tvar @@ Content (TPrim `Int)
-      | Unit -> fresh_tvar @@ Content (TPrim `Unit)
-      | Var x -> (
+      | Can.Str _ -> fresh_tvar @@ Content (TPrim `Str)
+      | Can.Int _ -> fresh_tvar @@ Content (TPrim `Int)
+      | Can.Unit -> fresh_tvar @@ Content (TPrim `Unit)
+      | Can.Var x -> (
           match List.assoc_opt x venv with
           | Some t -> inst fresh_tvar t
           | None ->
               failsolve "infer"
                 ("unbound variable " ^ Symbol.syn_of symbols x ^ " ("
                ^ Symbol.norm_of x ^ ") in " ^ show_venv venv))
-      | Tag (tag, args) ->
+      | Can.Tag (tag, args) ->
           let arg_tys =
             List.map (fun t -> (noloc, t)) @@ List.map (infer venv) @@ args
           in
           let ext = (noloc, fresh_tvar @@ Unbd None) in
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
-      | Let { recursive; bind = _, (_, t_x), x; expr = e; body = b } -> (
-          match !recursive with
-          | true ->
-              let t_x' = fresh_tvar @@ Unbd None in
-              unify ("rec def " ^ Symbol.syn_of symbols x) t_x t_x';
-              let t_x'' = infer ((x, t_x) :: venv) e in
-              unify ("rec def " ^ Symbol.syn_of symbols x) t_x' t_x'';
-              infer ((x, t_x) :: venv) b
-          | false ->
-              let t_x' = infer venv e in
-              unify ("let " ^ Symbol.syn_of symbols x) t_x t_x';
-              infer ((x, t_x) :: venv) b)
-      | Clos { arg = _, (_, t_x), x; body = e } ->
+      | LetFn
+          ( Letfn
+              {
+                recursive;
+                bind = t_x, x;
+                arg = t_a, a;
+                body;
+                sig_;
+                captures = _;
+              },
+            rest ) ->
+          let t_ret =
+            let venv = if recursive then (x, t_x) :: venv else venv in
+            let venv = (a, t_a) :: venv in
+            infer venv body
+          in
+          let t_fn =
+            fresh_tvar @@ Content (TFn ((noloc, t_a), (noloc, t_ret)))
+          in
+
+          let symbol = Symbol.syn_of symbols x in
+
+          let t_x =
+            set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top:t_x
+              ~t_infer:t_fn ~t_sig:sig_ ~generalize:false
+          in
+          infer ((x, t_x) :: venv) rest
+      | Can.Let (Letval { bind = t_x, x; body; sig_ }, rest) ->
+          let t_body = infer venv body in
+          let symbol = Symbol.syn_of symbols x in
+          let t_x =
+            set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top:t_x
+              ~t_infer:t_body ~t_sig:sig_ ~generalize:false
+          in
+
+          infer ((x, t_x) :: venv) rest
+      | Can.Clos { arg = t_x, x; body = e; captures = _ } ->
           let t_ret = infer ((x, t_x) :: venv) e in
           fresh_tvar @@ Content (TFn ((noloc, t_x), (noloc, t_ret)))
-      | Call (e1, e2) ->
+      | Can.Call (e1, e2) ->
           let t_fn = infer venv e1 in
           let t_arg = infer venv e2 in
           let t_ret = fresh_tvar @@ Unbd None in
@@ -351,7 +386,7 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           in
           unify "call" t_fn t_fn_expected;
           t_ret
-      | KCall (kernelfn, args) ->
+      | Can.KCall (kernelfn, args) ->
           let { args = kargs; ret = kret } = kernel_sig kernelfn in
           let arg_tys = List.map (infer venv) @@ args in
           let ctx = "call " ^ List.assoc kernelfn string_of_kernelfn in
@@ -359,7 +394,7 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
           | `Variadic t -> List.iter (unify ctx t) arg_tys
           | `List kargs -> List.iter2 (unify ctx) kargs arg_tys);
           kret
-      | When (e, branches) ->
+      | Can.When (e, branches) ->
           let t_e = infer venv e in
           let t_b = fresh_tvar @@ Unbd None in
           List.iter
@@ -378,29 +413,47 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> e_expr -> tvar =
 
 type ctx = { fresh_tvar : fresh_tvar; symbols : Symbol.t }
 
-let infer_def : ctx -> venv -> Canonical.can_def -> tvar =
- fun { symbols; fresh_tvar } venv { recursive; name; ty; def; sig_; run = _ } ->
-  let venv = if recursive then (name, ty) :: venv else venv in
-  let t = infer_expr symbols fresh_tvar venv def in
-  Option.iter
-    (fun t_sig ->
-      let t_sig = inst fresh_tvar t_sig in
-      unify symbols
-        ("with sig " ^ Symbol.syn_of symbols name)
-        fresh_tvar t t_sig)
-    sig_;
-  unify symbols
-    ("with toplevel def" ^ Symbol.syn_of symbols name)
-    fresh_tvar t ty;
-  gen venv ty;
-  t
+let infer_def : ctx -> venv -> Can.def -> tvar =
+ fun { symbols; fresh_tvar } venv -> function
+  | Can.Def { kind } -> (
+      match kind with
+      | `Letfn
+          (Can.Letfn
+            { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures = _ })
+        ->
+          let t_ret =
+            let venv = if recursive then (x, t_x) :: venv else venv in
+            let venv = (a, t_a) :: venv in
+            infer_expr symbols fresh_tvar venv body
+          in
+          let t_fn =
+            fresh_tvar @@ Content (TFn ((noloc, t_a), (noloc, t_ret)))
+          in
 
-let infer_program : ctx -> Canonical.program -> unit =
+          let symbol = Symbol.syn_of symbols x in
+
+          set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top:t_x ~t_infer:t_fn
+            ~t_sig:sig_ ~generalize:true
+      | `Letval (Can.Letval { bind = t_x, x; body; sig_ }) ->
+          let t_body = infer_expr symbols fresh_tvar venv body in
+          let symbol = Symbol.syn_of symbols x in
+
+          set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top:t_x
+            ~t_infer:t_body ~t_sig:sig_ ~generalize:true)
+  | Can.Run { bind = t_x, x; body; sig_ } ->
+      let t_body = infer_expr symbols fresh_tvar venv body in
+      let symbol = Symbol.syn_of symbols x in
+
+      set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top:t_x ~t_infer:t_body
+        ~t_sig:sig_ ~generalize:true
+
+let infer_program : ctx -> Can.program -> unit =
  fun ctx defs ->
   let rec go venv = function
     | [] -> ()
     | def :: defs ->
+        let def_name = Can.name_of_def def in
         let t = infer_def ctx venv def in
-        go ((def.name, t) :: venv) defs
+        go ((def_name, t) :: venv) defs
   in
   go [] defs

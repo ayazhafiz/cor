@@ -15,18 +15,12 @@ and letfn =
       bind : typed_symbol;
       arg : typed_symbol;
       body : e_expr;
-      rest : e_expr;
       sig_ : S.tvar option;
       captures : typed_symbol list;
     }
 
 and letval =
-  | Letval of {
-      bind : typed_symbol;
-      body : e_expr;
-      rest : e_expr;
-      sig_ : S.tvar option;
-    }
+  | Letval of { bind : typed_symbol; body : e_expr; sig_ : S.tvar option }
 
 and expr =
   | Var of symbol
@@ -34,8 +28,8 @@ and expr =
   | Str of string
   | Unit
   | Tag of string * e_expr list
-  | LetFn of letfn
-  | Let of letval
+  | LetFn of letfn * e_expr
+  | Let of letval * e_expr
   | Clos of {
       arg : S.tvar * symbol;
       body : e_expr;
@@ -49,9 +43,15 @@ and branch = e_pat * e_expr
 
 type def =
   | Def of { kind : [ `Letfn of letfn | `Letval of letval ] }
-  | Run of e_expr
+  | Run of { bind : typed_symbol; body : e_expr; sig_ : S.tvar option }
 
 type program = def list
+
+let name_of_def = function
+  | Def { kind = `Letfn (Letfn { bind = _, x; _ }) }
+  | Def { kind = `Letval (Letval { bind = _, x; _ }) } ->
+      x
+  | Run { bind = _, x; _ } -> x
 
 let pp_symbol = Syntax.pp_symbol
 let with_parens = Syntax.with_parens
@@ -103,11 +103,11 @@ let pp_expr symbols f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | LetFn (Letfn { bind; arg; body; rest; captures; sig_; _ }) ->
+    | LetFn (Letfn { bind; arg; body; captures; sig_; _ }, rest) ->
         let ty = fst bind in
         let clos = Clos { arg; body; captures } in
-        go `Free (ty, Let (Letval { bind; body = (ty, clos); rest; sig_ }))
-    | Let (Letval { bind = _, x; body = rhs; rest; _ }) ->
+        go `Free (ty, Let (Letval { bind; body = (ty, clos); sig_ }, rest))
+    | Let (Letval { bind = _, x; body = rhs; _ }, rest) ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
           fprintf f "@[<hv 2>let %a =@ " (pp_symbol symbols) x;
@@ -155,11 +155,17 @@ let pp_def : Symbol.t -> Format.formatter -> def -> unit =
   match def with
   | Def { kind } -> (
       match kind with
-      | `Letfn (Letfn { bind; _ } as letfn) ->
-          fprintf f "@[%a@]" (pp_expr symbols) (fst bind, LetFn letfn)
-      | `Letval (Letval { bind; _ } as letval) ->
-          fprintf f "@[%a@]" (pp_expr symbols) (fst bind, Let letval))
-  | Run e -> fprintf f "@[%a@]" (pp_expr symbols) e
+      | `Letfn (Letfn { bind; arg; body; _ }) ->
+          fprintf f "@[<v 0>@[<hv 2>let %a =@ " (pp_symbol symbols) (snd bind);
+          fprintf f "@[<hv 2>\\%a ->@ " (pp_symbol symbols) (snd arg);
+          pp_expr symbols f body;
+          fprintf f "@]@]@]"
+      | `Letval (Letval { bind; body; _ }) ->
+          fprintf f "@[<v 0>@[<hv 2>let %a =@ %a@]@]" (pp_symbol symbols)
+            (snd bind) (pp_expr symbols) body)
+  | Run { bind; body; _ } ->
+      fprintf f "@[<v 0>@[<hv 2>run %a =@ %a@]@]" (pp_symbol symbols) (snd bind)
+        (pp_expr symbols) body
 
 let pp_defs : Symbol.t -> Format.formatter -> def list -> unit =
  fun symbols f defs ->
