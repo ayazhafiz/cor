@@ -233,14 +233,8 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
                 let t2' = ctx.fresh_tvar @@ Link (inst_ty t2) in
                 let lset' = ctx.fresh_tvar @@ Link (inst_ty lset) in
                 Content (TFn ((Loc.noloc, t1'), lset', (Loc.noloc, t2')))
-            | Content (TLambdaSet lset) ->
-                let map_lambda : ty_lambda -> ty_lambda =
-                 fun { lambda; captures } ->
-                  let captures = List.map inst_ty captures in
-                  { lambda; captures }
-                in
-                let lset' = List.map map_lambda lset in
-                Content (TLambdaSet lset')
+            | Content (TLambdaSet _) ->
+                can_error "instantiate_type" "unexpected lambda set"
             | Content (TTag { tags; ext = _, ext }) ->
                 let map_tag : ty_tag -> ty_tag =
                  fun (tag, vars) ->

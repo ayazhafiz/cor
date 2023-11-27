@@ -32,7 +32,8 @@ let is_generalized : tvar -> bool =
           List.exists check_tag tags || go (snd ext)
       | Content (TLambdaSet lset) ->
           let check_lambda : ty_lambda -> bool =
-           fun { captures; _ } -> List.exists go captures
+           fun { captures; ambient_fn; lambda = _ } ->
+            List.exists go captures || go ambient_fn
           in
           List.exists check_lambda lset
       | Content (TFn ((_, t1), lset, (_, t2))) -> go t1 || go t2 || go lset
@@ -72,9 +73,10 @@ let inst : fresh_tvar -> tvar -> tvar =
                 fresh_tvar @@ Content (TTag { tags; ext })
             | Content (TLambdaSet lset) ->
                 let map_lambda : ty_lambda -> ty_lambda =
-                 fun { lambda; captures } ->
+                 fun { lambda; captures; ambient_fn } ->
                   let captures = List.map go captures in
-                  { lambda; captures }
+                  let ambient_fn = go ambient_fn in
+                  { lambda; captures; ambient_fn }
                 in
                 let lset = List.map map_lambda lset in
                 fresh_tvar @@ Content (TLambdaSet lset)
@@ -118,7 +120,8 @@ let occurs : variable -> tvar -> bool =
           List.exists check_tag tags || go (snd ext)
       | Content (TLambdaSet lset) ->
           let check_lambda : ty_lambda -> bool =
-           fun { captures; _ } -> List.exists go captures
+           fun { captures; ambient_fn; lambda = _ } ->
+            List.exists go captures || go ambient_fn
           in
           List.exists check_lambda lset
       | Content (TFn ((_, t1), lset, (_, t2))) -> go t1 || go t2 || go lset
@@ -156,7 +159,9 @@ let gen : venv -> tvar -> unit =
           go lset
       | Content (TLambdaSet lset) ->
           let gen_lambda : ty_lambda -> unit =
-           fun { captures; _ } -> List.iter go captures
+           fun { captures; ambient_fn; lambda = _ } ->
+            List.iter go captures;
+            go ambient_fn
           in
           List.iter gen_lambda lset
       | Alias { alias = _, args; real } ->
@@ -235,18 +240,22 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
       error ("arity mismatch for tag " ^ t1);
     List.iter2 (unify visited) (List.map snd args1) (List.map snd args2)
   and unify_lambdas : _ -> ty_lambda -> ty_lambda -> unit =
-   fun visited { lambda = l1; captures = args1 }
-       { lambda = l2; captures = args2 } ->
+   fun visited { lambda = l1; captures = args1; ambient_fn = afn1 }
+       { lambda = l2; captures = args2; ambient_fn = afn2 } ->
     assert (l1 = l2);
     if List.length args1 <> List.length args2 then
       error ("arity mismatch for lambda " ^ Symbol.show_symbol_raw l1);
-    List.iter2 (unify visited) args1 args2
-  and unify visited a b =
+    List.iter2 (unify visited) args1 args2;
+    unify ~context:`AmbientFn visited afn1 afn2
+  and unify ?(context = `Generic) visited a b =
     let a, b = (unlink a, unlink b) in
     let vara, varb = (tvar_v a, tvar_v b) in
-    if List.mem (vara, varb) visited then (
-      tvar_set_recur a true;
-      tvar_set_recur b true)
+    if List.mem (vara, varb) visited then
+      match context with
+      | `Generic ->
+          tvar_set_recur a true;
+          tvar_set_recur b true
+      | `AmbientFn -> ()
     else if vara <> varb then (
       let visited = (vara, varb) :: visited in
       let unify = unify visited in
@@ -418,12 +427,15 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
             let venv = (a, t_a) :: venv in
             infer venv body
           in
+
+          let t_fn = fresh_tvar @@ Unbd None in
+
           let captures = List.map fst captures in
-          let t_lset : ty_lset = [ { lambda = x; captures } ] in
-          let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
-          let t_fn =
-            fresh_tvar @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)))
+          let t_lset : ty_lset =
+            [ { lambda = x; captures; ambient_fn = t_fn } ]
           in
+          let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
+          tvar_set t_fn @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)));
 
           let symbol = Symbol.syn_of symbols x in
 
@@ -444,11 +456,14 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
       | Can.Clos { arg = t_x, x; body = e; lam_sym = lambda; captures } ->
           let t_ret = infer ((x, t_x) :: venv) e in
 
+          let t_fn = fresh_tvar @@ Unbd None in
+
           let captures = List.map fst captures in
-          let t_lset : ty_lset = [ { lambda; captures } ] in
+          let t_lset : ty_lset = [ { lambda; captures; ambient_fn = t_fn } ] in
           let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
 
-          fresh_tvar @@ Content (TFn ((noloc, t_x), t_lset, (noloc, t_ret)))
+          tvar_set t_fn @@ Content (TFn ((noloc, t_x), t_lset, (noloc, t_ret)));
+          t_fn
       | Can.Call (e1, e2) ->
           let t_fn = infer venv e1 in
           let t_arg = infer venv e2 in
@@ -500,13 +515,13 @@ let infer_def : ctx -> venv -> Can.def -> tvar =
             infer_expr symbols fresh_tvar venv body
           in
 
+          let t_fn = fresh_tvar @@ Unbd None in
+
           assert (captures = []);
-          let t_lset = [ { lambda = x; captures = [] } ] in
+          let t_lset = [ { lambda = x; captures = []; ambient_fn = t_fn } ] in
           let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
 
-          let t_fn =
-            fresh_tvar @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)))
-          in
+          tvar_set t_fn @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)));
 
           let symbol = Symbol.syn_of symbols x in
 

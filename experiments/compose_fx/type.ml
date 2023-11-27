@@ -15,7 +15,7 @@ and ty_content =
   | TPrim of [ `Str | `Int | `Unit ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
-and ty_lambda = { lambda : symbol; captures : tvar list }
+and ty_lambda = { lambda : symbol; captures : tvar list; ambient_fn : tvar }
 and ty_lset = ty_lambda list
 
 and ty =
