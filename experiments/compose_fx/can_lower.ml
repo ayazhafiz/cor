@@ -59,7 +59,9 @@ let rec extract_all_named_vars : tvar -> named_var list =
       extract_all_named_vars t1 @ extract_all_named_vars t2
       @ extract_all_named_vars lset
   | Content (TLambdaSet lset) ->
-      let lset_args = List.flatten @@ List.map snd lset in
+      let lset_args =
+        List.flatten @@ List.map (fun { captures; _ } -> captures) lset
+      in
       let extracted =
         List.flatten @@ List.map extract_all_named_vars lset_args
       in
@@ -117,7 +119,9 @@ let canonicalize_alias { alias_type; name; args; real } =
         update_ty t2;
         update_ty lset
     | Content (TLambdaSet lset) ->
-        let lset_args = List.flatten @@ List.map snd lset in
+        let lset_args =
+          List.flatten @@ List.map (fun { captures; _ } -> captures) lset
+        in
         List.iter update_ty lset_args
     | Content (TTag { tags; ext }) ->
         let tag_args = List.map snd @@ List.flatten @@ List.map snd tags in
@@ -231,9 +235,9 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
                 Content (TFn ((Loc.noloc, t1'), lset', (Loc.noloc, t2')))
             | Content (TLambdaSet lset) ->
                 let map_lambda : ty_lambda -> ty_lambda =
-                 fun (sym, captures) ->
-                  let captures' = List.map inst_ty captures in
-                  (sym, captures')
+                 fun { lambda; captures } ->
+                  let captures = List.map inst_ty captures in
+                  { lambda; captures }
                 in
                 let lset' = List.map map_lambda lset in
                 Content (TLambdaSet lset')

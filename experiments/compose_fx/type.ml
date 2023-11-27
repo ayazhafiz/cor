@@ -15,7 +15,7 @@ and ty_content =
   | TPrim of [ `Str | `Int | `Unit ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
-and ty_lambda = symbol * tvar list
+and ty_lambda = { lambda : symbol; captures : tvar list }
 and ty_lset = ty_lambda list
 
 and ty =
@@ -115,7 +115,9 @@ let preprocess : tvar list -> claimed_names * type_hit_counts =
           List.iter (go_ty visited) tag_vars;
           go_ty visited @@ snd ext
       | Content (TLambdaSet lset) ->
-          List.iter (fun (_, t) -> List.iter (go_ty visited) t) lset
+          List.iter
+            (fun { captures; _ } -> List.iter (go_ty visited) captures)
+            lset
       | Content (TFn (in', lset, out')) ->
           go_ty visited @@ snd in';
           go_ty visited @@ snd out';
@@ -226,10 +228,10 @@ let pp_tvar :
     | Content (TLambdaSet lset), _ ->
         fprintf f "@[<hv 2>[@,";
         List.iteri
-          (fun i (name, t) ->
+          (fun i { lambda; captures; _ } ->
             if i > 0 then fprintf f ",@ ";
-            fprintf f "@[<hov 2>%a" (pp_symbol symbols) name;
-            List.iter (fun _ -> fprintf f "@ %s" ellipsis) t;
+            fprintf f "@[<hov 2>%a" (pp_symbol symbols) lambda;
+            List.iter (fun _ -> fprintf f "@ %s" ellipsis) captures;
             fprintf f "@]")
           lset;
         fprintf f "@,]@]"
@@ -318,9 +320,9 @@ let pp_tvar :
             if not (is_empty_tag ext) then print_ext ();
             fprintf f "@]"
         | Content (TLambdaSet lset) ->
-            let pp_lambda i (sym, captures) =
+            let pp_lambda i { lambda; captures; _ } =
               if i > 0 then pp_print_string f ",@ ";
-              fprintf f "@[<hov 2>%a" (pp_symbol symbols) sym;
+              fprintf f "@[<hov 2>%a" (pp_symbol symbols) lambda;
               List.iter
                 (fun v ->
                   fprintf f "@ ";

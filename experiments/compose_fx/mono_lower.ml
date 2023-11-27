@@ -56,7 +56,10 @@ type type_cache = (variable * tvar) list ref
 let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
  fun fresh_tvar cache tvar ->
   let rec go_loc : loc_tvar -> loc_tvar = fun (l, t) -> (l, go t)
-  and go_lambda : ty_lambda -> ty_lambda = fun (s, ty) -> (s, List.map go ty)
+  and go_lambda : ty_lambda -> ty_lambda =
+   fun { lambda; captures } ->
+    let captures = List.map go captures in
+    { lambda; captures }
   and go_lset : ty_lset -> ty_lset = fun lset -> List.map go_lambda lset
   and go : tvar -> tvar =
    fun tvar ->
