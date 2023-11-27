@@ -250,13 +250,14 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
   and unify ?(context = `Generic) visited a b =
     let a, b = (unlink a, unlink b) in
     let vara, varb = (tvar_v a, tvar_v b) in
-    if List.mem (vara, varb) visited then
+    if vara = varb then ()
+    else if List.mem (vara, varb) visited then
       match context with
       | `Generic ->
           tvar_set_recur a true;
           tvar_set_recur b true
       | `AmbientFn -> ()
-    else if vara <> varb then (
+    else
       let visited = (vara, varb) :: visited in
       let unify = unify visited in
       let ty_a = tvar_deref a in
@@ -360,7 +361,7 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
       tvar_set a (Link c);
       tvar_set b (Link c);
       tvar_set c ty;
-      tvar_set_recur c recurs)
+      tvar_set_recur c recurs
   in
   unify [] a b
 
