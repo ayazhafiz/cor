@@ -31,7 +31,12 @@ and expr =
   | Tag of string * e_expr list
   | LetFn of letfn * e_expr
   | Let of letval * e_expr
-  | Clos of { arg : tvar * symbol; body : e_expr; captures : typed_symbol list }
+  | Clos of {
+      arg : tvar * symbol;
+      body : e_expr;
+      lam_sym : symbol;
+      captures : typed_symbol list;
+    }
   | Call of e_expr * e_expr
   | KCall of S.kernelfn * e_expr list
   | When of e_expr * branch list
@@ -109,7 +114,7 @@ let pp_expr f =
         fprintf f "@]"
     | LetFn (Letfn { bind; arg; body; captures; sig_; _ }, rest) ->
         let ty = fst bind in
-        let clos = Clos { arg; body; captures } in
+        let clos = Clos { arg; body; captures; lam_sym = snd bind } in
         go `Free (ty, Let (Letval { bind; body = (ty, clos); sig_ }, rest))
     | Let (Letval { bind = _, x; body = rhs; _ }, rest) ->
         fprintf f "@[<v 0>@[<hv 0>";

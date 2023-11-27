@@ -30,7 +30,12 @@ let is_generalized : tvar -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
           in
           List.exists check_tag tags || go (snd ext)
-      | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
+      | Content (TLambdaSet lset) ->
+          let check_lambda : ty_lambda -> bool =
+           fun (_, ts) -> List.exists go ts
+          in
+          List.exists check_lambda lset
+      | Content (TFn ((_, t1), lset, (_, t2))) -> go t1 || go t2 || go lset
       | Alias { alias = _, args; real } ->
           List.exists (fun (_, t) -> go t) args || go real)
   in
@@ -65,10 +70,19 @@ let inst : fresh_tvar -> tvar -> tvar =
                 let tags = List.map map_tag tags in
                 let ext = (noloc, go ext) in
                 fresh_tvar @@ Content (TTag { tags; ext })
-            | Content (TFn ((_, t1), (_, t2))) ->
+            | Content (TLambdaSet lset) ->
+                let map_lambda : ty_lambda -> ty_lambda =
+                 fun (lam, ts) ->
+                  let ts = List.map go ts in
+                  (lam, ts)
+                in
+                let lset = List.map map_lambda lset in
+                fresh_tvar @@ Content (TLambdaSet lset)
+            | Content (TFn ((_, t1), lset, (_, t2))) ->
                 let t1 = (noloc, go t1) in
                 let t2 = (noloc, go t2) in
-                fresh_tvar @@ Content (TFn (t1, t2))
+                let lset = go lset in
+                fresh_tvar @@ Content (TFn (t1, lset, t2))
             | Alias { alias = name, args; real } ->
                 let args = List.map (fun (_, t) -> (noloc, go t)) args in
                 let real = go real in
@@ -102,7 +116,12 @@ let occurs : variable -> tvar -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
           in
           List.exists check_tag tags || go (snd ext)
-      | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
+      | Content (TLambdaSet lset) ->
+          let check_lambda : ty_lambda -> bool =
+           fun (_, ts) -> List.exists go ts
+          in
+          List.exists check_lambda lset
+      | Content (TFn ((_, t1), lset, (_, t2))) -> go t1 || go t2 || go lset
       | Alias { alias = _, args; real } ->
           List.exists (fun (_, t) -> go t) args || go real)
   in
@@ -131,9 +150,13 @@ let gen : venv -> tvar -> unit =
           in
           List.iter gen_tag tags;
           go (snd ext)
-      | Content (TFn ((_, t1), (_, t2))) ->
+      | Content (TFn ((_, t1), lset, (_, t2))) ->
           go t1;
-          go t2
+          go t2;
+          go lset
+      | Content (TLambdaSet lset) ->
+          let gen_lambda : ty_lambda -> unit = fun (_, ts) -> List.iter go ts in
+          List.iter gen_lambda lset
       | Alias { alias = _, args; real } ->
           List.iter (fun (_, t) -> go t) args;
           go real)
@@ -143,16 +166,16 @@ let gen : venv -> tvar -> unit =
 let sort_tags : ty_tag list -> ty_tag list =
  fun tags -> List.sort (fun (tag1, _) (tag2, _) -> compare tag1 tag2) tags
 
-type separated_tags = {
-  shared : (ty_tag * ty_tag) list;
-  only1 : ty_tag list;
-  only2 : ty_tag list;
+let sort_lambdas : ty_lset -> ty_lset =
+ fun lambdas -> List.sort (fun (lam1, _) (lam2, _) -> compare lam1 lam2) lambdas
+
+type 'a separated = {
+  shared : ('a * 'a) list;
+  only1 : 'a list;
+  only2 : 'a list;
 }
 
-let separate_tags tags1 ext1 tags2 ext2 =
-  let tags1, ext1 = chase_tags tags1 ext1 in
-  let tags2, ext2 = chase_tags tags2 ext2 in
-  let tags1, tags2 = (sort_tags tags1, sort_tags tags2) in
+let separate ts1 ts2 =
   let rec walk shared only1 only2 = function
     | [], [] -> { shared; only1 = List.rev only1; only2 = List.rev only2 }
     | o :: rest, [] -> walk shared (o :: only1) only2 (rest, [])
@@ -164,8 +187,18 @@ let separate_tags tags1 ext1 tags2 ext2 =
     | t1 :: rest1, t2 :: rest2 ->
         walk ((t1, t2) :: shared) only1 only2 (rest1, rest2)
   in
-  let result = walk [] [] [] (tags1, tags2) in
+  walk [] [] [] (ts1, ts2)
+
+let separate_tags tags1 ext1 tags2 ext2 =
+  let tags1, ext1 = chase_tags tags1 ext1 in
+  let tags2, ext2 = chase_tags tags2 ext2 in
+  let tags1, tags2 = (sort_tags tags1, sort_tags tags2) in
+  let result = separate tags1 tags2 in
   (result, ext1, ext2)
+
+let separate_lambdas lset1 lset2 =
+  let lset1, lset2 = (sort_lambdas lset1, sort_lambdas lset2) in
+  separate lset1 lset2
 
 let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
  fun symbols ctx fresh_tvar a b ->
@@ -182,6 +215,12 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
     if List.length args1 <> List.length args2 then
       error ("arity mismatch for tag " ^ t1);
     List.iter2 (unify visited) (List.map snd args1) (List.map snd args2)
+  and unify_lambdas : _ -> ty_lambda -> ty_lambda -> unit =
+   fun visited (l1, args1) (l2, args2) ->
+    assert (l1 = l2);
+    if List.length args1 <> List.length args2 then
+      error ("arity mismatch for lambda " ^ Symbol.show_symbol_raw l1);
+    List.iter2 (unify visited) args1 args2
   and unify visited a b =
     let a, b = (unlink a, unlink b) in
     let vara, varb = (tvar_v a, tvar_v b) in
@@ -263,10 +302,20 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
 
                       let all_tags = sort_tags @@ shared @ others1 @ others2 in
                       TTag { tags = all_tags; ext = new_ext })
-              | TFn ((_, t11), (_, t12)), TFn ((_, t21), (_, t22)) ->
+              | TFn ((_, t11), lset1, (_, t12)), TFn ((_, t21), lset2, (_, t22))
+                ->
                   unify t11 t21;
                   unify t12 t22;
-                  TFn ((noloc, t11), (noloc, t12))
+                  unify lset1 lset2;
+                  TFn ((noloc, t11), lset1, (noloc, t12))
+              | TLambdaSet lset1, TLambdaSet lset2 ->
+                  let { shared; only1; only2 } = separate_lambdas lset1 lset2 in
+
+                  List.iter (fun (l1, l2) -> unify_lambdas visited l1 l2) shared;
+                  let shared = List.map fst shared in
+
+                  let lset = sort_lambdas @@ shared @ only1 @ only2 in
+                  TLambdaSet lset
               | _ ->
                   error
                     ("incompatible"
@@ -342,22 +391,17 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
       | LetFn
           ( Letfn
-              {
-                recursive;
-                bind = t_x, x;
-                arg = t_a, a;
-                body;
-                sig_;
-                captures = _;
-              },
+              { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures },
             rest ) ->
           let t_ret =
             let venv = if recursive then (x, t_x) :: venv else venv in
             let venv = (a, t_a) :: venv in
             infer venv body
           in
+          let t_lset : ty_lset = [ (x, List.map fst captures) ] in
+          let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
           let t_fn =
-            fresh_tvar @@ Content (TFn ((noloc, t_a), (noloc, t_ret)))
+            fresh_tvar @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)))
           in
 
           let symbol = Symbol.syn_of symbols x in
@@ -376,15 +420,20 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
           in
 
           infer ((x, t_x) :: venv) rest
-      | Can.Clos { arg = t_x, x; body = e; captures = _ } ->
+      | Can.Clos { arg = t_x, x; body = e; lam_sym; captures } ->
           let t_ret = infer ((x, t_x) :: venv) e in
-          fresh_tvar @@ Content (TFn ((noloc, t_x), (noloc, t_ret)))
+
+          let t_lset : ty_lset = [ (lam_sym, List.map fst captures) ] in
+          let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
+
+          fresh_tvar @@ Content (TFn ((noloc, t_x), t_lset, (noloc, t_ret)))
       | Can.Call (e1, e2) ->
           let t_fn = infer venv e1 in
           let t_arg = infer venv e2 in
           let t_ret = fresh_tvar @@ Unbd None in
+          let t_lset = fresh_tvar @@ Unbd None in
           let t_fn_expected =
-            fresh_tvar @@ Content (TFn ((noloc, t_arg), (noloc, t_ret)))
+            fresh_tvar @@ Content (TFn ((noloc, t_arg), t_lset, (noloc, t_ret)))
           in
           unify "call" t_fn t_fn_expected;
           t_ret
@@ -422,15 +471,19 @@ let infer_def : ctx -> venv -> Can.def -> tvar =
       match kind with
       | `Letfn
           (Can.Letfn
-            { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures = _ })
-        ->
+            { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures }) ->
           let t_ret =
             let venv = if recursive then (x, t_x) :: venv else venv in
             let venv = (a, t_a) :: venv in
             infer_expr symbols fresh_tvar venv body
           in
+
+          assert (captures = []);
+          let t_lset = [ (x, []) ] in
+          let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
+
           let t_fn =
-            fresh_tvar @@ Content (TFn ((noloc, t_a), (noloc, t_ret)))
+            fresh_tvar @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)))
           in
 
           let symbol = Symbol.syn_of symbols x in

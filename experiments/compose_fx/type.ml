@@ -8,12 +8,15 @@ and ty_tag = string * loc_tvar list
 
 (** Concrete type content *)
 and ty_content =
-  | TFn of loc_tvar * loc_tvar
+  | TFn of loc_tvar * tvar * loc_tvar
   | TTag of { tags : ty_tag list; ext : loc_tvar }
   | TTagEmpty
+  | TLambdaSet of ty_lset
   | TPrim of [ `Str | `Int | `Unit ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
+and ty_lambda = symbol * tvar list
+and ty_lset = ty_lambda list
 
 and ty =
   | Link of tvar  (** Link to a type *)
@@ -22,7 +25,7 @@ and ty =
   | Content of ty_content
   | Alias of ty_alias_content
 
-and tvar = { ty : ty ref; var : variable; recur : bool ref } [@@deriving show]
+and tvar = { ty : ty ref; var : variable; recur : bool ref }
 (** Mutable type cell *)
 
 let tvar_deref tvar = !(tvar.ty)
@@ -63,6 +66,7 @@ let chase_tags tags ext : ty_tag list * tvar =
     | Content (TTag { tags; ext }) -> go (all_tags @ tags) (snd ext)
     | Content (TFn _) -> failwith "not a tag"
     | Content (TPrim _) -> failwith "not a tag"
+    | Content (TLambdaSet _) -> failwith "not a tag"
     | Alias { real; _ } -> go all_tags real
   in
   go tags ext
@@ -110,9 +114,12 @@ let preprocess : tvar list -> claimed_names * type_hit_counts =
           let tag_vars = List.map snd tags |> List.flatten |> List.map snd in
           List.iter (go_ty visited) tag_vars;
           go_ty visited @@ snd ext
-      | Content (TFn (in', out')) ->
+      | Content (TLambdaSet lset) ->
+          List.iter (fun (_, t) -> List.iter (go_ty visited) t) lset
+      | Content (TFn (in', lset, out')) ->
           go_ty visited @@ snd in';
-          go_ty visited @@ snd out'
+          go_ty visited @@ snd out';
+          go_ty visited @@ lset
       | Alias { real; alias = _name, vars } ->
           let alias_vars = List.map snd vars in
           List.iter (go_ty visited) alias_vars;
@@ -216,11 +223,23 @@ let pp_tvar :
         let print_ext () = go_head deep `Free ext in
         if not (is_empty_tag ext) then print_ext ();
         fprintf f "@]"
-    | Content (TFn (in', out)), _ ->
+    | Content (TLambdaSet lset), _ ->
+        fprintf f "@[<hv 2>[@,";
+        List.iteri
+          (fun i (name, t) ->
+            if i > 0 then fprintf f ",@ ";
+            fprintf f "@[<hov 2>%a" (pp_symbol symbols) name;
+            List.iter (fun _ -> fprintf f "@ %s" ellipsis) t;
+            fprintf f "@]")
+          lset;
+        fprintf f "@,]@]"
+    | Content (TFn (in', lset, out)), _ ->
         fprintf f "@[<hov 2>";
         let pty () =
           go_head true `FnHead @@ snd in';
-          fprintf f "@ -> ";
+          fprintf f "@ -";
+          go_head true `Free @@ lset;
+          fprintf f "-> ";
           go_head true `Free @@ snd out
         in
         with_parens (parens >> `Free) pty;
@@ -257,8 +276,7 @@ let pp_tvar :
               fprintf f "@]"
             in
             with_parens (parens >> `Free) pty)
-  in
-  let rec go_tag : variable list -> ty_tag -> unit =
+  and go_tag : variable list -> ty_tag -> unit =
    fun visited (tag_name, payloads) ->
     fprintf f "@[<hov 2>%s" tag_name;
     List.iter
@@ -273,7 +291,6 @@ let pp_tvar :
     let recurs = tvar_recurs @@ t in
     let inner f () =
       if List.mem var visited then (
-        (* if not recurs then failwith "type is recursive, but not marked"; *)
         (* This is a recursive type *)
         fprintf f "@[<hov 2><%s" ellipsis;
         go_head false `Free t;
@@ -300,11 +317,27 @@ let pp_tvar :
             let print_ext () = go visited `Free ext in
             if not (is_empty_tag ext) then print_ext ();
             fprintf f "@]"
-        | Content (TFn (in', out)) ->
+        | Content (TLambdaSet lset) ->
+            let pp_lambda i (sym, captures) =
+              if i > 0 then pp_print_string f ",@ ";
+              fprintf f "@[<hov 2>%a" (pp_symbol symbols) sym;
+              List.iter
+                (fun v ->
+                  fprintf f "@ ";
+                  go visited `AppHead v)
+                captures;
+              fprintf f "@]"
+            in
+            fprintf f "@[[";
+            List.iteri pp_lambda lset;
+            fprintf f "]@]"
+        | Content (TFn (in', lset, out)) ->
             fprintf f "@[<hov 2>";
             let pty () =
               go visited `FnHead @@ snd in';
-              fprintf f "@ -> ";
+              fprintf f "@ -";
+              go visited `AppHead @@ lset;
+              fprintf f "-> ";
               go visited `Free @@ snd out
             in
             with_parens (parens >> `Free) pty;
@@ -337,6 +370,8 @@ let pp_tvar :
     if recurs then fprintf f "@[<hov 2>%%%a@]" inner () else inner f ()
   in
   go visited `Free t
+
+let show_tvar t = Format.asprintf "%a" (pp_tvar (Symbol.make ()) [] []) t
 
 let string_of_tvar width symbols names tvar =
   (*let (`Var var) = (unlink tvar).var in

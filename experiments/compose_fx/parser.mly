@@ -270,7 +270,7 @@ ty_arrow:
   | head=ty_app ARROW e=ty_arrow { fun ctx ->
       let head = head ctx in
       let e = e ctx in
-      let t = ctx.fresh_tvar @@ Content (TFn(head, e)) in
+      let t = ctx.fresh_tvar @@ Content (TFn(head, ctx.fresh_tvar @@ Unbd None, e)) in
       let l = range (fst head) (fst e) in
       (l, t)
   }

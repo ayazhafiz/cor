@@ -251,7 +251,7 @@ let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
         let asgns = asgns @ [ Let (x_var, closure) ] in
         let e_asgns, e_expr = go rest in
         (asgns @ e_asgns, e_expr)
-    | Clos { arg; body; captures } ->
+    | Clos { arg; body; captures; lam_sym = _ } ->
         let pending_clos, asgns, closure =
           compile_closure ~ctx ~layout ~arg ~body ~captures ~rec_name:None
         in

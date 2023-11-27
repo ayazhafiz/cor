@@ -56,6 +56,8 @@ type type_cache = (variable * tvar) list ref
 let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
  fun fresh_tvar cache tvar ->
   let rec go_loc : loc_tvar -> loc_tvar = fun (l, t) -> (l, go t)
+  and go_lambda : ty_lambda -> ty_lambda = fun (s, ty) -> (s, List.map go ty)
+  and go_lset : ty_lset -> ty_lset = fun lset -> List.map go_lambda lset
   and go : tvar -> tvar =
    fun tvar ->
     let { var; ty; recur } = unlink tvar in
@@ -80,10 +82,14 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
               let ext = (loc_ext, go ty_ext) in
               let tags = List.map go_tag tags in
               Content (TTag { tags; ext })
-          | Content (TFn (t1, t2)) ->
+          | Content (TLambdaSet lset) ->
+              let lset = go_lset lset in
+              Content (TLambdaSet lset)
+          | Content (TFn (t1, lset, t2)) ->
               let t1 = go_loc t1 in
               let t2 = go_loc t2 in
-              Content (TFn (t1, t2))
+              let lset = go lset in
+              Content (TFn (t1, lset, t2))
           | Alias { alias = sym, args; real } ->
               let args = List.map go_loc args in
               let real = go real in
@@ -192,13 +198,13 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
           let needed = b_needed @ r_needed @ c_needed in
           let letfn = Letfn { recursive; bind; arg; body; sig_; captures } in
           (LetFn (letfn, rest), needed)
-      | Clos { arg = t_a, a; body; captures } ->
+      | Clos { arg = t_a, a; body; captures; lam_sym } ->
           let t_a = clone_type ctx.fresh_tvar type_cache t_a in
           let body, b_needed = go body in
           let captures, c_needed =
             clone_captures ~ctx ~specs ~fenv ~type_cache ~captures
           in
-          (Clos { arg = (t_a, a); body; captures }, b_needed @ c_needed)
+          (Clos { arg = (t_a, a); body; captures; lam_sym }, b_needed @ c_needed)
       | Call (e1, e2) ->
           let e1, e1_needed = go e1 in
           let e2, e2_needed = go e2 in

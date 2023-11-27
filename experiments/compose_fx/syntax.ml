@@ -88,7 +88,8 @@ let tightest_node_at_var : loc -> loc_tvar -> found_node =
       | Content (TTag { tags; ext }) ->
           let found_in_tag = List.find_map go_tag tags in
           or_else found_in_tag (fun () -> go ext)
-      | Content (TFn (in', out)) -> or_else (go in') (fun () -> go out)
+      | Content (TLambdaSet _) -> None
+      | Content (TFn (in', _, out)) -> or_else (go in') (fun () -> go out)
       | Alias { alias = (l_x, x), vars; real = _ } ->
           if within loc l_x then Some (l_x, ty, `Alias x)
           else List.find_map go vars

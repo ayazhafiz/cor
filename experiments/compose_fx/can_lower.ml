@@ -47,9 +47,7 @@ let rec collect_globals : program -> symbol list = function
 let rec extract_all_named_vars : tvar -> named_var list =
  fun tvar ->
   match tvar_deref tvar with
-  | Unbd _ ->
-      can_error "extract_all_named_vars"
-        ("did not expect unbound type" ^ show_tvar tvar)
+  | Unbd _ -> []
   | Link ty ->
       can_error "extract_all_named_vars"
         ("did not expect linked type" ^ show_tvar ty)
@@ -57,8 +55,15 @@ let rec extract_all_named_vars : tvar -> named_var list =
   | ForA None ->
       (* This is a *, let it go *)
       []
-  | Content (TFn ((_, t1), (_, t2))) ->
+  | Content (TFn ((_, t1), lset, (_, t2))) ->
       extract_all_named_vars t1 @ extract_all_named_vars t2
+      @ extract_all_named_vars lset
+  | Content (TLambdaSet lset) ->
+      let lset_args = List.flatten @@ List.map snd lset in
+      let extracted =
+        List.flatten @@ List.map extract_all_named_vars lset_args
+      in
+      extracted
   | Content (TTag { tags; ext }) ->
       let tag_args = List.map snd @@ List.flatten @@ List.map snd tags in
       let extracted = List.flatten (List.map extract_all_named_vars tag_args) in
@@ -96,9 +101,7 @@ let canonicalize_alias { alias_type; name; args; real } =
   let rec update_ty : tvar -> unit =
    fun tvar ->
     match tvar_deref tvar with
-    | Unbd _ ->
-        can_error "canonicalize_alias"
-          ("did not expect unbound type" ^ show_tvar tvar)
+    | Unbd _ -> ()
     | Link ty -> update_ty ty
     | ForA (Some x) -> (
         match List.assoc_opt x args with
@@ -109,9 +112,13 @@ let canonicalize_alias { alias_type; name; args; real } =
     | ForA None ->
         can_error "canonicalize_alias"
           ("alias " ^ show_symbol name ^ " has a type argument without a name")
-    | Content (TFn ((_, t1), (_, t2))) ->
+    | Content (TFn ((_, t1), lset, (_, t2))) ->
         update_ty t1;
-        update_ty t2
+        update_ty t2;
+        update_ty lset
+    | Content (TLambdaSet lset) ->
+        let lset_args = List.flatten @@ List.map snd lset in
+        List.iter update_ty lset_args
     | Content (TTag { tags; ext }) ->
         let tag_args = List.map snd @@ List.flatten @@ List.map snd tags in
         List.iter update_ty tag_args;
@@ -210,18 +217,26 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
             Link r
         | None -> (
             match tvar_deref tvar with
-            | Unbd _ ->
-                can_error "instantiate_alias" ("unbound type" ^ show_tvar tvar)
+            | Unbd s -> Unbd s
             | Link ty -> Link (inst_ty ty)
             | ForA a -> ForA a
             | Content TTagEmpty -> Content TTagEmpty
             | Content (TPrim `Str) -> Content (TPrim `Str)
             | Content (TPrim `Unit) -> Content (TPrim `Unit)
             | Content (TPrim `Int) -> Content (TPrim `Int)
-            | Content (TFn ((_, t1), (_, t2))) ->
+            | Content (TFn ((_, t1), lset, (_, t2))) ->
                 let t1' = ctx.fresh_tvar @@ Link (inst_ty t1) in
                 let t2' = ctx.fresh_tvar @@ Link (inst_ty t2) in
-                Content (TFn ((Loc.noloc, t1'), (Loc.noloc, t2')))
+                let lset' = ctx.fresh_tvar @@ Link (inst_ty lset) in
+                Content (TFn ((Loc.noloc, t1'), lset', (Loc.noloc, t2')))
+            | Content (TLambdaSet lset) ->
+                let map_lambda : ty_lambda -> ty_lambda =
+                 fun (sym, captures) ->
+                  let captures' = List.map inst_ty captures in
+                  (sym, captures')
+                in
+                let lset' = List.map map_lambda lset in
+                Content (TLambdaSet lset')
             | Content (TTag { tags; ext = _, ext }) ->
                 let map_tag : ty_tag -> ty_tag =
                  fun (tag, vars) ->
@@ -269,9 +284,7 @@ type canonicalized_expr_output = {
   references : tvar SymbolMap.t;
 }
 
-let canonicalize_expr :
-    globals:symbol list -> e_expr -> canonicalized_expr_output =
- fun ~globals e ->
+let canonicalize_expr ~ctx ~globals e =
   let rec go_branch (p, e) =
     let can_pat, defined_p = canonicalize_pat p in
     let can_expr, free_e = go_expr e in
@@ -310,7 +323,7 @@ let canonicalize_expr :
 
           let can_let =
             match expr with
-            | Can.Clos { arg; body = clos_body; captures } ->
+            | Can.Clos { arg; body = clos_body; captures; lam_sym = _ } ->
                 (* We drop the closure can_expr type in the canonicalized def, so tie it to
                    the bind variable now. *)
                 tvar_set t_expr @@ Link t_x;
@@ -345,7 +358,8 @@ let canonicalize_expr :
             @@ SymbolMap.bindings
             @@ SymbolMap.remove_keys globals free
           in
-          let can_clos = Can.Clos { arg = (t_a, a); body; captures } in
+          let lam_sym = ctx.symbols.fresh_symbol "lam" in
+          let can_clos = Can.Clos { arg = (t_a, a); body; captures; lam_sym } in
           (can_clos, free)
       | Call (e1, e2) ->
           let can_e1, free_e1 = go_expr e1 in
@@ -375,8 +389,8 @@ let canonicalize_expr :
   let can_expr, references = go_expr e in
   { can_expr; references }
 
-let mk_canonical_def ~expr ~globals ~bind ~sig_ ~run =
-  let { can_expr; references } = canonicalize_expr ~globals:[] expr in
+let mk_canonical_def ~ctx ~expr ~globals ~bind ~sig_ ~run =
+  let { can_expr; references } = canonicalize_expr ~ctx ~globals expr in
   let t_bind_x, bind_x = bind in
   let recursive = SymbolMap.mem bind_x references in
 
@@ -392,7 +406,7 @@ let mk_canonical_def ~expr ~globals ~bind ~sig_ ~run =
       if recursive then
         can_error "canonicalize_defs" "run definitions cannot be recursive";
       Can.Run { bind; body = (t_can_expr, can_expr); sig_ }
-  | false, Clos { arg; body; captures } ->
+  | false, Clos { arg; body; captures; lam_sym = _ } ->
       (* We drop the closure can_expr type in the canonicalized def, so tie it to
          the bind variable now. *)
       tvar_set t_can_expr @@ Link t_bind_x;
@@ -444,7 +458,7 @@ let canonicalize_defs :
         let bind : Can.typed_symbol = (def_t, y) in
         let sig_ = Some sig_ in
 
-        let def = mk_canonical_def ~expr ~globals ~bind ~sig_ ~run in
+        let def = mk_canonical_def ~ctx ~expr ~globals ~bind ~sig_ ~run in
         def :: inner rest
     | (_, def_t, ((Def ((_, x), expr) | Run ((_, x), expr)) as def)) :: rest ->
         let run = match def with Run _ -> true | _ -> false in
@@ -452,7 +466,7 @@ let canonicalize_defs :
         let bind : Can.typed_symbol = (def_t, x) in
         let sig_ = None in
 
-        let def = mk_canonical_def ~expr ~globals ~bind ~sig_ ~run in
+        let def = mk_canonical_def ~ctx ~expr ~globals ~bind ~sig_ ~run in
         def :: inner rest
     | (_, sig_t, Sig ((_, x), (_, sig_))) :: rest ->
         instantiate_signature ctx alias_map sig_;

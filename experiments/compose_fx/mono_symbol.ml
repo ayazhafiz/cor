@@ -14,7 +14,7 @@ let determine_specialization ~ctx tvar =
   let open Type in
   let tvar = unlink_w_alias tvar in
   match tvar_deref tvar with
-  | Content (TFn ((_, arg), (_, ret))) ->
+  | Content (TFn ((_, arg), _lset, (_, ret))) ->
       let arg = Ir_layout.layout_of_tvar ctx arg in
       let ret = Ir_layout.layout_of_tvar ctx ret in
       let args = [ erased_captures_lay; arg ] in

@@ -139,6 +139,7 @@ let readback : Symbol.t -> memory_cell -> Type.tvar -> Syntax.e_expr =
       | Content (TPrim `Int) -> Int (get_word cell)
       | Content (TPrim `Str) -> Str (get_string cell)
       | Content TTagEmpty -> Var (symbols.fresh_symbol "<void>")
+      | Content (TLambdaSet _) -> failwith "lambda set in surface syntax"
       | Content (TTag { tags; ext = _, ext }) ->
           let tags, _ext = chase_tags tags ext in
 

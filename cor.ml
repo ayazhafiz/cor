@@ -40,6 +40,7 @@ let find_lang () =
   | None -> failwith "No language specified!"
 
 let main () =
+  Printexc.record_backtrace true;
   parse_args ();
   let inputs =
     match !infiles with
