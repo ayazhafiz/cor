@@ -32,6 +32,7 @@ module type LANGUAGE = sig
   type parsed_program
   type canonicalized_program
   type solved_program
+  type mono_program
   type ir_program
   type evaled_program
 
@@ -40,13 +41,15 @@ module type LANGUAGE = sig
   val parse : string -> (parsed_program, string) result
   val canonicalize : parsed_program -> (canonicalized_program, string) result
   val solve : canonicalized_program -> (solved_program, string) result
-  val ir : solved_program -> (ir_program, string) result
+  val mono : solved_program -> (mono_program, string) result
+  val ir : mono_program -> (ir_program, string) result
   val eval : ir_program -> (evaled_program, string) result
 
   (*** Emit ***)
   val print_parsed : ?width:int -> parsed_program -> string
   val print_canonicalized : ?width:int -> canonicalized_program -> string
   val print_solved : ?width:int -> solved_program -> string
+  val print_mono : ?width:int -> mono_program -> string
   val print_ir : ?width:int -> ir_program -> string
   val print_evaled : ?width:int -> evaled_program -> string
   val types_at : loc list -> solved_program -> (loc * ty option) list

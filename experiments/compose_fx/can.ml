@@ -63,6 +63,7 @@ let name_of_def = function
 let pp_symbol f symbol =
   Format.pp_print_string f (Symbol.show_symbol_raw symbol)
 
+let pp_typed_symbol f (_, symbol) = Format.fprintf f "%a" pp_symbol symbol
 let with_parens = Syntax.with_parens
 
 let pp_pat f (p : e_pat) =
@@ -87,6 +88,15 @@ let pp_pat f (p : e_pat) =
     | PVar x -> pp_symbol f x
   in
   go `Free p
+
+let pp_arrow f (lam, captures) =
+  let open Format in
+  match captures with
+  | [] -> fprintf f "@[-[%a]->@]" pp_symbol lam
+  | _ ->
+      fprintf f "@[-[%a %a]->@]" pp_symbol lam
+        (Format.pp_print_list ~pp_sep:pp_print_space pp_typed_symbol)
+        captures
 
 let pp_expr f =
   let open Format in
@@ -126,15 +136,20 @@ let pp_expr f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | Clos { arg = _, x; body = e; _ } ->
-        fprintf f "@[<hov 2>\\%a ->@ " pp_symbol x;
+    | Clos { arg = _, x; body = e; captures; lam_sym; _ } ->
+        fprintf f "@[<hov 2>\\%a %a@ " pp_symbol x pp_arrow (lam_sym, captures);
         go `Apply e;
         fprintf f "@]"
     | Call (head, arg) ->
-        fprintf f "@[<hov 2>";
-        go `Apply head;
-        fprintf f "@ ";
-        go `Apply arg;
+        fprintf f "@[";
+        let expr () =
+          fprintf f "@[<hov 2>";
+          go `Apply head;
+          fprintf f "@ ";
+          go `Apply arg;
+          fprintf f "@]"
+        in
+        with_parens f (parens >> `Free) expr;
         fprintf f "@]"
     | KCall (head, args) ->
         fprintf f "@[<hov 2>%s@ " (List.assoc head Syntax.string_of_kernelfn);
@@ -145,25 +160,23 @@ let pp_expr f =
           args;
         fprintf f "@]"
     | When (e, branches) ->
-        fprintf f "@[<v 0>@[<hv 2>when@ ";
+        fprintf f "@[<v 0>@[<hv 2>when ";
         go `Free e;
-        fprintf f " is@]@ @[<hv 2>";
+        fprintf f " is";
         List.iteri
-          (fun i (pat, body) ->
-            fprintf f "|@ %a ->@ " pp_pat pat;
+          (fun _i (pat, body) ->
+            fprintf f "@,@[<hov 2>| %a ->@ " pp_pat pat;
             go `Free body;
-            if i < List.length branches - 1 then fprintf f "@ ")
+            fprintf f "@]")
           branches;
-        fprintf f "@]@,@]"
+        fprintf f "@]@,end@]"
   in
   go `Free
 
-let pp_letfn f (Letfn { bind; arg; body; _ }) =
+let pp_letfn f (Letfn { bind = _, x; arg; body; captures; _ }) =
   let open Format in
-  fprintf f "@[<v 0>@[<hv 2>let %a =@ " pp_symbol (snd bind);
-  fprintf f "@[<hv 2>\\%a ->@ " pp_symbol (snd arg);
-  pp_expr f body;
-  fprintf f "@]@]@]"
+  fprintf f "@[<v 0>@[<hv 2>let %a = \\%a %a@ %a@]@]" pp_symbol x pp_arrow
+    (x, captures) pp_symbol (snd arg) pp_expr body
 
 let pp_letval f (Letval { bind; body; _ }) =
   let open Format in

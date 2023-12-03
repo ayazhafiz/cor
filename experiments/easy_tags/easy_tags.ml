@@ -47,17 +47,20 @@ module Easy_tags : LANGUAGE = struct
   type parsed_program = Syntax.program * fresh_var
   type canonicalized_program = parsed_program
   type solved_program = Syntax.program
+  type mono_program = solved_program
   type ir_program = unit
   type evaled_program = unit
 
   let parse = parse
   let canonicalize = Result.ok
   let solve p = solve p
+  let mono p = Ok p
   let ir _ = failwith "unimplemented"
   let eval _ = failwith "unimplemented"
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
   let print_canonicalized = print_parsed
   let print_solved ?(width = default_width) p = string_of_program ~width p
+  let print_mono = print_solved
 
   let print_ir ?(width = default_width) _ =
     let _ = width in

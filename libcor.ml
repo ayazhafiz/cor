@@ -13,7 +13,7 @@ let lang_mods : (module LANGUAGE) list =
 let languages = List.map (fun (module M : LANGUAGE) -> M.name) lang_mods
 
 (* Driver *)
-type phase = Parse | Canonicalize | Solve | Ir | Eval
+type phase = Parse | Canonicalize | Solve | Mono | Ir | Eval
 type emit = Print | Elab
 
 let assoc_flip l = List.map (fun (a, b) -> (b, a)) l
@@ -23,6 +23,7 @@ let phase_list =
     (Parse, "parse");
     (Canonicalize, "can");
     (Solve, "solve");
+    (Mono, "mono");
     (Ir, "ir");
     (Eval, "eval");
   ]
@@ -180,6 +181,7 @@ type compile_err =
   | ParseErr of string
   | CanErr of string
   | SolveErr of string
+  | MonoErr of string
   | IrErr of string
   | EvalErr of string
   | ElabErr of [ `NoQueries | `TypeNotFound of loc ]
@@ -190,6 +192,7 @@ let string_of_compile_err = function
   | ParseErr s -> "Parse error: " ^ s
   | CanErr s -> "Canonicalize error: " ^ s
   | SolveErr s -> "Solve error: " ^ s
+  | MonoErr s -> "Mono error: " ^ s
   | IrErr s -> "Ir error: " ^ s
   | EvalErr s -> "Eval error: " ^ s
   | ElabErr e -> (
@@ -215,6 +218,7 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
     Result.map_error (fun s -> CanErr s) @@ Lang.canonicalize s
   in
   let solve s = Result.map_error (fun s -> SolveErr s) @@ Lang.solve s in
+  let mono s = Result.map_error (fun s -> MonoErr s) @@ Lang.mono s in
   let ir s = Result.map_error (fun s -> IrErr s) @@ Lang.ir s in
   let eval s = Result.map_error (fun s -> EvalErr s) @@ Lang.eval s in
   let elab p =
@@ -261,9 +265,13 @@ let process_one (module Lang : LANGUAGE) (lines, queries) (phase, emit) :
       input |> parse >>= canonicalize &> print_canonicalized
   | Solve, Print -> input |> parse >>= canonicalize >>= solve &> print_solved
   | Solve, Elab -> input |> parse >>= canonicalize >>= solve >>= elab
-  | Ir, Print -> input |> parse >>= canonicalize >>= solve >>= ir &> print_ir
+  | Mono, Print ->
+      input |> parse >>= canonicalize >>= solve >>= mono &> print_mono
+  | Ir, Print ->
+      input |> parse >>= canonicalize >>= solve >>= mono >>= ir &> print_ir
   | Eval, Print ->
-      input |> parse >>= canonicalize >>= solve >>= ir >>= eval &> print_evaled
+      input |> parse >>= canonicalize >>= solve >>= mono >>= ir >>= eval
+      &> print_evaled
   | phase, emit -> Error (BadEmit (phase, emit))
 
 let hover_info (module Lang : LANGUAGE) lines lineco =

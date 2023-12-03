@@ -58,6 +58,7 @@ module Uls : LANGUAGE = struct
   type parsed_program = Syntax.program * fresh_var
   type canonicalized_program = parsed_program
   type solved_program = Syntax.program * spec_table
+  type mono_program = solved_program
 
   type ir_program = {
     defs : (string * e_expr) list;
@@ -69,6 +70,7 @@ module Uls : LANGUAGE = struct
   let parse = parse
   let canonicalize = Result.ok
   let solve (p, fresh_var) = solve p fresh_var
+  let mono (p, spec_table) = Ok (p, spec_table)
 
   let ir (p, spec_table) =
     try
@@ -82,6 +84,7 @@ module Uls : LANGUAGE = struct
   let print_parsed ?(width = default_width) (p, _) = string_of_program ~width p
   let print_canonicalized = print_parsed
   let print_solved ?(width = default_width) (p, _) = string_of_program ~width p
+  let print_mono = print_solved
 
   let print_ir ?(width = default_width) { defs; entry_points } =
     string_of_program ~width
