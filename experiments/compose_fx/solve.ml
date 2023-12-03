@@ -254,8 +254,32 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
     else if List.mem (vara, varb) visited then
       match context with
       | `Generic ->
-          tvar_set_recur a true;
-          tvar_set_recur b true
+          (* NB: I used to set this, but this does not actually work.
+             If a type is cloned during type-specialization, then subsequent
+             unifications over that type might end up setting the recursion
+             flag. But that recursion flag will not be reflected in the
+             original, uncloned type. For example, the program
+
+             run main =
+               let handle = \op -> when op is
+                 | StdoutLine s next -> handle (next {})
+                 | Done x -> Done x
+               end in
+               handle (Done 1)
+
+             demonstrates this. "handle"'s argument is recursive, but the
+             recursion point is not marked when "handle"'s closure data would be
+             constructed. However, when we go to specialize the "handle" call
+             itself, we will clone the type of "handle"'s argument, and then
+             unify if with the type of "handle" stored in the function
+             environment. This unification would reach this branch, and set the
+             recursion flag on the cloned type - but then we'd fail to match
+             against the first created specialization of "handle", because the
+             argument would be boxed unconditionally.
+          *)
+          if false then (
+            tvar_set_recur a true;
+            tvar_set_recur b true)
       | `AmbientFn -> ()
     else
       let visited = (vara, varb) :: visited in

@@ -380,3 +380,9 @@ let string_of_tvar width symbols names tvar =
     "(" ^ string_of_int var ^ ") "
     ^*)
   Util.with_buffer (fun f -> pp_tvar symbols [] names f tvar) width
+
+let string_of_tvar_top symbols tvar =
+  (*let (`Var var) = (unlink tvar).var in
+    "(" ^ string_of_int var ^ ") "
+    ^*)
+  string_of_tvar 80 symbols [] tvar

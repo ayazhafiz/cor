@@ -90,7 +90,7 @@ module Compose_fx : LANGUAGE = struct
     (*print_endline @@ Mono.show_specialized specialized;*)
     let compiled = Ir_lower.compile ~ctx mono in
     let compiled = Ir_sort.sort_program compiled in
-    (*Ir_check.check compiled;*)
+    Ir_check.check compiled;
     Ok { symbols = ctx.symbols; program = compiled }
 
   let eval ({ program; symbols } : ir_program) =
@@ -105,9 +105,8 @@ module Compose_fx : LANGUAGE = struct
       ({ symbols; syn; _ } : canonicalized_program) =
     string_of_program ~width symbols syn
 
-  let print_solved ?(width = default_width)
-      ({ symbols; syn; _ } : solved_program) =
-    string_of_program ~width symbols syn
+  let print_solved ?(width = default_width) ({ can; _ } : solved_program) =
+    Can.string_of_program ~width can
 
   let print_mono ?(width = default_width) ({ mono; _ } : mono_program) =
     Mono.string_of_specialized ~width mono
