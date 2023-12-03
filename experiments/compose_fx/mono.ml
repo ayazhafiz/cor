@@ -2,7 +2,8 @@ open Can
 open Symbol
 open Type
 
-type ready_specialization = [ `Letval of letval | `Letfn of letfn ]
+type ready_specialization =
+  [ `Letval of letval | `Letfn of letfn * bool (* true=leave witness *) ]
 
 type specialized = {
   specializations : ready_specialization list;
@@ -16,7 +17,7 @@ let pp_specialized : Format.formatter -> specialized -> unit =
   in
   let pp_specialization f = function
     | `Letval letval -> Format.fprintf f "@[%a@]" Can.pp_letval letval
-    | `Letfn letfn -> Format.fprintf f "@[%a@]" Can.pp_letfn letfn
+    | `Letfn (letfn, _) -> Format.fprintf f "@[%a@]" Can.pp_letfn letfn
   in
   Format.fprintf f "@[<v 2>entry_points:@,";
   List.iter (pp_entry_point f) entry_points;

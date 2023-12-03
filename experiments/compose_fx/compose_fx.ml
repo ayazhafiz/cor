@@ -83,8 +83,10 @@ module Compose_fx : LANGUAGE = struct
   let ir ({ symbols; fresh_tvar; syn = _; can } : solved_program) =
     let ctx = Ir.new_ctx symbols fresh_tvar in
     let specialized = Mono_lower.specialize ctx can in
+    (*print_endline @@ Mono.show_specialized specialized;*)
     let compiled = Ir_lower.compile ~ctx specialized in
-    Ir_check.check compiled;
+    let compiled = Ir_sort.sort_program compiled in
+    (*Ir_check.check compiled;*)
     Ok { symbols; program = compiled }
 
   let eval ({ program; symbols } : ir_program) =

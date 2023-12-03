@@ -11,10 +11,10 @@
           solve
           ir ir_layout
           mono mono_lower mono_symbol
-          ir_lower ir_check
+          ir_lower ir_sort ir_check
           eval
           util)
- (libraries language sedlex menhirLib)
+ (libraries language sedlex menhirLib ocamlgraph)
  (inline_tests)
  (preprocess
   (pps ppx_deriving.show ppx_inline_test sedlex.ppx)))

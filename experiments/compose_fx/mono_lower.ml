@@ -7,11 +7,13 @@ open Mono
 type val_specialization = [ `Val of letval * symbol * tvar ]
 
 type needed_specialization =
-  [ `Fn of letfn * symbol * tvar | val_specialization ]
+  [ `Fn of letfn * symbol * tvar * bool (* true=leave witness *)
+  | val_specialization ]
 
 type queue = needed_specialization list
 type spec_procs = ready_specialization list
-type fenv = (symbol * [ `Fn of letfn | `Val of letval ]) list
+type fenv_kind = [ `Fn of letfn * bool | `Val of letval ]
+type fenv = (symbol * fenv_kind) list
 
 let symbol_of_needed_specialization : val_specialization -> symbol * tvar =
  fun (`Val (Letval { bind = t_x, x; _ }, _, _)) -> (x, t_x)
@@ -36,6 +38,48 @@ let find_toplevel_values : def list -> val_specialization list =
   in
   go defs
 
+let find_fenv_expr : e_expr -> fenv =
+ fun e ->
+  let rec go (t_e, e) =
+    match e with
+    | Str _ | Int _ | Unit | Var _ -> []
+    | Tag (_, es) -> List.concat_map go es
+    | LetFn ((Letfn { bind = _, x; body; _ } as letfn), rest) ->
+        let binds = (x, `Fn (letfn, false)) in
+        let body_binds = go body in
+        let rest_binds = go rest in
+        (binds :: body_binds) @ rest_binds
+    | Let (Letval { body; _ }, rest) ->
+        (* Don't add the let itself because it's not toplevel. *)
+        let body_binds = go body in
+        let rest_binds = go rest in
+        body_binds @ rest_binds
+    | Clos { lam_sym; body; arg; captures } ->
+        let letfn =
+          Letfn
+            {
+              recursive = false;
+              arg;
+              captures;
+              body;
+              bind = (t_e, lam_sym);
+              sig_ = None;
+            }
+        in
+        let binds = (lam_sym, `Fn (letfn, false)) in
+        let body_binds = go body in
+        binds :: body_binds
+    | Call (e1, e2) -> go e1 @ go e2
+    | KCall (_, es) -> List.concat_map go es
+    | When (e, branches) ->
+        let e_binds = go e in
+        let branch_binds =
+          List.map (fun (_, e) -> go e) branches |> List.concat
+        in
+        e_binds @ branch_binds
+  in
+  go e
+
 let find_fenv : def list -> fenv =
  fun defs ->
   let rec go : fenv -> def list -> fenv =
@@ -43,11 +87,19 @@ let find_fenv : def list -> fenv =
     | [] -> fenv
     | (Def { kind = `Letfn letfn } as def) :: rest ->
         let x = name_of_def def in
-        go ((x, `Fn letfn) :: fenv) rest
+        let bind = (x, `Fn (letfn, true)) in
+        let (Letfn { body; _ }) = letfn in
+        let body_binds = find_fenv_expr body in
+        go ((bind :: body_binds) @ fenv) rest
     | (Def { kind = `Letval letval } as def) :: rest ->
         let x = name_of_def def in
-        go ((x, `Val letval) :: fenv) rest
-    | _ :: rest -> go fenv rest
+        let bind = (x, `Val letval) in
+        let (Letval { body; _ }) = letval in
+        let body_binds = find_fenv_expr body in
+        go ((bind :: body_binds) @ fenv) rest
+    | Run { body; _ } :: rest ->
+        let body_binds = find_fenv_expr body in
+        go (body_binds @ fenv) rest
   in
   go [] defs
 
@@ -105,8 +157,8 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
   in
   go tvar
 
-let bind_of_fenv = function
-  | `Fn (Letfn { bind; _ }) -> bind
+let bind_of_fenv : fenv_kind -> _ = function
+  | `Fn (Letfn { bind; _ }, _) -> bind
   | `Val (Letval { bind; _ }) -> bind
 
 let find_specialization ~(ctx : Ir.ctx) ~specs ~type_cache ~kind ~t_needed =
@@ -123,7 +175,8 @@ let find_specialization ~(ctx : Ir.ctx) ~specs ~type_cache ~kind ~t_needed =
   | `New ->
       let spec =
         match kind with
-        | `Fn letfn -> `Fn (letfn, new_sym, t_needed)
+        | `Fn (letfn, leave_witness) ->
+            `Fn (letfn, new_sym, t_needed, leave_witness)
         | `Val letval -> `Val (letval, new_sym, t_needed)
       in
       (new_sym, [ spec ])
@@ -190,7 +243,11 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
               { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures },
             rest ) ->
           let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-          let bind = (t_x, x) in
+          let kind = List.assoc x fenv in
+          let new_x, x_needed =
+            find_specialization ~ctx ~specs ~kind ~t_needed:t_x ~type_cache
+          in
+          let bind = (t_x, new_x) in
           let t_a = clone_type ctx.fresh_tvar type_cache t_a in
           let arg = (t_a, a) in
           let body, b_needed = go body in
@@ -199,16 +256,21 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
           let captures, c_needed =
             clone_captures ~ctx ~specs ~fenv ~type_cache ~captures
           in
-          let needed = b_needed @ r_needed @ c_needed in
+          let needed = x_needed @ b_needed @ r_needed @ c_needed in
           let letfn = Letfn { recursive; bind; arg; body; sig_; captures } in
           (LetFn (letfn, rest), needed)
       | Clos { arg = t_a, a; body; captures; lam_sym } ->
+          let kind = List.assoc lam_sym fenv in
+          let new_lam, lam_needed =
+            find_specialization ~ctx ~specs ~kind ~t_needed:t ~type_cache
+          in
           let t_a = clone_type ctx.fresh_tvar type_cache t_a in
           let body, b_needed = go body in
           let captures, c_needed =
             clone_captures ~ctx ~specs ~fenv ~type_cache ~captures
           in
-          (Clos { arg = (t_a, a); body; captures; lam_sym }, b_needed @ c_needed)
+          let needed = lam_needed @ b_needed @ c_needed in
+          (Clos { arg = (t_a, a); body; captures; lam_sym = new_lam }, needed)
       | Call (e1, e2) ->
           let e1, e1_needed = go e1 in
           let e2, e2_needed = go e2 in
@@ -264,9 +326,9 @@ let specialize_queue ~(ctx : Ir.ctx) ~specs ~fenv ~queue =
   in
   let rec go : queue -> ready_specialization list = function
     | [] -> []
-    | `Fn (letfn, new_sym, t_needed) :: rest ->
+    | `Fn (letfn, new_sym, t_needed, leave_witness) :: rest ->
         let letrec, needed = specialize_let_fn letfn ~t_needed ~new_sym in
-        (go needed @ [ `Letfn letrec ]) @ go rest
+        (go needed @ [ `Letfn (letrec, leave_witness) ]) @ go rest
     | `Val (letval, new_sym, t_needed) :: rest ->
         let letval, needed = specialize_let_val letval ~t_needed ~new_sym in
         (go needed @ [ `Letval letval ]) @ go rest

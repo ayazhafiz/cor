@@ -68,6 +68,12 @@ let lookup_var : string -> venv -> var -> layout =
   check_lay_equiv (ctx_join ctx "venv vs local") l_x' l_x;
   l_x
 
+let lookup_proc : string -> fenv -> Symbol.symbol -> proc =
+ fun ctx venv x ->
+  match List.assoc_opt x venv with
+  | Some proc -> proc
+  | None -> failctx ctx @@ "Proc not found: " ^ Symbol.norm_of x
+
 type kernel_sig = {
   args : [ `Variadic of layout | `List of layout list ];
   ret : layout;
@@ -141,7 +147,7 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
       check_is_ptr_type new_l;
       check_lay_equiv ctx new_l lay
   | MakeFnPtr f ->
-      ignore @@ List.assoc f fenv;
+      ignore @@ lookup_proc ctx fenv f;
       check_lay_equiv ctx (ref @@ FunctionPointer) lay
 
 let check_body : string -> fenv -> venv -> var -> stmt list -> unit =

@@ -8,7 +8,7 @@ type pending_closure = {
   captures : var * var list;
   body : Can.e_expr;
   (* Some (symbol) if this is a recursive closure bound to the symbol. *)
-  rec_name : symbol option;
+  rec_var : var option;
 }
 
 type pending_thunk = { proc_name : symbol; body : Can.e_expr }
@@ -134,21 +134,12 @@ let build_closure ~ctx ~captures ~proc_name ~layout : stmt list * expr =
 
   (asgns, closure_struct)
 
-let compile_closure ~ctx ~layout ~arg:(t_a, a) ~body ~captures ~rec_name =
+let compile_closure ~ctx ~arg:(t_a, a) ~body ~captures ~proc_name ~rec_var =
   let a_layout = layout_of_tvar ctx t_a in
   let a_var = (a_layout, a) in
   let syn_name =
-    match rec_name with Some x -> Symbol.syn_of ctx.symbols x | None -> ""
+    match rec_var with Some (_, x) -> Symbol.syn_of ctx.symbols x | None -> ""
   in
-
-  let captures = vars_of_captures ~ctx captures in
-
-  let proc_name = ctx.symbols.fresh_symbol @@ "clos_" ^ syn_name in
-
-  let closure_struct_asgns, closure_struct =
-    build_closure ~ctx ~captures ~proc_name ~layout
-  in
-
   let captures_name = ctx.symbols.fresh_symbol @@ "captures_" ^ syn_name in
   let captures_var = (erased_captures_lay, captures_name) in
 
@@ -159,11 +150,11 @@ let compile_closure ~ctx ~layout ~arg:(t_a, a) ~body ~captures ~rec_name =
         arg = a_var;
         captures = (captures_var, captures);
         body;
-        rec_name;
+        rec_var;
       }
   in
 
-  (pending_clos, closure_struct_asgns, closure_struct)
+  pending_clos
 
 let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
  fun ctx expr ->
@@ -239,24 +230,24 @@ let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
         let args_asgns, arg_vars = List.split @@ List.map go_var args in
         let asgns = List.concat args_asgns in
         (asgns, (layout, CallKFn (kfn, arg_vars)))
-    | LetFn (Letfn { recursive; bind; arg; body; captures; sig_ = _ }, rest) ->
+    | LetFn (Letfn { bind; captures; _ }, rest) ->
         let t_x, x = bind in
         let layout_x = layout_of_tvar ctx t_x in
-        let rec_name = if recursive then Some x else None in
-        let pending_clos, asgns, closure =
-          compile_closure ~ctx ~layout:layout_x ~arg ~body ~captures ~rec_name
+        let captures = vars_of_captures ~ctx captures in
+        let clos_asngs, clos_expr =
+          build_closure ~ctx ~captures ~proc_name:x ~layout:layout_x
         in
-        pending_procs := pending_clos :: !pending_procs;
         let x_var = (layout_x, x) in
-        let asgns = asgns @ [ Let (x_var, closure) ] in
+        let x_asgn = Let (x_var, clos_expr) in
         let e_asgns, e_expr = go rest in
-        (asgns @ e_asgns, e_expr)
-    | Clos { arg; body; captures; lam_sym = _ } ->
-        let pending_clos, asgns, closure =
-          compile_closure ~ctx ~layout ~arg ~body ~captures ~rec_name:None
+        let asgns = clos_asngs @ [ x_asgn ] @ e_asgns in
+        (asgns, e_expr)
+    | Clos { lam_sym; captures; _ } ->
+        let captures = vars_of_captures ~ctx captures in
+        let clos_asgns, clos_expr =
+          build_closure ~ctx ~captures ~proc_name:lam_sym ~layout
         in
-        pending_procs := pending_clos :: !pending_procs;
-        (asgns, (layout, closure))
+        (clos_asgns, (layout, clos_expr))
     | When (tag_e, branches) ->
         let tag_asgns, tag_var = go_var tag_e in
         let unpack_asgns, tag_var = unpack_boxed_union ctx tag_var in
@@ -299,7 +290,7 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
           arg;
           captures = capture_arg, captures_vars;
           body;
-          rec_name;
+          rec_var;
         }
       :: pending_procs ->
         let stack_captures_lay = ref @@ Struct (List.map fst captures_vars) in
@@ -329,20 +320,23 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
 
         (* if this is a recursive closure, we must bind the name to the cell now as well.*)
         let rec_asgns =
-          match rec_name with
+          match rec_var with
           | None -> []
-          | Some rec_sym ->
+          | Some (rec_layout, rec_var) ->
               let fn_ptr_name =
                 ctx.symbols.fresh_symbol @@ "rec_fn_ptr_"
-                ^ Symbol.syn_of ctx.symbols rec_sym
+                ^ Symbol.syn_of ctx.symbols rec_var
               in
               let fn_ptr_var = (ref @@ FunctionPointer, fn_ptr_name) in
               let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr name) in
-              let rec_clos_var = (ref closure_repr, rec_sym) in
-              let rec_clos_asgn =
-                Let (rec_clos_var, MakeStruct [ fn_ptr_var; capture_arg ])
+              let rec_clos_var = (rec_layout, rec_var) in
+              let asgns, rec_clos_struct =
+                build_possibly_boxed_struct ~ctx
+                  ~arg_vars:[ fn_ptr_var; capture_arg ]
+                  ~layout:rec_layout
               in
-              [ fn_ptr_asgn; rec_clos_asgn ]
+              let rec_clos_asgn = Let (rec_clos_var, rec_clos_struct) in
+              (fn_ptr_asgn :: asgns) @ [ rec_clos_asgn ]
         in
 
         let (asgns, ret), new_pending_procs = stmt_of_expr ctx body in
@@ -363,9 +357,8 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
 
 let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
  fun ctx specs ->
-  let pending_procs : pending_proc list ref = ref [] in
-  let rec go : Mono.ready_specialization list -> unit = function
-    | [] -> ()
+  let rec go : Mono.ready_specialization list -> pending_proc list = function
+    | [] -> []
     | `Letval (Letval { bind = t_x, x; body; sig_ = _ }) :: defs ->
         let thunk_name =
           ctx.symbols.fresh_symbol (Symbol.syn_of ctx.symbols x ^ "_thunk")
@@ -373,22 +366,23 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
         let x_lay = layout_of_tvar ctx t_x in
         let init = CallDirect (thunk_name, []) in
         let pending_thunk = { proc_name = thunk_name; body } in
-        pending_procs := `Thunk pending_thunk :: !pending_procs;
-        pending_procs :=
-          `Ready (Global { name = x; layout = x_lay; init }) :: !pending_procs;
-        go defs
-    | `Letfn (Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ })
+        let global = Global { name = x; layout = x_lay; init } in
+        `Thunk pending_thunk :: `Ready global :: go defs
+    | `Letfn
+        (Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ }, true)
       :: defs ->
-        if List.length captures > 0 then
-          failwith @@ "captured on toplevel: " ^ String.concat ", "
-          @@ List.map show_symbol @@ List.map snd @@ captures;
-        let rec_name = if recursive then Some x else None in
         let layout_x = layout_of_tvar ctx t_x in
-        let pending_clos, closure_asgns, closure_struct =
-          compile_closure ~ctx ~rec_name ~layout:layout_x ~arg ~body ~captures
+        let rec_var = if recursive then Some (layout_x, x) else None in
+        let syn_name = Symbol.syn_of ctx.symbols x in
+        let proc_name = ctx.symbols.fresh_symbol @@ "clos_" ^ syn_name in
+        let captures = vars_of_captures ~ctx captures in
+        let pending_clos =
+          compile_closure ~ctx ~rec_var ~arg ~body ~captures ~proc_name
         in
 
-        let syn_name = Symbol.syn_of ctx.symbols x in
+        let closure_struct_asgns, closure_struct =
+          build_closure ~ctx ~captures ~proc_name ~layout:layout_x
+        in
 
         let thunk_name = ctx.symbols.fresh_symbol @@ syn_name ^ "_thunk" in
         let thunk =
@@ -397,7 +391,7 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
           in
           let ret = (layout_x, closure_struct_name) in
           let args = [] in
-          let body = closure_asgns @ [ Let (ret, closure_struct) ] in
+          let body = closure_struct_asgns @ [ Let (ret, closure_struct) ] in
           Proc { name = thunk_name; args; body; ret }
         in
 
@@ -406,12 +400,21 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
             { name = x; layout = layout_x; init = CallDirect (thunk_name, []) }
         in
 
-        pending_procs :=
-          pending_clos :: `Ready thunk :: `Ready global :: !pending_procs;
-        go defs
+        pending_clos :: `Ready thunk :: `Ready global :: go defs
+    | `Letfn
+        ( Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ },
+          false )
+      :: defs ->
+        let layout_x = layout_of_tvar ctx t_x in
+        let rec_var = if recursive then Some (layout_x, x) else None in
+        let captures = vars_of_captures ~ctx captures in
+        let pending_clos =
+          compile_closure ~ctx ~rec_var ~arg ~body ~captures ~proc_name:x
+        in
+        pending_clos :: go defs
   in
-  go specs;
-  compile_pending_procs ctx @@ List.rev !pending_procs
+  let pending_procs = go specs in
+  compile_pending_procs ctx @@ pending_procs
 
 let compile ~ctx ({ specializations; entry_points } : Mono.specialized) =
   let definitions = compile_defs ctx specializations in

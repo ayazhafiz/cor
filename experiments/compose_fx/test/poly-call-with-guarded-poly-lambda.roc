@@ -11,74 +11,74 @@ run main =
 ;;
 
 > cor-out +ir -print
-> global poly1: { *fn, box<erased> } = @call_direct(poly_thunk);
-> 
-> proc poly_thunk(): { *fn, box<erased> }
+> proc f2(captures_3: box<erased>, x1: str): str
 > {
->   let captures_stack_: {} = @make_struct{};
->   let captures_box_: box<{}> = @make_box(captures_stack_);
->   let captures_: box<erased> = @ptr_cast(captures_box_ as box<erased>);
->   let fn_ptr_: *fn = @make_fn_ptr<clos_>;
->   let poly_closure: { *fn, box<erased> } = @make_struct{ fn_ptr_, captures_ };
->   return poly_closure;
-> }
-> 
-> proc clos_2(captures_5: box<erased>, x1: int): int
-> {
->   let captures_box1: box<{}> = @ptr_cast(captures_5 as box<{}>);
->   let captures_stack1: {} = @get_boxed<captures_box1>;
+>   let captures_box2: box<{}> = @ptr_cast(captures_3 as box<{}>);
+>   let captures_stack2: {} = @get_boxed<captures_box2>;
 >   return x1;
 > }
 > 
-> proc clos_(captures_1: box<erased>, x: int): int
+> proc f1(captures_: box<erased>, x1: int): int
 > {
->   let captures_box: box<{}> = @ptr_cast(captures_1 as box<{}>);
+>   let captures_box: box<{}> = @ptr_cast(captures_ as box<{}>);
 >   let captures_stack: {} = @get_boxed<captures_box>;
+>   return x1;
+> }
+> 
+> proc clos_poly1(captures_4: box<erased>, x: str): str
+> {
+>   let captures_box3: box<{}> = @ptr_cast(captures_4 as box<{}>);
+>   let captures_stack3: {} = @get_boxed<captures_box3>;
+>   let captures_stack_3: {} = @make_struct{};
+>   let captures_box_3: box<{}> = @make_box(captures_stack_3);
+>   let captures_7: box<erased> = @ptr_cast(captures_box_3 as box<erased>);
+>   let fn_ptr_3: *fn = @make_fn_ptr<f2>;
+>   let f2: { *fn, box<erased> } = @make_struct{ fn_ptr_3, captures_7 };
+>   let fnptr1: *fn = @get_struct_field<f2, 0>;
+>   let captures1: box<erased> = @get_struct_field<f2, 1>;
+>   let var1: str = @call_indirect(fnptr1, captures1, x);
+>   return var1;
+> }
+> 
+> proc clos_poly(captures_1: box<erased>, x: int): int
+> {
+>   let captures_box1: box<{}> = @ptr_cast(captures_1 as box<{}>);
+>   let captures_stack1: {} = @get_boxed<captures_box1>;
 >   let captures_stack_2: {} = @make_struct{};
 >   let captures_box_2: box<{}> = @make_box(captures_stack_2);
->   let captures_4: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
->   let fn_ptr_2: *fn = @make_fn_ptr<clos_2>;
->   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_2, captures_4 };
->   let fnptr: *fn = @get_struct_field<f, 0>;
->   let captures: box<erased> = @get_struct_field<f, 1>;
+>   let captures_6: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
+>   let fn_ptr_2: *fn = @make_fn_ptr<f1>;
+>   let f1: { *fn, box<erased> } = @make_struct{ fn_ptr_2, captures_6 };
+>   let fnptr: *fn = @get_struct_field<f1, 0>;
+>   let captures: box<erased> = @get_struct_field<f1, 1>;
 >   let var: int = @call_indirect(fnptr, captures, x);
 >   return var;
 > }
-> 
-> global poly2: { *fn, box<erased> } = @call_direct(poly_thunk1);
 > 
 > proc poly_thunk1(): { *fn, box<erased> }
 > {
 >   let captures_stack_1: {} = @make_struct{};
 >   let captures_box_1: box<{}> = @make_box(captures_stack_1);
->   let captures_2: box<erased> = @ptr_cast(captures_box_1 as box<erased>);
->   let fn_ptr_1: *fn = @make_fn_ptr<clos_1>;
+>   let captures_5: box<erased> = @ptr_cast(captures_box_1 as box<erased>);
+>   let fn_ptr_1: *fn = @make_fn_ptr<clos_poly1>;
 >   let poly_closure1: { *fn, box<erased> }
->     = @make_struct{ fn_ptr_1, captures_2 };
+>     = @make_struct{ fn_ptr_1, captures_5 };
 >   return poly_closure1;
 > }
 > 
-> proc clos_3(captures_7: box<erased>, x1: str): str
+> proc poly_thunk(): { *fn, box<erased> }
 > {
->   let captures_box3: box<{}> = @ptr_cast(captures_7 as box<{}>);
->   let captures_stack3: {} = @get_boxed<captures_box3>;
->   return x1;
+>   let captures_stack_: {} = @make_struct{};
+>   let captures_box_: box<{}> = @make_box(captures_stack_);
+>   let captures_2: box<erased> = @ptr_cast(captures_box_ as box<erased>);
+>   let fn_ptr_: *fn = @make_fn_ptr<clos_poly>;
+>   let poly_closure: { *fn, box<erased> } = @make_struct{ fn_ptr_, captures_2 };
+>   return poly_closure;
 > }
 > 
-> proc clos_1(captures_3: box<erased>, x: str): str
-> {
->   let captures_box2: box<{}> = @ptr_cast(captures_3 as box<{}>);
->   let captures_stack2: {} = @get_boxed<captures_box2>;
->   let captures_stack_3: {} = @make_struct{};
->   let captures_box_3: box<{}> = @make_box(captures_stack_3);
->   let captures_6: box<erased> = @ptr_cast(captures_box_3 as box<erased>);
->   let fn_ptr_3: *fn = @make_fn_ptr<clos_3>;
->   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_3, captures_6 };
->   let fnptr1: *fn = @get_struct_field<f, 0>;
->   let captures1: box<erased> = @get_struct_field<f, 1>;
->   let var1: str = @call_indirect(fnptr1, captures1, x);
->   return var1;
-> }
+> global poly2: { *fn, box<erased> } = @call_direct(poly_thunk1);
+> 
+> global poly1: { *fn, box<erased> } = @call_direct(poly_thunk);
 > 
 > proc main_thunk(): [ `0 { int, str } ]
 > {
