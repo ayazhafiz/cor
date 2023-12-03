@@ -224,8 +224,9 @@ let separate_lambdas lset1 lset2 =
   in
   walk [] [] [] (lset1, lset2)
 
-let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
- fun symbols ctx fresh_tvar a b ->
+let unify :
+    late:bool -> Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
+ fun ~late symbols ctx fresh_tvar a b ->
   let error prefix =
     failsolve "unify"
       ("(" ^ ctx ^ ")" ^ prefix ^ " at "
@@ -276,8 +277,11 @@ let unify : Symbol.t -> string -> fresh_tvar -> tvar -> tvar -> unit =
              recursion flag on the cloned type - but then we'd fail to match
              against the first created specialization of "handle", because the
              argument would be boxed unconditionally.
+
+             TODO: we could lessen the restriction to support setting the flag
+             when the unification is not happening late; i.e. during checking.
           *)
-          if false then (
+          if (not late) && false then (
             tvar_set_recur a true;
             tvar_set_recur b true)
       | `AmbientFn -> ()
@@ -394,15 +398,17 @@ let set_let_ty ~fresh_tvar ~symbols ~venv ~symbol ~t_top ~t_infer ~t_sig
   Option.iter
     (fun t_sig ->
       let t_sig = inst fresh_tvar t_sig in
-      unify symbols ("with sig " ^ symbol) fresh_tvar t_infer t_sig)
+      unify ~late:false symbols ("with sig " ^ symbol) fresh_tvar t_infer t_sig)
     t_sig;
-  unify symbols ("with toplevel def" ^ symbol) fresh_tvar t_infer t_top;
+  unify ~late:false symbols
+    ("with toplevel def" ^ symbol)
+    fresh_tvar t_infer t_top;
   if generalize then gen venv t_top;
   t_top
 
 let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
  fun symbols fresh_tvar venv expr ->
-  let unify c = unify symbols c fresh_tvar in
+  let unify c = unify ~late:false symbols c fresh_tvar in
   let rec infer_pat : venv -> Can.e_pat -> venv * tvar =
    fun venv (t, p) ->
     let venv, ty =

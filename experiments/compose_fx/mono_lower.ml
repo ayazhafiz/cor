@@ -297,7 +297,7 @@ let specialize_queue ~(ctx : Ir.ctx) ~specs ~fenv ~queue =
       ~t_needed ~new_sym =
     let type_cache : type_cache = ref [] in
     let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-    unify ctx.symbols "specialize fn" ctx.fresh_tvar t_x t_needed;
+    unify ~late:true ctx.symbols "specialize fn" ctx.fresh_tvar t_x t_needed;
 
     let t_a = clone_type ctx.fresh_tvar type_cache t_a in
     let body, needed = clone_expr ~ctx ~specs ~fenv ~type_cache ~expr:body in
@@ -316,7 +316,7 @@ let specialize_queue ~(ctx : Ir.ctx) ~specs ~fenv ~queue =
 
     let t_x = clone_type ctx.fresh_tvar type_cache t_x in
 
-    unify ctx.symbols "specialize val" ctx.fresh_tvar t_x t_needed;
+    unify ~late:true ctx.symbols "specialize val" ctx.fresh_tvar t_x t_needed;
 
     let body, needed = clone_expr ~ctx ~specs ~fenv ~type_cache ~expr:body in
     let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
