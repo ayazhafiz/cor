@@ -90,7 +90,10 @@ module Compose_fx : LANGUAGE = struct
     (*print_endline @@ Mono.show_specialized specialized;*)
     let compiled = Ir_lower.compile ~ctx mono in
     let compiled = Ir_sort.sort_program compiled in
+    (*
+    print_endline @@ Ir.string_of_program ~width:80 compiled;
     Ir_check.check compiled;
+    *)
     Ok { symbols = ctx.symbols; program = compiled }
 
   let eval ({ program; symbols } : ir_program) =

@@ -17,6 +17,7 @@ and letfn =
       arg : typed_symbol;
       body : e_expr;
       sig_ : tvar option;
+      lam_sym : symbol;
       captures : typed_symbol list;
     }
 
@@ -122,9 +123,11 @@ let pp_expr f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | LetFn (Letfn { bind; arg; body; captures; sig_; _ }, rest) ->
+    | LetFn
+        (Letfn { bind; arg; body; lam_sym; captures; sig_; recursive = _ }, rest)
+      ->
         let ty = fst bind in
-        let clos = Clos { arg; body; captures; lam_sym = snd bind } in
+        let clos = Clos { arg; body; captures; lam_sym } in
         go `Free (ty, Let (Letval { bind; body = (ty, clos); sig_ }, rest))
     | Let (Letval { bind = _, x; body = rhs; _ }, rest) ->
         fprintf f "@[<v 0>@[<hv 0>";
@@ -173,10 +176,12 @@ let pp_expr f =
   in
   go `Free
 
-let pp_letfn f (Letfn { bind = _, x; arg; body; captures; _ }) =
+let pp_letfn f
+    (Letfn
+      { bind = _, x; arg; body; lam_sym; captures; recursive = _; sig_ = _ }) =
   let open Format in
-  fprintf f "@[<v 0>@[<hv 2>let %a = \\%a %a@ %a@]@]" pp_symbol x pp_arrow
-    (x, captures) pp_symbol (snd arg) pp_expr body
+  fprintf f "@[<v 0>@[<hv 2>let %a = \\%a %a@ %a@]@]" pp_symbol x pp_symbol
+    (snd arg) pp_arrow (lam_sym, captures) pp_expr body
 
 let pp_letval f (Letval { bind; body; _ }) =
   let open Format in

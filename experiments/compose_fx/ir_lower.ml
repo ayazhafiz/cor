@@ -230,12 +230,12 @@ let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
         let args_asgns, arg_vars = List.split @@ List.map go_var args in
         let asgns = List.concat args_asgns in
         (asgns, (layout, CallKFn (kfn, arg_vars)))
-    | LetFn (Letfn { bind; captures; _ }, rest) ->
+    | LetFn (Letfn { bind; lam_sym; captures; _ }, rest) ->
         let t_x, x = bind in
         let layout_x = layout_of_tvar ctx t_x in
         let captures = vars_of_captures ~ctx captures in
         let clos_asngs, clos_expr =
-          build_closure ~ctx ~captures ~proc_name:x ~layout:layout_x
+          build_closure ~ctx ~captures ~proc_name:lam_sym ~layout:layout_x
         in
         let x_var = (layout_x, x) in
         let x_asgn = Let (x_var, clos_expr) in
@@ -369,11 +369,13 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
         let global = Global { name = x; layout = x_lay; init } in
         `Thunk pending_thunk :: `Ready global :: go defs
     | `Letfn
-        (Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ }, true)
+        ( Letfn
+            { recursive; bind = t_x, x; arg; body; lam_sym; captures; sig_ = _ },
+          true )
       :: defs ->
         let layout_x = layout_of_tvar ctx t_x in
         let rec_var = if recursive then Some (layout_x, x) else None in
-        let syn_name = Symbol.syn_of ctx.symbols x in
+        let syn_name = Symbol.norm_of lam_sym in
         let proc_name = ctx.symbols.fresh_symbol @@ "clos_" ^ syn_name in
         let captures = vars_of_captures ~ctx captures in
         let pending_clos =
@@ -402,14 +404,15 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
 
         pending_clos :: `Ready thunk :: `Ready global :: go defs
     | `Letfn
-        ( Letfn { recursive; bind = t_x, x; arg; body; captures; sig_ = _ },
+        ( Letfn
+            { recursive; bind = t_x, x; arg; body; lam_sym; captures; sig_ = _ },
           false )
       :: defs ->
         let layout_x = layout_of_tvar ctx t_x in
         let rec_var = if recursive then Some (layout_x, x) else None in
         let captures = vars_of_captures ~ctx captures in
         let pending_clos =
-          compile_closure ~ctx ~rec_var ~arg ~body ~captures ~proc_name:x
+          compile_closure ~ctx ~rec_var ~arg ~body ~captures ~proc_name:lam_sym
         in
         pending_clos :: go defs
   in

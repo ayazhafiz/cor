@@ -451,7 +451,15 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
           fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
       | LetFn
           ( Letfn
-              { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures },
+              {
+                recursive;
+                bind = t_x, x;
+                arg = t_a, a;
+                body;
+                sig_;
+                lam_sym;
+                captures;
+              },
             rest ) ->
           let t_ret =
             let venv = if recursive then (x, t_x) :: venv else venv in
@@ -463,7 +471,7 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
 
           let captures = List.map fst captures in
           let t_lset : ty_lset =
-            [ { lambda = x; captures; ambient_fn = t_fn } ]
+            [ { lambda = lam_sym; captures; ambient_fn = t_fn } ]
           in
           let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
           tvar_set t_fn @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)));
@@ -539,7 +547,15 @@ let infer_def : ctx -> venv -> Can.def -> tvar =
       match kind with
       | `Letfn
           (Can.Letfn
-            { recursive; bind = t_x, x; arg = t_a, a; body; sig_; captures }) ->
+            {
+              recursive;
+              bind = t_x, x;
+              arg = t_a, a;
+              body;
+              sig_;
+              lam_sym;
+              captures;
+            }) ->
           let t_ret =
             let venv = if recursive then (x, t_x) :: venv else venv in
             let venv = (a, t_a) :: venv in
@@ -549,7 +565,9 @@ let infer_def : ctx -> venv -> Can.def -> tvar =
           let t_fn = fresh_tvar @@ Unbd None in
 
           assert (captures = []);
-          let t_lset = [ { lambda = x; captures = []; ambient_fn = t_fn } ] in
+          let t_lset =
+            [ { lambda = lam_sym; captures = []; ambient_fn = t_fn } ]
+          in
           let t_lset = fresh_tvar @@ Content (TLambdaSet t_lset) in
 
           tvar_set t_fn @@ Content (TFn ((noloc, t_a), t_lset, (noloc, t_ret)));
