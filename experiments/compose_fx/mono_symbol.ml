@@ -17,7 +17,7 @@ let determine_specialization ~ctx tvar =
   | Content (TFn ((_, arg), _lset, (_, ret))) ->
       let arg = Ir_layout.layout_of_tvar ctx arg in
       let ret = Ir_layout.layout_of_tvar ctx ret in
-      let args = [ erased_captures_lay; arg ] in
+      let args = [ erased_captures_lay (); arg ] in
       (args, ret)
   | _ ->
       let ret = Ir_layout.layout_of_tvar ctx tvar in

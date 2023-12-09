@@ -16,10 +16,10 @@ type layout_repr =
 
 and layout = layout_repr ref
 
-let layout_str = ref Str
-let layout_int = ref Int
-let erased_captures_lay = ref @@ Box (ref @@ Erased, None)
-let closure_repr = Struct [ ref @@ FunctionPointer; erased_captures_lay ]
+let layout_str () = ref Str
+let layout_int () = ref Int
+let erased_captures_lay () = ref @@ Box (ref @@ Erased, None)
+let closure_repr () = Struct [ ref @@ FunctionPointer; erased_captures_lay () ]
 
 type var = layout * symbol
 type lit = [ `Int of int | `String of string ]

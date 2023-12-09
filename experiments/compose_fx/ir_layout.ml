@@ -37,7 +37,7 @@ let layout_of_tvar : ctx -> tvar -> layout =
               let union = Union tags in
               union
           | Content (TLambdaSet _) -> failwith "todo"
-          | Content (TFn (_, _, _)) -> closure_repr
+          | Content (TFn (_, _, _)) -> closure_repr ()
         in
         let recurs = tvar_recurs tvar in
         let repr =

@@ -22,9 +22,9 @@ type kernel_sig = {
 }
 
 let kernel_sig : kernelfn -> kernel_sig = function
-  | `StrConcat -> { args = `Variadic tvar_str; ret = tvar_str }
-  | `Add -> { args = `Variadic tvar_int; ret = tvar_int }
-  | `Itos -> { args = `List [ tvar_int ]; ret = tvar_str }
+  | `StrConcat -> { args = `Variadic (tvar_str ()); ret = tvar_str () }
+  | `Add -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
+  | `Itos -> { args = `List [ tvar_int () ]; ret = tvar_str () }
 
 type e_expr = loc * tvar * expr
 (** An elaborated expression *)

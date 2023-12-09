@@ -112,9 +112,9 @@ let build_closure ~ctx ~captures ~proc_name ~layout : stmt list * expr =
   let box_captures_asgn = Let (box_captures_var, MakeBox stack_captures_var) in
   (* erase the boxed captures *)
   let captures_name = ctx.symbols.fresh_symbol @@ "captures_" in
-  let captures_var = (erased_captures_lay, captures_name) in
+  let captures_var = (erased_captures_lay (), captures_name) in
   let captures_asgn =
-    Let (captures_var, PtrCast (box_captures_var, erased_captures_lay))
+    Let (captures_var, PtrCast (box_captures_var, erased_captures_lay ()))
   in
 
   let fn_ptr_name = ctx.symbols.fresh_symbol @@ "fn_ptr_" in
@@ -141,7 +141,7 @@ let compile_closure ~ctx ~arg:(t_a, a) ~body ~captures ~proc_name ~rec_var =
     match rec_var with Some (_, x) -> Symbol.syn_of ctx.symbols x | None -> ""
   in
   let captures_name = ctx.symbols.fresh_symbol @@ "captures_" ^ syn_name in
-  let captures_var = (erased_captures_lay, captures_name) in
+  let captures_var = (erased_captures_lay (), captures_name) in
 
   let pending_clos =
     `Closure
@@ -218,7 +218,7 @@ let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
         let fn_asgn = Let (fn_var, GetStructField (clos_var, 0)) in
 
         let captures_name = ctx.symbols.fresh_symbol "captures" in
-        let captures_var = (erased_captures_lay, captures_name) in
+        let captures_var = (erased_captures_lay (), captures_name) in
         let captures_asgn = Let (captures_var, GetStructField (clos_var, 1)) in
 
         let a_asgns, a_var = go_var a in

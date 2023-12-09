@@ -58,9 +58,9 @@ let rec extract_all_named_vars : tvar -> named_var list =
   | Content (TFn ((_, t1), lset, (_, t2))) ->
       extract_all_named_vars t1 @ extract_all_named_vars t2
       @ extract_all_named_vars lset
-  | Content (TLambdaSet lset) ->
+  | Content (TLambdaSet { lambdas; ambient_fn = _ }) ->
       let lset_args =
-        List.flatten @@ List.map (fun { captures; _ } -> captures) lset
+        List.flatten @@ List.map (fun { captures; _ } -> captures) lambdas
       in
       let extracted =
         List.flatten @@ List.map extract_all_named_vars lset_args
@@ -118,9 +118,9 @@ let canonicalize_alias { alias_type; name; args; real } =
         update_ty t1;
         update_ty t2;
         update_ty lset
-    | Content (TLambdaSet lset) ->
+    | Content (TLambdaSet { lambdas; ambient_fn = _ }) ->
         let lset_args =
-          List.flatten @@ List.map (fun { captures; _ } -> captures) lset
+          List.flatten @@ List.map (fun { captures; _ } -> captures) lambdas
         in
         List.iter update_ty lset_args
     | Content (TTag { tags; ext }) ->

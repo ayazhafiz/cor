@@ -80,9 +80,9 @@ type kernel_sig = {
 }
 
 let kernel_sig : Syntax.kernelfn -> kernel_sig = function
-  | `StrConcat -> { args = `Variadic layout_str; ret = layout_str }
-  | `Itos -> { args = `List [ layout_int ]; ret = layout_str }
-  | `Add -> { args = `Variadic layout_int; ret = layout_int }
+  | `StrConcat -> { args = `Variadic (layout_str ()); ret = layout_str () }
+  | `Itos -> { args = `List [ layout_int () ]; ret = layout_str () }
+  | `Add -> { args = `Variadic (layout_int ()); ret = layout_int () }
 
 let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
  fun ctx fenv venv lay e ->

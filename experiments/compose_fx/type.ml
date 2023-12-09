@@ -15,8 +15,8 @@ and ty_content =
   | TPrim of [ `Str | `Int | `Unit ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
-and ty_lambda = { lambda : symbol; captures : tvar list; ambient_fn : tvar }
-and ty_lset = ty_lambda list
+and ty_lambda = { lambda : symbol; captures : tvar list }
+and ty_lset = { lambdas : ty_lambda list; ambient_fn : tvar }
 
 and ty =
   | Link of tvar  (** Link to a type *)
@@ -38,10 +38,10 @@ let tvar_set_recur tvar recur =
 let tvar_recurs tvar = !(tvar.recur)
 let tvar_v tvar = tvar.var
 
-let tvar_int =
+let tvar_int () =
   { ty = ref (Content (TPrim `Int)); var = `Var 0; recur = ref false }
 
-let tvar_str =
+let tvar_str () =
   { ty = ref (Content (TPrim `Str)); var = `Var 1; recur = ref false }
 
 let min_var = 1000
@@ -114,10 +114,10 @@ let preprocess : tvar list -> claimed_names * type_hit_counts =
           let tag_vars = List.map snd tags |> List.flatten |> List.map snd in
           List.iter (go_ty visited) tag_vars;
           go_ty visited @@ snd ext
-      | Content (TLambdaSet lset) ->
+      | Content (TLambdaSet { lambdas; ambient_fn = _ }) ->
           List.iter
             (fun { captures; _ } -> List.iter (go_ty visited) captures)
-            lset
+            lambdas
       | Content (TFn (in', lset, out')) ->
           go_ty visited @@ snd in';
           go_ty visited @@ snd out';
@@ -225,15 +225,15 @@ let pp_tvar :
         let print_ext () = go_head deep `Free ext in
         if not (is_empty_tag ext) then print_ext ();
         fprintf f "@]"
-    | Content (TLambdaSet lset), _ ->
+    | Content (TLambdaSet { lambdas; ambient_fn = _ }), _ ->
         fprintf f "@[<hv 2>[@,";
         List.iteri
-          (fun i { lambda; captures; _ } ->
+          (fun i { lambda; captures } ->
             if i > 0 then fprintf f ",@ ";
             fprintf f "@[<hov 2>%a" (pp_symbol symbols) lambda;
             List.iter (fun _ -> fprintf f "@ %s" ellipsis) captures;
             fprintf f "@]")
-          lset;
+          lambdas;
         fprintf f "@,]@]"
     | Content (TFn (in', lset, out)), _ ->
         fprintf f "@[<hov 2>";
@@ -319,8 +319,8 @@ let pp_tvar :
             let print_ext () = go visited `Free ext in
             if not (is_empty_tag ext) then print_ext ();
             fprintf f "@]"
-        | Content (TLambdaSet lset) ->
-            let pp_lambda i { lambda; captures; _ } =
+        | Content (TLambdaSet { lambdas; ambient_fn = _ }) ->
+            let pp_lambda i { lambda; captures } =
               if i > 0 then pp_print_string f ",@ ";
               fprintf f "@[<hov 2>%a" (pp_symbol symbols) lambda;
               List.iter
@@ -331,7 +331,7 @@ let pp_tvar :
               fprintf f "@]"
             in
             fprintf f "@[[";
-            List.iteri pp_lambda lset;
+            List.iteri pp_lambda lambdas;
             fprintf f "]@]"
         | Content (TFn (in', lset, out)) ->
             fprintf f "@[<hov 2>";

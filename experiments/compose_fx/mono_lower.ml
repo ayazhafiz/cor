@@ -110,11 +110,14 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
  fun fresh_tvar cache tvar ->
   let rec go_loc : loc_tvar -> loc_tvar = fun (l, t) -> (l, go t)
   and go_lambda : ty_lambda -> ty_lambda =
-   fun { lambda; captures; ambient_fn } ->
+   fun { lambda; captures } ->
     let captures = List.map go captures in
+    { lambda; captures }
+  and go_lset : ty_lset -> ty_lset =
+   fun { lambdas; ambient_fn } ->
+    let lambdas = List.map go_lambda lambdas in
     let ambient_fn = go ambient_fn in
-    { lambda; captures; ambient_fn }
-  and go_lset : ty_lset -> ty_lset = fun lset -> List.map go_lambda lset
+    { lambdas; ambient_fn }
   and go : tvar -> tvar =
    fun tvar ->
     let { var; ty; recur } = unlink tvar in

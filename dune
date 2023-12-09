@@ -16,6 +16,8 @@
   (name cor)
   (modules cor)
   (libraries libcor)
+  (preprocess
+   (pps ppx_deriving.show ppx_inline_test sedlex.ppx))
   (modes exe byte))
 
 (executable
