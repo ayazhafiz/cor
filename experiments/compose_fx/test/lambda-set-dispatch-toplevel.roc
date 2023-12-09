@@ -105,9 +105,9 @@ run x = f T2 0
 >   let captures_stack3: {} = @get_boxed<captures_box3>;
 >   let discr: int = @get_union_id<t>;
 >   switch discr {
->   0 -> {let payload: {} = @get_union_struct<t>;f12}
->   1 -> {let payload1: {} = @get_union_struct<t>;f22}
->   2 -> {let payload2: {} = @get_union_struct<t>;f32}
+>   0 -> { let payload: {} = @get_union_struct<t>; f12 }
+>   1 -> { let payload1: {} = @get_union_struct<t>; f22 }
+>   2 -> { let payload2: {} = @get_union_struct<t>; f32 }
 >   } in join join;
 >   return join;
 > }

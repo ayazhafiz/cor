@@ -235,9 +235,13 @@ let rec pp_stmt : Format.formatter -> stmt -> unit =
   fun f -> function
     | Let (v, e) -> fprintf f "@[<hv 2>let %a@ = %a;@]" pp_var v pp_expr e
     | Switch { cond; branches; join } ->
+        let pp_stmts f = function
+          | [] -> ()
+          | stmts -> fprintf f "%a@ " (pp_print_list ~pp_sep:pp_print_space pp_stmt) stmts
+        in
         let pp_branch f (i, (lets, ret)) =
-          fprintf f "@[<hv 0>@[<hv 2>%d -> {@,%a@,%a@]@,}@]" i
-            (pp_print_list pp_stmt) lets pp_expr ret
+          fprintf f "@[<hv 0>@[<hv 2>%d -> {@ %a%a@]@ }@]" i
+            pp_stmts lets pp_expr ret
         in
         fprintf f "@[<v 0>switch %a {@,%a@,} in join %a;@]" pp_v_name cond
           (pp_print_list pp_branch) branches pp_v_name join
