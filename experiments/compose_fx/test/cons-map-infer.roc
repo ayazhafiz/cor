@@ -69,7 +69,7 @@ run main = map mapper l;;
 >   let captures_stack1: { { *fn, box<erased> } } = @get_boxed<captures_box1>;
 >   let f: { *fn, box<erased> } = @get_struct_field<captures_stack1, 0>;
 >   let rec_fn_ptr_go: *fn = @make_fn_ptr<go2>;
->   let go2: { *fn, box<erased> } = @make_struct{ rec_fn_ptr_go, captures_go };
+>   let go: { *fn, box<erased> } = @make_struct{ rec_fn_ptr_go, captures_go };
 >   let inner:
 >         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
 >         ]

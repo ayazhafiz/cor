@@ -374,7 +374,7 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
           true )
       :: defs ->
         let layout_x = layout_of_tvar ctx t_x in
-        let rec_var = if recursive then Some (layout_x, x) else None in
+        let rec_var = Option.map (fun x -> (layout_x, x)) recursive in
         let syn_name = Symbol.norm_of lam_sym in
         let proc_name = ctx.symbols.fresh_symbol @@ "clos_" ^ syn_name in
         let captures = vars_of_captures ~ctx captures in
@@ -405,11 +405,11 @@ let compile_defs : ctx -> Mono.ready_specialization list -> definition list =
         pending_clos :: `Ready thunk :: `Ready global :: go defs
     | `Letfn
         ( Letfn
-            { recursive; bind = t_x, x; arg; body; lam_sym; captures; sig_ = _ },
+            { recursive; bind = t_x, _; arg; body; lam_sym; captures; sig_ = _ },
           false )
       :: defs ->
         let layout_x = layout_of_tvar ctx t_x in
-        let rec_var = if recursive then Some (layout_x, x) else None in
+        let rec_var = Option.map (fun x -> (layout_x, x)) recursive in
         let captures = vars_of_captures ~ctx captures in
         let pending_clos =
           compile_closure ~ctx ~rec_var ~arg ~body ~captures ~proc_name:lam_sym

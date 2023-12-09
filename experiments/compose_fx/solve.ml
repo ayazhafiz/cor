@@ -460,7 +460,13 @@ let infer_expr : Symbol.t -> fresh_tvar -> venv -> Can.e_expr -> tvar =
               },
             rest ) ->
           let t_ret =
-            let venv = if recursive then (x, t_x) :: venv else venv in
+            let venv =
+              match recursive with
+              | Some y ->
+                  assert (x = y);
+                  (x, t_x) :: venv
+              | None -> venv
+            in
             let venv = (a, t_a) :: venv in
             infer venv body
           in
@@ -557,7 +563,13 @@ let infer_def : ctx -> venv -> Can.def -> tvar =
               captures;
             }) ->
           let t_ret =
-            let venv = if recursive then (x, t_x) :: venv else venv in
+            let venv =
+              match recursive with
+              | Some y ->
+                  assert (x = y);
+                  (x, t_x) :: venv
+              | None -> venv
+            in
             let venv = (a, t_a) :: venv in
             infer_expr symbols fresh_tvar venv body
           in

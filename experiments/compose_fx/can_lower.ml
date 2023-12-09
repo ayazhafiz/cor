@@ -332,7 +332,7 @@ let canonicalize_expr ~name_hint ~ctx ~globals e =
                 let letfn =
                   Can.Letfn
                     {
-                      recursive = !recursive;
+                      recursive = (if !recursive then Some x else None);
                       bind = (t_x, x);
                       arg;
                       body = clos_body;
@@ -395,7 +395,9 @@ let mk_canonical_def ~ctx ~name_hint ~expr ~globals ~bind ~sig_ ~run =
     canonicalize_expr ~name_hint ~ctx ~globals expr
   in
   let t_bind_x, bind_x = bind in
-  let recursive = SymbolMap.mem bind_x references in
+  let recursive =
+    if SymbolMap.mem bind_x references then Some bind_x else None
+  in
 
   let t_can_expr, can_expr = can_expr in
 
@@ -406,7 +408,7 @@ let mk_canonical_def ~ctx ~name_hint ~expr ~globals ~bind ~sig_ ~run =
 
   match (run, can_expr) with
   | true, _ ->
-      if recursive then
+      if Option.is_some recursive then
         can_error "canonicalize_defs" "run definitions cannot be recursive";
       Can.Run { bind; body = (t_can_expr, can_expr); sig_ }
   | false, Clos { arg; body; captures; lam_sym } ->
@@ -429,7 +431,7 @@ let mk_canonical_def ~ctx ~name_hint ~expr ~globals ~bind ~sig_ ~run =
       in
       Can.Def { kind = `Letfn letfn }
   | false, _ ->
-      if recursive then
+      if Option.is_some recursive then
         can_error "canonicalize_defs"
           "non-closure definitions cannot be recursive";
       let letval = Can.Letval { bind; body = (t_can_expr, can_expr); sig_ } in

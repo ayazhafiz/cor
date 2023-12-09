@@ -25,7 +25,7 @@ run x = f T2 0
 >   let f32 = \x2 -[f32]-> add x2 3
 >   
 >   let f5 = \t -[f5]->
->     when t is| T1 -> f12| T2 -> f22| T3 -> f32
+>     when t is | T1 -> f12 | T2 -> f22 | T3 -> f32
 >     end
 >   
 >   let x3 = (f5 (T2 )) 0

@@ -53,7 +53,7 @@ run main_handler =
 >   let captures_box: box<{}> = @ptr_cast(captures_handle as box<{}>);
 >   let captures_stack: {} = @get_boxed<captures_box>;
 >   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle2>;
->   let handle2: { *fn, box<erased> }
+>   let handle: { *fn, box<erased> }
 >     = @make_struct{ rec_fn_ptr_handle, captures_handle };
 >   let discr: int = @get_union_id<op>;
 >   switch discr {

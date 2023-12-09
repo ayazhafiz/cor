@@ -92,8 +92,8 @@ module Compose_fx : LANGUAGE = struct
     let compiled = Ir_sort.sort_program compiled in
     (*
     print_endline @@ Ir.string_of_program ~width:80 compiled;
-    Ir_check.check compiled;
     *)
+    Ir_check.check compiled;
     Ok { symbols = ctx.symbols; program = compiled }
 
   let eval ({ program; symbols } : ir_program) =

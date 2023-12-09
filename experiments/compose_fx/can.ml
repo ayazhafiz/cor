@@ -12,7 +12,7 @@ type e_expr = tvar * expr
 
 and letfn =
   | Letfn of {
-      recursive : bool;
+      recursive : symbol Option.t;
       bind : typed_symbol;
       arg : typed_symbol;
       body : e_expr;
@@ -168,7 +168,7 @@ let pp_expr f =
         fprintf f " is";
         List.iteri
           (fun _i (pat, body) ->
-            fprintf f "@,@[<hov 2>| %a ->@ " pp_pat pat;
+            fprintf f "@ @[<hov 2>| %a ->@ " pp_pat pat;
             go `Free body;
             fprintf f "@]")
           branches;

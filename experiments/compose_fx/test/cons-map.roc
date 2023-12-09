@@ -1,4 +1,5 @@
 # cor +solve -elab
+# cor +mono -print
 # cor +ir -print
 # cor +eval -print
 List a : [ Nil, Cons a (List a) ]
@@ -54,6 +55,45 @@ run main = map mapper l;;
 > run main = map mapper l;;
 > 
 
+> cor-out +mono -print
+> specializations:
+>   let lam1 = \xs -[lam1 f]->
+>     let go =
+>       \xs1 -[go2 f]->
+>         when xs1 is
+>           | Nil -> Nil 
+>           | Consx xs2 -> Cons (f x) (go xs2)
+>         end
+>     in
+>     go xs
+>   
+>   let go2 = \xs1 -[go2 f]->
+>     when xs1 is
+>       | Nil -> Nil 
+>       | Consx xs2 -> Cons (f x) (go xs2)
+>     end
+>   
+>   let map2 = \f -[map2]->
+>     \xs -[lam1 f]->
+>       let go =
+>         \xs1 -[go2 f]->
+>           when xs1 is
+>             | Nil -> Nil 
+>             | Consx xs2 -> Cons (f x) (go xs2)
+>           end
+>       in
+>       go xs
+>   
+>   let mapper2 = \x1 -[mapper2]-> A x1
+>   
+>   let l1 = Cons 1 (Cons 2 (Nil ))
+>   
+>   let main = (map2 mapper2) l1
+>   
+>   
+> entry_points:
+>   main
+
 > cor-out +ir -print
 > proc go2(
 >   captures_go: box<erased>,
@@ -65,7 +105,7 @@ run main = map mapper l;;
 >   let captures_stack1: { { *fn, box<erased> } } = @get_boxed<captures_box1>;
 >   let f: { *fn, box<erased> } = @get_struct_field<captures_stack1, 0>;
 >   let rec_fn_ptr_go: *fn = @make_fn_ptr<go2>;
->   let go2: { *fn, box<erased> } = @make_struct{ rec_fn_ptr_go, captures_go };
+>   let go: { *fn, box<erased> } = @make_struct{ rec_fn_ptr_go, captures_go };
 >   let inner:
 >         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
 >         ]

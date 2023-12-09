@@ -58,7 +58,7 @@ let find_fenv_expr : e_expr -> fenv =
         let letfn =
           Letfn
             {
-              recursive = false;
+              recursive = None;
               arg;
               lam_sym;
               captures;
