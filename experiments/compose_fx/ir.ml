@@ -11,6 +11,7 @@ type layout_repr =
   | Struct of layout list
   | Union of layout list
   | Box of layout * rec_id option
+  | UnfilledRecursive
 
 and layout = layout_repr ref
 
@@ -110,6 +111,7 @@ let pp_layout : ?max_depth:int -> Format.formatter -> layout -> unit =
           seen_recs := r :: !seen_recs;
           fprintf f "@[<hv 2>box<@,%a =@ %a>@]" pp_rec_id r go lay
       | Box (lay, None) -> fprintf f "@[<hv 2>box<@,%a>@]" go lay
+      | UnfilledRecursive -> fprintf f "unfilled_recursive"
   in
   go ~max_depth f l
 
@@ -126,6 +128,7 @@ let rec show_layout_head l =
   | Box (l, None) -> Format.sprintf "box<%s>" (show_layout_head l)
   | Box (l, Some r) ->
       Format.sprintf "box<%s = %s>" (show_rec_id r) (show_layout_head l)
+  | UnfilledRecursive -> "unfilled_recursive"
 
 let pp_symbol : Format.formatter -> symbol -> unit =
  fun f s -> Format.fprintf f "%s" (Symbol.norm_of s)

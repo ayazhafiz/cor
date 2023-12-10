@@ -19,13 +19,13 @@ let layout_of_tvar : ctx -> tvar -> layout =
     let var = tvar_v tvar in
     match List.assoc_opt var !cache with
     | Some layout ->
-        if !layout = Union [] then
+        if !layout = UnfilledRecursive then
           (* NB: late recursion-setting. If we failed to find a recursion point
              earlier on, we opportunistically set it now. *)
           tvar_set_recur tvar true;
         layout
     | None ->
-        let lay = ref @@ Union [] in
+        let lay = ref @@ UnfilledRecursive in
         cache := (var, lay) :: !cache;
         let repr =
           match tvar_deref tvar with
