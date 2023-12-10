@@ -131,7 +131,8 @@ let canonicalize_alias { alias_type; name; args; real } =
     | Content (TPrim (`Str | `Unit | `Int)) -> ()
     | Alias { alias; real = _ } when is_same_alias alias ->
         tvar_set tvar @@ Link alias_type;
-        tvar_set_recur (unlink alias_type) true
+        (*tvar_set_recur (unlink alias_type) true*)
+        ()
     | Alias _ ->
         can_error "canonicalize_alias"
           ("cannot reference an alias " ^ show_tvar tvar
@@ -189,7 +190,7 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
        the alias may also appear in the scheme, so we map it as well. *)
     let scheme_arg_vars = List.map tvar_v @@ List.map snd @@ schme_args in
     let arg_tys = List.map snd args in
-    tvar_set_recur (unlink alias_type) (tvar_recurs @@ unlink scheme_alias_type);
+    (*tvar_set_recur (unlink alias_type) (tvar_recurs @@ unlink scheme_alias_type);*)
     let new_arg_map =
       (tvar_v scheme_alias_type, alias_type)
       :: List.combine scheme_arg_vars arg_tys

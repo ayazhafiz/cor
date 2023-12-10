@@ -277,9 +277,10 @@ let unify :
              TODO: we could lessen the restriction to support setting the flag
              when the unification is not happening late; i.e. during checking.
           *)
-          if (not late) && false then (
-            tvar_set_recur a true;
-            tvar_set_recur b true)
+          if (not late) && false then
+            (* tvar_set_recur a true; *)
+            (* tvar_set_recur b true *)
+            ()
       | `AmbientFn -> ()
     else
       let visited = (vara, varb) :: visited in
@@ -386,8 +387,8 @@ let unify :
       let c = fresh_tvar @@ Unbd None in
       tvar_set a (Link c);
       tvar_set b (Link c);
-      tvar_set c ty;
-      (* tvar_set_recur c recurs *)
+      tvar_set c ty
+    (* tvar_set_recur c recurs *)
   in
   unify [] a b
 

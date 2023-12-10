@@ -32,8 +32,8 @@ run main = map mapper l;;
 > 
 > sig map : (a -> b) -> List a -> List b
 > #   ^^^ ('a -'c-> 'b)
-> #   ^^^   -[map]-> %(List 'a1)
-> #   ^^^              -[lam ('a2 -'c-> 'b2)]-> %List 'b1
+> #   ^^^   -[map]-> (List 'a1)
+> #   ^^^              -[lam ('a2 -'c-> 'b2)]-> List 'b1
 > let map = \f -> \xs ->
 >   let go = \xs ->
 > #     ^^ (List 'a) -[go1 ('a -'*-> 'b)]-> List 'b
