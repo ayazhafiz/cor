@@ -9,7 +9,7 @@ let map = \x ->
 run main = map 1;;
 
 > cor-out +ir -print
-> proc f2(captures_: box<erased>, y: int): int
+> proc f11(captures_: box<erased>, y: int): int
 > {
 >   let captures_box: box<{}> = @ptr_cast(captures_ as box<{}>);
 >   let captures_stack: {} = @get_boxed<captures_box>;
@@ -25,7 +25,7 @@ run main = map 1;;
 >   let captures_stack_1: {} = @make_struct{};
 >   let captures_box_1: box<{}> = @make_box(captures_stack_1);
 >   let captures_3: box<erased> = @ptr_cast(captures_box_1 as box<erased>);
->   let fn_ptr_1: *fn = @make_fn_ptr<f2>;
+>   let fn_ptr_1: *fn = @make_fn_ptr<f11>;
 >   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_1, captures_3 };
 >   let fnptr: *fn = @get_struct_field<f, 0>;
 >   let captures: box<erased> = @get_struct_field<f, 1>;

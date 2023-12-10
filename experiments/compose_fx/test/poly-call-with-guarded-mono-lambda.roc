@@ -13,14 +13,14 @@ run main =
 
 > cor-out +mono -print
 > specializations:
->   let f2 = \x1 -[f2]-> x1
+>   let f11 = \x1 -[f11]-> x1
 >   
 >   let poly2 = \x -[poly2]->
->     let f = \x1 -[f2]-> x1 in
+>     let f = \x1 -[f11]-> x1 in
 >     A (f "") x
 >   
 >   let poly3 = \x -[poly3]->
->     let f = \x1 -[f2]-> x1 in
+>     let f = \x1 -[f11]-> x1 in
 >     A (f "") x
 >   
 >   let main = A (poly2 1) (poly3 "")
@@ -30,7 +30,7 @@ run main =
 >   main
 
 > cor-out +ir -print
-> proc f2(captures_: box<erased>, x1: str): str
+> proc f11(captures_: box<erased>, x1: str): str
 > {
 >   let captures_box: box<{}> = @ptr_cast(captures_ as box<{}>);
 >   let captures_stack: {} = @get_boxed<captures_box>;
@@ -44,7 +44,7 @@ run main =
 >   let captures_stack_3: {} = @make_struct{};
 >   let captures_box_3: box<{}> = @make_box(captures_stack_3);
 >   let captures_6: box<erased> = @ptr_cast(captures_box_3 as box<erased>);
->   let fn_ptr_3: *fn = @make_fn_ptr<f2>;
+>   let fn_ptr_3: *fn = @make_fn_ptr<f11>;
 >   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_3, captures_6 };
 >   let fnptr1: *fn = @get_struct_field<f, 0>;
 >   let captures1: box<erased> = @get_struct_field<f, 1>;
@@ -62,7 +62,7 @@ run main =
 >   let captures_stack_2: {} = @make_struct{};
 >   let captures_box_2: box<{}> = @make_box(captures_stack_2);
 >   let captures_5: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
->   let fn_ptr_2: *fn = @make_fn_ptr<f2>;
+>   let fn_ptr_2: *fn = @make_fn_ptr<f11>;
 >   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_2, captures_5 };
 >   let fnptr: *fn = @get_struct_field<f, 0>;
 >   let captures: box<erased> = @get_struct_field<f, 1>;

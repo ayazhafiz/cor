@@ -59,7 +59,7 @@ run main = map mapper l;;
 > specializations:
 >   let lam1 = \xs -[lam1 f]->
 >     let go =
->       \xs1 -[go2 f]->
+>       \xs1 -[go11 f]->
 >         when xs1 is
 >           | Nil -> Nil 
 >           | Consx xs2 -> Cons (f x) (go xs2)
@@ -67,7 +67,7 @@ run main = map mapper l;;
 >     in
 >     go xs
 >   
->   let go2 = \xs1 -[go2 f]->
+>   let go11 = \xs1 -[go11 f]->
 >     when xs1 is
 >       | Nil -> Nil 
 >       | Consx xs2 -> Cons (f x) (go xs2)
@@ -76,7 +76,7 @@ run main = map mapper l;;
 >   let map2 = \f -[map2]->
 >     \xs -[lam1 f]->
 >       let go =
->         \xs1 -[go2 f]->
+>         \xs1 -[go11 f]->
 >           when xs1 is
 >             | Nil -> Nil 
 >             | Consx xs2 -> Cons (f x) (go xs2)
@@ -95,16 +95,55 @@ run main = map mapper l;;
 >   main
 
 > cor-out +ir -print
-> proc go2(
+> proc clos_mapper2(captures_3: box<erased>, x1: int): [ `0 { int } ]
+> {
+>   let captures_box3: box<{}> = @ptr_cast(captures_3 as box<{}>);
+>   let captures_stack3: {} = @get_boxed<captures_box3>;
+>   let struct2: { int } = @make_struct{ x1 };
+>   let var4: [ `0 { int } ] = @make_union<0, struct2>;
+>   return var4;
+> }
+> 
+> proc l_thunk(): box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>
+> {
+>   let var5: int = 1;
+>   let var6: int = 2;
+>   let struct3: {} = @make_struct{};
+>   let unboxed2:
+>         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
+>         ]
+>     = @make_union<1, struct3>;
+>   let var7: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>
+>     = @make_box(unboxed2);
+>   let struct4: { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }
+>     = @make_struct{ var6, var7 };
+>   let unboxed3:
+>         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
+>         ]
+>     = @make_union<0, struct4>;
+>   let var8: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>
+>     = @make_box(unboxed3);
+>   let struct5: { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }
+>     = @make_struct{ var5, var8 };
+>   let unboxed4:
+>         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
+>         ]
+>     = @make_union<0, struct5>;
+>   let var9: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>
+>     = @make_box(unboxed4);
+>   return var9;
+> }
+> 
+> proc go11(
 >   captures_go: box<erased>,
 >    xs1: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>):
->   box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
+>   box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
 > {
 >   let captures_box1: box<{ { *fn, box<erased> } }>
 >     = @ptr_cast(captures_go as box<{ { *fn, box<erased> } }>);
 >   let captures_stack1: { { *fn, box<erased> } } = @get_boxed<captures_box1>;
 >   let f: { *fn, box<erased> } = @get_struct_field<captures_stack1, 0>;
->   let rec_fn_ptr_go: *fn = @make_fn_ptr<go2>;
+>   let rec_fn_ptr_go: *fn = @make_fn_ptr<go11>;
 >   let go: { *fn, box<erased> } = @make_struct{ rec_fn_ptr_go, captures_go };
 >   let inner:
 >         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
@@ -123,12 +162,12 @@ run main = map mapper l;;
 >     let var1: [ `0 { int } ] = @call_indirect(fnptr1, captures1, x);
 >     let fnptr2: *fn = @get_struct_field<go, 0>;
 >     let captures2: box<erased> = @get_struct_field<go, 1>;
->     let var2: box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
+>     let var2: box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
 >       = @call_indirect(fnptr2, captures2, xs2);
 >     let struct1:
 >           {
 >            [ `0 { int } ],
->             box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
+>             box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
 >            ,
 >           }
 >       = @make_struct{ var1, var2 };
@@ -136,7 +175,7 @@ run main = map mapper l;;
 >           [
 >              `0 {
 >                  [ `0 { int } ],
->                   box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
+>                   box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
 >                  ,
 >                 },
 >              `1 {}
@@ -151,7 +190,7 @@ run main = map mapper l;;
 >           [
 >              `0 {
 >                  [ `0 { int } ],
->                   box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
+>                   box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
 >                  ,
 >                 },
 >              `1 {}
@@ -161,67 +200,6 @@ run main = map mapper l;;
 >   }
 >   } in join join;
 >   return join;
-> }
-> 
-> proc clos_mapper2(captures_3: box<erased>, x1: int): [ `0 { int } ]
-> {
->   let captures_box3: box<{}> = @ptr_cast(captures_3 as box<{}>);
->   let captures_stack3: {} = @get_boxed<captures_box3>;
->   let struct2: { int } = @make_struct{ x1 };
->   let var4: [ `0 { int } ] = @make_union<0, struct2>;
->   return var4;
-> }
-> 
-> proc l_thunk(): box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]>
-> {
->   let var5: int = 1;
->   let var6: int = 2;
->   let struct3: {} = @make_struct{};
->   let unboxed2:
->         [ `0 { int, box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]> }, `1 {}
->         ]
->     = @make_union<1, struct3>;
->   let var7: box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]>
->     = @make_box(unboxed2);
->   let struct4: { int, box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]> }
->     = @make_struct{ var6, var7 };
->   let unboxed3:
->         [ `0 { int, box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]> }, `1 {}
->         ]
->     = @make_union<0, struct4>;
->   let var8: box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]>
->     = @make_box(unboxed3);
->   let struct5: { int, box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]> }
->     = @make_struct{ var5, var8 };
->   let unboxed4:
->         [ `0 { int, box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]> }, `1 {}
->         ]
->     = @make_union<0, struct5>;
->   let var9: box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]>
->     = @make_box(unboxed4);
->   return var9;
-> }
-> 
-> proc lam1(
->   captures_: box<erased>,
->    xs: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>):
->   box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
-> {
->   let captures_box: box<{ { *fn, box<erased> } }>
->     = @ptr_cast(captures_ as box<{ { *fn, box<erased> } }>);
->   let captures_stack: { { *fn, box<erased> } } = @get_boxed<captures_box>;
->   let f: { *fn, box<erased> } = @get_struct_field<captures_stack, 0>;
->   let captures_stack_2: { { *fn, box<erased> } } = @make_struct{ f };
->   let captures_box_2: box<{ { *fn, box<erased> } }>
->     = @make_box(captures_stack_2);
->   let captures_5: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
->   let fn_ptr_2: *fn = @make_fn_ptr<go2>;
->   let go: { *fn, box<erased> } = @make_struct{ fn_ptr_2, captures_5 };
->   let fnptr: *fn = @get_struct_field<go, 0>;
->   let captures: box<erased> = @get_struct_field<go, 1>;
->   let var: box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
->     = @call_indirect(fnptr, captures, xs);
->   return var;
 > }
 > 
 > proc mapper2_thunk(): { *fn, box<erased> }
@@ -236,8 +214,32 @@ run main = map mapper l;;
 > }
 > 
 > global l1:
->   box<%type_6 = [ `0 { int, box<%type_6> }, `1 {} ]>
+>   box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>
 >   = @call_direct(l_thunk);
+> 
+> proc lam1(
+>   captures_: box<erased>,
+>    xs: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>):
+>   box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
+> {
+>   let captures_box: box<{ { *fn, box<erased> } }>
+>     = @ptr_cast(captures_ as box<{ { *fn, box<erased> } }>);
+>   let captures_stack: { { *fn, box<erased> } } = @get_boxed<captures_box>;
+>   let f: { *fn, box<erased> } = @get_struct_field<captures_stack, 0>;
+>   let captures_stack_2: { { *fn, box<erased> } } = @make_struct{ f };
+>   let captures_box_2: box<{ { *fn, box<erased> } }>
+>     = @make_box(captures_stack_2);
+>   let captures_5: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
+>   let fn_ptr_2: *fn = @make_fn_ptr<go11>;
+>   let go: { *fn, box<erased> } = @make_struct{ fn_ptr_2, captures_5 };
+>   let fnptr: *fn = @get_struct_field<go, 0>;
+>   let captures: box<erased> = @get_struct_field<go, 1>;
+>   let var: box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
+>     = @call_indirect(fnptr, captures, xs);
+>   return var;
+> }
+> 
+> global mapper2: { *fn, box<erased> } = @call_direct(mapper2_thunk);
 > 
 > proc clos_map2(captures_1: box<erased>, f: { *fn, box<erased> }):
 >   { *fn, box<erased> }
@@ -253,8 +255,6 @@ run main = map mapper l;;
 >   return var3;
 > }
 > 
-> global mapper2: { *fn, box<erased> } = @call_direct(mapper2_thunk);
-> 
 > proc map2_thunk(): { *fn, box<erased> }
 > {
 >   let captures_stack_: {} = @make_struct{};
@@ -268,20 +268,20 @@ run main = map mapper l;;
 > global map2: { *fn, box<erased> } = @call_direct(map2_thunk);
 > 
 > proc main_thunk():
->   box<%type_9 = [ `0 { [ `0 { int } ], box<%type_9> }, `1 {} ]>
+>   box<%type_7 = [ `0 { [ `0 { int } ], box<%type_7> }, `1 {} ]>
 > {
 >   let fnptr3: *fn = @get_struct_field<map2, 0>;
 >   let captures3: box<erased> = @get_struct_field<map2, 1>;
 >   let var10: { *fn, box<erased> } = @call_indirect(fnptr3, captures3, mapper2);
 >   let fnptr4: *fn = @get_struct_field<var10, 0>;
 >   let captures4: box<erased> = @get_struct_field<var10, 1>;
->   let var11: box<%type_9 = [ `0 { [ `0 { int } ], box<%type_9> }, `1 {} ]>
+>   let var11: box<%type_7 = [ `0 { [ `0 { int } ], box<%type_7> }, `1 {} ]>
 >     = @call_indirect(fnptr4, captures4, l1);
 >   return var11;
 > }
 > 
 > global main:
->   box<%type_7 = [ `0 { [ `0 { int } ], box<%type_7> }, `1 {} ]>
+>   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
 >   = @call_direct(main_thunk);
 > 
 > entry main;

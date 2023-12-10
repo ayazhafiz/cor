@@ -149,7 +149,7 @@ run main_handler =
 >   return var16;
 > }
 > 
-> proc handle2(
+> proc handle11(
 >   captures_handle: box<erased>,
 >    op1:
 >      [
@@ -161,7 +161,7 @@ run main_handler =
 > {
 >   let captures_box11: box<{}> = @ptr_cast(captures_handle as box<{}>);
 >   let captures_stack11: {} = @get_boxed<captures_box11>;
->   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle2>;
+>   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle11>;
 >   let handle: { *fn, box<erased> }
 >     = @make_struct{ rec_fn_ptr_handle, captures_handle };
 >   let discr: int = @get_union_id<op1>;
@@ -477,7 +477,7 @@ run main_handler =
 >   let captures_stack_11: {} = @make_struct{};
 >   let captures_box_11: box<{}> = @make_box(captures_stack_11);
 >   let captures_22: box<erased> = @ptr_cast(captures_box_11 as box<erased>);
->   let fn_ptr_11: *fn = @make_fn_ptr<handle2>;
+>   let fn_ptr_11: *fn = @make_fn_ptr<handle11>;
 >   let handle: { *fn, box<erased> } = @make_struct{ fn_ptr_11, captures_22 };
 >   let fnptr13: *fn = @get_struct_field<handle, 0>;
 >   let captures13: box<erased> = @get_struct_field<handle, 1>;
