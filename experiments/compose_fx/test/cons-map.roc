@@ -36,17 +36,17 @@ run main = map mapper l;;
 > #   ^^^              -[lam ('a2 -'c-> 'b2)]-> %List 'b1
 > let map = \f -> \xs ->
 >   let go = \xs ->
-> #     ^^ %(List 'a) -[go1 ('a -'*-> 'b)]-> %List 'b
+> #     ^^ (List 'a) -[go1 ('a -'*-> 'b)]-> List 'b
 >     when xs is
-> #        ^^ %List 'a
+> #        ^^ List 'a
 >       | Nil -> Nil
 >       | Cons x xs -> Cons (f x) (go xs)
-> #                                   ^^ %List 'a
-> #              ^^ %List 'a
+> #                                   ^^ List 'a
+> #              ^^ List 'a
 >     end
 >   in go xs
-> #       ^^ %List 'a
-> #    ^^ %(List 'a) -[go1 ('a -'*-> 'b)]-> %List 'b
+> #       ^^ List 'a
+> #    ^^ (List 'a) -[go1 ('a -'*-> 'b)]-> List 'b
 > ;;
 > 
 > let mapper = \x -> A x;;

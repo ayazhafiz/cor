@@ -108,27 +108,27 @@ run main_handler =
 > 
 > sig main : Task Str (Op *)
 > let main = await lineIn (\s -> lineOut s)
-> #                              ^^^^^^^ Str -[lineOut]-> Task Str %(Op 'a)
+> #                              ^^^^^^^ Str -[lineOut]-> Task Str (Op 'a)
 > #                         ^ Str
-> #          ^^^^^ (Task Str %(Op 'a))
-> #          ^^^^^   -[await]-> (Str -[lam6]-> Task Str %(Op 'a))
-> #          ^^^^^                -[lam2 (Task Str %(Op 'a))]-> 
-> #          ^^^^^                Task Str %(Op 'a)
+> #          ^^^^^ (Task Str (Op 'a))
+> #          ^^^^^   -[await]-> (Str -[lam6]-> Task Str (Op 'a))
+> #          ^^^^^                -[lam2 (Task Str (Op 'a))]-> 
+> #          ^^^^^                Task Str (Op 'a)
 > ;;
 > 
 > run main_handler =
 > #   ^^^^^^^^^^^^ Str
 >     let op = main (\x -> Done x) in
-> #       ^^ %Op Str
+> #       ^^ Op Str
 >     let handle = \op -> when op is
-> #       ^^^^^^ %(Op Str) -[handle1]-> Str
+> #       ^^^^^^ (Op Str) -[handle1]-> Str
 >         | StdinLine f -> handle (f "hello")
 >         | StdoutLine s f -> handle (f s)
 >         | Done x -> x
 >     end
 >     in
 >     handle op
-> #          ^^ %Op Str
+> #          ^^ Op Str
 > ;;
 > 
 
