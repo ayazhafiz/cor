@@ -136,85 +136,11 @@ run main_handler =
 > proc lam21(captures_: [ `0 { [ `0 {} ] } ], next: [ `0 {} ]):
 >   [ `0 { [ `0 {} ], [ `0 {} ] } ]
 > {
-<<<<<<< Updated upstream
->   let captures_box10: box<{}> = @ptr_cast(captures_13 as box<{}>);
->   let captures_stack10: {} = @get_boxed<captures_box10>;
->   let struct2: { str } = @make_struct{ x1 };
->   let var16:
->         [
->            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @make_union<0, struct2>;
->   return var16;
-> }
-> 
-> proc handle11(
->   captures_handle: box<erased>,
->    op1:
->      [
->         `0 { str },
->         `1 { { *fn, box<erased> } },
->         `2 { str, { *fn, box<erased> } }
->      ]):
->   str
-> {
->   let captures_box11: box<{}> = @ptr_cast(captures_handle as box<{}>);
->   let captures_stack11: {} = @get_boxed<captures_box11>;
->   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle11>;
->   let handle: { *fn, box<erased> }
->     = @make_struct{ rec_fn_ptr_handle, captures_handle };
->   let discr: int = @get_union_id<op1>;
->   switch discr {
->   0 -> {
->     let payload2: { str } = @get_union_struct<op1>;
->     let x2: str = @get_struct_field<payload2, 0>;
->     x2
->   }
->   1 -> {
->     let payload: { { *fn, box<erased> } } = @get_union_struct<op1>;
->     let f: { *fn, box<erased> } = @get_struct_field<payload, 0>;
->     let fnptr8: *fn = @get_struct_field<handle, 0>;
->     let captures8: box<erased> = @get_struct_field<handle, 1>;
->     let fnptr9: *fn = @get_struct_field<f, 0>;
->     let captures9: box<erased> = @get_struct_field<f, 1>;
->     let var17: str = "hello";
->     let var18:
->           [
->              `0 { str },
->              `1 { { *fn, box<erased> } },
->              `2 { str, { *fn, box<erased> } }
->           ]
->       = @call_indirect(fnptr9, captures9, var17);
->     @call_indirect(fnptr8, captures8, var18)
->   }
->   2 -> {
->     let payload1: { str, { *fn, box<erased> } } = @get_union_struct<op1>;
->     let s3: str = @get_struct_field<payload1, 0>;
->     let f1: { *fn, box<erased> } = @get_struct_field<payload1, 1>;
->     let fnptr10: *fn = @get_struct_field<handle, 0>;
->     let captures10: box<erased> = @get_struct_field<handle, 1>;
->     let fnptr11: *fn = @get_struct_field<f1, 0>;
->     let captures11: box<erased> = @get_struct_field<f1, 1>;
->     let var19:
->           [
->              `0 { str },
->              `1 { { *fn, box<erased> } },
->              `2 { str, { *fn, box<erased> } }
->           ]
->       = @call_indirect(fnptr11, captures11, s3);
->     @call_indirect(fnptr10, captures10, var19)
->   }
->   } in join join;
->   return join;
-=======
 >   let captures_stack: { [ `0 {} ] } = @get_union_struct<captures_>;
 >   let fromResult: [ `0 {} ] = @get_struct_field<captures_stack, 0>;
 >   let struct: { [ `0 {} ], [ `0 {} ] } = @make_struct{ fromResult, next };
 >   let var: [ `0 { [ `0 {} ], [ `0 {} ] } ] = @make_union<0, struct>;
 >   return var;
->>>>>>> Stashed changes
 > }
 > 
 > proc lam71(captures_10: [ `0 {} ], x1: str):
@@ -474,18 +400,6 @@ run main_handler =
 >            `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
 >            `2 { str, [ `0 { [ `0 {} ] } ] }
 >         ]
-<<<<<<< Updated upstream
->     = @call_indirect(fnptr12, captures12, var20);
->   let captures_stack_11: {} = @make_struct{};
->   let captures_box_11: box<{}> = @make_box(captures_stack_11);
->   let captures_22: box<erased> = @ptr_cast(captures_box_11 as box<erased>);
->   let fn_ptr_11: *fn = @make_fn_ptr<handle11>;
->   let handle: { *fn, box<erased> } = @make_struct{ fn_ptr_11, captures_22 };
->   let fnptr13: *fn = @get_struct_field<handle, 0>;
->   let captures13: box<erased> = @get_struct_field<handle, 1>;
->   let var21: str = @call_indirect(fnptr13, captures13, op);
->   return var21;
-=======
 >     = join13;
 >   let struct15: {} = @make_struct{};
 >   let handle: [ `0 {} ] = @make_union<0, struct15>;
@@ -494,7 +408,6 @@ run main_handler =
 >   0 -> { @call_direct(handle11, handle, op) }
 >   } in join join14;
 >   return join14;
->>>>>>> Stashed changes
 > }
 > 
 > global main_handler: str = @call_direct(main_handler_thunk);

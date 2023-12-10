@@ -5,7 +5,8 @@ open Type
 open Mono
 open Ir_ctx
 
-type val_specialization = [ `Val of letval * symbol * tvar ]
+type type_cache = (variable * tvar) list ref
+type val_specialization = [ `Val of type_cache * letval * symbol * tvar ]
 
 type needed_fn_specialization = {
   letfn : letfn;
@@ -16,7 +17,9 @@ type needed_fn_specialization = {
 }
 
 type needed_specialization =
-  [ `ToplevelFn of letfn * symbol * tvar | `Clos of letfn | val_specialization ]
+  [ `ToplevelFn of type_cache * letfn * symbol * tvar
+  | `Clos of letfn
+  | val_specialization ]
 
 type queue = needed_specialization list
 type spec_procs = ready_specialization list
@@ -24,7 +27,7 @@ type fenv_kind = [ `Fn of letfn | `Val of letval ]
 type fenv = (symbol * fenv_kind) list
 
 let symbol_of_needed_specialization : val_specialization -> symbol * tvar =
- fun (`Val (Letval { bind = t_x, x; _ }, _, _)) -> (x, t_x)
+ fun (`Val (_, Letval { bind = t_x, x; _ }, _, _)) -> (x, t_x)
 
 let find_entry_points defs =
   let rec go = function
@@ -41,7 +44,7 @@ let find_toplevel_values : def list -> val_specialization list =
     | Run { bind; body; sig_ } :: rest ->
         let t_x, x = bind in
         let letval = Letval { bind; body; sig_ } in
-        `Val (letval, x, t_x) :: go rest
+        `Val (ref [], letval, x, t_x) :: go rest
     | _ :: rest -> go rest
   in
   go defs
@@ -62,8 +65,6 @@ let find_fenv : def list -> fenv =
     | Run _ :: rest -> go fenv rest
   in
   go [] defs
-
-type type_cache = (variable * tvar) list ref
 
 let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
  fun fresh_tvar cache tvar ->
@@ -120,19 +121,27 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
   in
   go tvar
 
-let find_specialization ~ctx ~name ~type_cache ~kind ~t_needed =
-  let new_sym, spec_kind = Mono_symbol.add_specialization ~ctx name t_needed in
+let find_specialization ~ctx ~name ~type_cache:_ ~kind ~t_needed =
+  let type_cache : type_cache = ref [] in
+  let top_ty =
+    match kind with
+    | `Fn (Letfn { bind = t_x, _; _ }) ->
+        clone_type ctx.fresh_tvar type_cache t_x
+    | `Val (Letval { bind = t_x, _; _ }) ->
+        clone_type ctx.fresh_tvar type_cache t_x
+  in
+  unify ~late:true ctx.symbols "find_specialization" ctx.fresh_tvar top_ty
+    t_needed;
 
-  (* Clone the needed type to avoid clobbering it in other specializations. *)
-  let t_needed = clone_type ctx.fresh_tvar type_cache t_needed in
+  let new_sym, spec_kind = Mono_symbol.add_specialization ~ctx name t_needed in
 
   match spec_kind with
   | `Existing -> (new_sym, [])
   | `New ->
       let spec =
         match kind with
-        | `Fn letfn -> `ToplevelFn (letfn, new_sym, t_needed)
-        | `Val letval -> `Val (letval, new_sym, t_needed)
+        | `Fn letfn -> `ToplevelFn (type_cache, letfn, new_sym, t_needed)
+        | `Val letval -> `Val (type_cache, letval, new_sym, t_needed)
       in
       (new_sym, [ spec ])
 
@@ -263,57 +272,51 @@ and clone_expr ~ctx ~fenv ~type_cache ~expr : e_expr * queue =
   go expr
 
 let specialize_queue ~ctx ~fenv ~queue =
-  let specialize_let_fn
+  let specialize_let_fn ~type_cache
       (Letfn
         {
           recursive;
-          bind = t_x, _;
+          bind = _, _;
           arg = t_a, a;
           body;
           sig_;
           lam_sym = _;
           captures;
         }) ~t_needed ~new_sym =
-    let type_cache : type_cache = ref [] in
-    let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-    unify ~late:true ctx.symbols "specialize fn" ctx.fresh_tvar t_x t_needed;
-
     let t_a = clone_type ctx.fresh_tvar type_cache t_a in
     let body, needed = clone_expr ~ctx ~fenv ~type_cache ~expr:body in
     let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
     let captures, captures_needed =
       clone_captures ~ctx ~fenv ~type_cache ~captures
     in
-    let bind = (t_x, new_sym) in
+    let bind = (t_needed, new_sym) in
     let arg = (t_a, a) in
     let letfn =
       Letfn { recursive; bind; arg; body; sig_; lam_sym = new_sym; captures }
     in
     (letfn, needed @ captures_needed)
   in
-  let specialize_let_val (Letval { bind = t_x, _old_sym; body; sig_ }) ~t_needed
-      ~new_sym =
-    let type_cache : type_cache = ref [] in
-
-    let t_x = clone_type ctx.fresh_tvar type_cache t_x in
-
-    unify ~late:true ctx.symbols "specialize val" ctx.fresh_tvar t_x t_needed;
-
+  let specialize_let_val ~type_cache (Letval { bind = _, _old_sym; body; sig_ })
+      ~t_needed ~new_sym =
     let body, needed = clone_expr ~ctx ~fenv ~type_cache ~expr:body in
     let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
 
-    let letval = Letval { bind = (t_x, new_sym); body; sig_ } in
+    let letval = Letval { bind = (t_needed, new_sym); body; sig_ } in
     (letval, needed)
   in
   let rec go : queue -> ready_specialization list = function
     | [] -> []
-    | `ToplevelFn (letfn, new_sym, t_needed) :: rest ->
-        let letrec, needed = specialize_let_fn letfn ~t_needed ~new_sym in
+    | `ToplevelFn (type_cache, letfn, new_sym, t_needed) :: rest ->
+        let letrec, needed =
+          specialize_let_fn ~type_cache letfn ~t_needed ~new_sym
+        in
         Ir_ctx.add_toplevel_function ctx new_sym;
         (go needed @ [ `Letfn (letrec, true) ]) @ go rest
     | `Clos letfn :: rest -> `Letfn (letfn, false) :: go rest
-    | `Val (letval, new_sym, t_needed) :: rest ->
-        let letval, needed = specialize_let_val letval ~t_needed ~new_sym in
+    | `Val (type_cache, letval, new_sym, t_needed) :: rest ->
+        let letval, needed =
+          specialize_let_val ~type_cache letval ~t_needed ~new_sym
+        in
         (go needed @ [ `Letval letval ]) @ go rest
   in
   go queue

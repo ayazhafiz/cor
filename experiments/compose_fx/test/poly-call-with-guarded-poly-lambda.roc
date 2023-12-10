@@ -11,51 +11,6 @@ run main =
 ;;
 
 > cor-out +ir -print
-<<<<<<< Updated upstream
-> proc f11(captures_: box<erased>, x1: int): int
-> {
->   let captures_box: box<{}> = @ptr_cast(captures_ as box<{}>);
->   let captures_stack: {} = @get_boxed<captures_box>;
->   return x1;
-> }
-> 
-> proc f12(captures_3: box<erased>, x1: str): str
-> {
->   let captures_box2: box<{}> = @ptr_cast(captures_3 as box<{}>);
->   let captures_stack2: {} = @get_boxed<captures_box2>;
->   return x1;
-> }
-> 
-> proc clos_poly2(captures_1: box<erased>, x: int): int
-> {
->   let captures_box1: box<{}> = @ptr_cast(captures_1 as box<{}>);
->   let captures_stack1: {} = @get_boxed<captures_box1>;
->   let captures_stack_2: {} = @make_struct{};
->   let captures_box_2: box<{}> = @make_box(captures_stack_2);
->   let captures_6: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
->   let fn_ptr_2: *fn = @make_fn_ptr<f11>;
->   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_2, captures_6 };
->   let fnptr: *fn = @get_struct_field<f, 0>;
->   let captures: box<erased> = @get_struct_field<f, 1>;
->   let var: int = @call_indirect(fnptr, captures, x);
->   return var;
-> }
-> 
-> proc clos_poly3(captures_4: box<erased>, x: str): str
-> {
->   let captures_box3: box<{}> = @ptr_cast(captures_4 as box<{}>);
->   let captures_stack3: {} = @get_boxed<captures_box3>;
->   let captures_stack_3: {} = @make_struct{};
->   let captures_box_3: box<{}> = @make_box(captures_stack_3);
->   let captures_7: box<erased> = @ptr_cast(captures_box_3 as box<erased>);
->   let fn_ptr_3: *fn = @make_fn_ptr<f12>;
->   let f: { *fn, box<erased> } = @make_struct{ fn_ptr_3, captures_7 };
->   let fnptr1: *fn = @get_struct_field<f, 0>;
->   let captures1: box<erased> = @get_struct_field<f, 1>;
->   let var1: str = @call_indirect(fnptr1, captures1, x);
->   return var1;
-> }
-=======
 > proc f11(captures_: [ `0 {} ], x1: int): int
 > {let captures_stack: {} = @get_union_struct<captures_>;
 >  return x1;}
@@ -63,7 +18,6 @@ run main =
 > proc f12(captures_2: [ `0 {} ], x1: str): str
 > {let captures_stack2: {} = @get_union_struct<captures_2>;
 >  return x1;}
->>>>>>> Stashed changes
 > 
 > proc poly2(captures_1: [ `0 {} ], x: int): int
 > {
