@@ -107,3 +107,8 @@ let is_lay_equiv : layout -> layout -> bool =
     | _ -> false
   in
   go l1 l2
+
+let unpack_tfn t =
+  match Type.tvar_deref @@ Type.unlink_w_alias t with
+  | Content (TFn ((_, arg), _, (_, ret))) -> (arg, ret)
+  | _ -> failwith "unreachable: not a function type"

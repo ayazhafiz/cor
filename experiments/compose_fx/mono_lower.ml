@@ -133,7 +133,15 @@ let find_specialization ~ctx ~name ~type_cache:_ ~kind ~t_needed =
   unify ~late:true ctx.symbols "find_specialization" ctx.fresh_tvar top_ty
     t_needed;
 
-  let new_sym, spec_kind = Mono_symbol.add_specialization ~ctx name t_needed in
+  let arg, captures, ret =
+    match Type.tvar_deref @@ unlink_w_alias t_needed with
+    | Content (TFn ((_, arg), _, (_, ret))) -> (Some arg, Some [], ret)
+    | _ -> (None, None, t_needed)
+  in
+
+  let new_sym, spec_kind =
+    Mono_symbol.add_specialization ~ctx ~name ~captures ~arg ~ret
+  in
 
   match spec_kind with
   | `Existing -> (new_sym, [])
@@ -177,15 +185,18 @@ and clone_expr ~ctx ~fenv ~type_cache ~expr : e_expr * queue =
   and go_needed_clos ~lam_sym ~t_clos ~t_arg ~arg_sym ~body ~sig_ ~captures
       ~recursive : letfn * queue =
     let t_clos = clone_type ctx.fresh_tvar type_cache t_clos in
+    let captures, c_needed = clone_captures ~ctx ~fenv ~type_cache ~captures in
     let lam_sym, spec_kind =
-      Mono_symbol.add_specialization ~ctx lam_sym t_clos
+      let arg, ret = Ir_layout.unpack_tfn t_clos in
+      let captures = Option.some @@ List.map fst @@ captures in
+      Mono_symbol.add_specialization ~ctx ~name:lam_sym ~captures
+        ~arg:(Some arg) ~ret
     in
     let bind = (t_clos, lam_sym) in
     let t_a = clone_type ctx.fresh_tvar type_cache t_arg in
     let arg = (t_a, arg_sym) in
     let body, b_needed = go body in
     let sig_ = Option.map (clone_type ctx.fresh_tvar type_cache) sig_ in
-    let captures, c_needed = clone_captures ~ctx ~fenv ~type_cache ~captures in
     let letfn = Letfn { recursive; bind; arg; body; sig_; lam_sym; captures } in
     let lam_needed =
       match spec_kind with `Existing -> [] | `New -> [ `Clos letfn ]

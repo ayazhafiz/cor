@@ -20,8 +20,11 @@ type pending_proc =
   | `Thunk of pending_thunk
   | `Ready of definition ]
 
-let lambda_specialization ~ctx lambda ambient_fn =
-  let sym, kind = Mono_symbol.add_specialization ~ctx lambda ambient_fn in
+let lambda_specialization ~ctx ~lambda ~captures ~arg ~ret =
+  let sym, kind =
+    Mono_symbol.add_specialization ~ctx ~name:lambda ~captures:(Some captures)
+      ~arg:(Some arg) ~ret
+  in
   match kind with
   | `Existing -> sym
   | `New ->
@@ -35,8 +38,9 @@ let lam_id ~ctx lam_sym ty =
         failwith
         @@ Format.asprintf "lam_sym %s : %s" (Symbol.norm_of lam_sym)
              (Type.string_of_tvar_top (Symbol.make ()) ty)
-    | i, ({ lambda; _ } : Type.ty_lambda) :: rest ->
-        let sym = lambda_specialization ~ctx lambda ambient_fn in
+    | i, ({ lambda; captures } : Type.ty_lambda) :: rest ->
+        let arg, ret = unpack_tfn ambient_fn in
+        let sym = lambda_specialization ~ctx ~lambda ~captures ~arg ~ret in
         if sym = lam_sym then i else find_lambda_spec ~ambient_fn (i + 1, rest)
   in
   let rec go ty =
@@ -229,8 +233,9 @@ let stmt_of_expr : ctx -> Can.e_expr -> (stmt list * var) * pending_proc list =
         let ({ lambdas; ambient_fn } : Type.ty_lset) =
           Ir_layout.unpack_lambda_set (fst f)
         in
-        let call_lam i ({ lambda; _ } : Type.ty_lambda) =
-          let lambda = lambda_specialization ~ctx lambda ambient_fn in
+        let call_lam i ({ lambda; captures } : Type.ty_lambda) =
+          let arg, ret = unpack_tfn ambient_fn in
+          let lambda = lambda_specialization ~ctx ~lambda ~captures ~arg ~ret in
           (i, ([], CallDirect (lambda, [ clos_var; a_var ])))
         in
         let branches = List.mapi call_lam lambdas in

@@ -1,19 +1,22 @@
 open Symbol
 open Ir_ctx
 
-let determine_specialization ~ctx tvar =
-  let open Type in
-  let tvar = unlink_w_alias tvar in
-  match tvar_deref tvar with
-  | Content (TFn ((_, arg), lset, (_, ret))) ->
-      let lset = Ir_layout.layout_of_tvar ctx lset in
-      let arg = Ir_layout.layout_of_tvar ctx arg in
-      let ret = Ir_layout.layout_of_tvar ctx ret in
-      let args = [ lset; arg ] in
-      (args, ret)
-  | _ ->
-      let ret = Ir_layout.layout_of_tvar ctx tvar in
-      ([], ret)
+let determine_specialization ~ctx ~arg ~captures ~ret =
+  let arg =
+    match arg with
+    | Some arg -> [ Ir_layout.layout_of_tvar ctx arg ]
+    | None -> []
+  in
+  let captures =
+    match captures with
+    | None -> []
+    | Some captures ->
+        let captures = List.map (Ir_layout.layout_of_tvar ctx) captures in
+        [ ref @@ Ir.Struct captures ]
+  in
+  let args = captures @ arg in
+  let ret = Ir_layout.layout_of_tvar ctx ret in
+  (args, ret)
 
 let equiv_specialization specialization ~name ~args ~ret =
   if specialization.name <> name then false
@@ -23,8 +26,9 @@ let equiv_specialization specialization ~name ~args ~ret =
   else if not @@ Ir_layout.is_lay_equiv specialization.ret ret then false
   else true
 
-let add_specialization ~(ctx : ctx) name tvar : symbol * [ `New | `Existing ] =
-  let args, ret = determine_specialization ~ctx tvar in
+let add_specialization ~(ctx : ctx) ~name ~arg ~captures ~ret :
+    symbol * [ `New | `Existing ] =
+  let args, ret = determine_specialization ~ctx ~arg ~captures ~ret in
   let specialization =
     List.find_opt (equiv_specialization ~name ~args ~ret) !(ctx.specializations)
   in
