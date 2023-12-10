@@ -1,4 +1,5 @@
 # cor +solve -elab
+# cor +mono -print
 # cor +ir -print
 # cor +eval -print
 
