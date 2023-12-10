@@ -80,12 +80,12 @@ let clone_type : fresh_tvar -> type_cache -> tvar -> tvar =
     { lambdas; ambient_fn }
   and go : tvar -> tvar =
    fun tvar ->
-    let { var; ty; recur = _ } = unlink tvar in
+    let { var; ty; recur } = unlink tvar in
     match List.assoc_opt var !cache with
     | Some tvar -> tvar
     | None ->
         let tvar' = fresh_tvar @@ Unbd None in
-        (*tvar_set_recur tvar' !recur;*)
+        tvar_set_recur tvar' !recur;
         cache := (var, tvar') :: !cache;
 
         let real_ty_content =
