@@ -89,7 +89,7 @@ let inst : fresh_tvar -> tvar -> tvar =
                 let real = go real in
                 fresh_tvar @@ Alias { alias = (name, args); real }
           in
-          (*tvar_set_recur t' (tvar_recurs @@ unlink t);*)
+          tvar_set_recur t' (tvar_recurs @@ unlink t);
           tvar_set set_t (Link t');
           t'
     in
@@ -383,12 +383,12 @@ let unify :
             Content c'
       in
       (* unify up-front to avoid infinite recursion at recursive types *)
-      (*let recurs = tvar_recurs a || tvar_recurs b in*)
+      let recurs = tvar_recurs a || tvar_recurs b in
       let c = fresh_tvar @@ Unbd None in
       tvar_set a (Link c);
       tvar_set b (Link c);
-      tvar_set c ty
-    (* tvar_set_recur c recurs *)
+      tvar_set c ty;
+      tvar_set_recur c recurs
   in
   unify [] a b
 
