@@ -7,9 +7,7 @@ open Mono
 type val_specialization = [ `Val of letval * symbol * tvar ]
 
 type needed_specialization =
-  [ `Fn of letfn * symbol * tvar * bool (* true=leave witness *)
-  | `NeededClos of letfn * symbol
-  | val_specialization ]
+  [ `ToplevelFn of letfn * symbol * tvar | `Clos of letfn | val_specialization ]
 
 type queue = needed_specialization list
 type spec_procs = ready_specialization list
@@ -131,8 +129,7 @@ let find_specialization ~(ctx : Ir.ctx) ~specs ~type_cache ~kind ~name ~t_needed
   | `New ->
       let spec =
         match kind with
-        | `Fn (letfn, leave_witness) ->
-            `Fn (letfn, new_sym, t_needed, leave_witness)
+        | `Fn (letfn, _) -> `ToplevelFn (letfn, new_sym, t_needed)
         | `Val letval -> `Val (letval, new_sym, t_needed)
       in
       (new_sym, [ spec ])
@@ -168,13 +165,13 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
     let p, p_needed = go_pat p in
     let e, e_needed = go e in
     ((p, e), p_needed @ e_needed)
-  and go_needed_clos ~lam_sym ~bind_sym ~t_clos ~t_arg ~arg_sym ~body ~sig_
-      ~captures ~recursive : letfn * queue =
+  and go_needed_clos ~lam_sym ~t_clos ~t_arg ~arg_sym ~body ~sig_ ~captures
+      ~recursive : letfn * queue =
     let t_clos = clone_type ctx.fresh_tvar type_cache t_clos in
     let lam_sym, spec_kind =
       Mono_symbol.add_specialization ~ctx specs lam_sym t_clos
     in
-    let bind = (t_clos, bind_sym) in
+    let bind = (t_clos, lam_sym) in
     let t_a = clone_type ctx.fresh_tvar type_cache t_arg in
     let arg = (t_a, arg_sym) in
     let body, b_needed = go body in
@@ -184,9 +181,7 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
     in
     let letfn = Letfn { recursive; bind; arg; body; sig_; lam_sym; captures } in
     let lam_needed =
-      match spec_kind with
-      | `Existing -> []
-      | `New -> [ `NeededClos (letfn, lam_sym) ]
+      match spec_kind with `Existing -> [] | `New -> [ `Clos letfn ]
     in
     let needed = lam_needed @ b_needed @ c_needed in
     (letfn, needed)
@@ -230,16 +225,24 @@ and clone_expr ~(ctx : Ir.ctx) ~specs ~fenv ~type_cache ~expr : e_expr * queue =
               },
             rest ) ->
           let letfn, needed =
-            go_needed_clos ~lam_sym ~bind_sym ~t_clos ~t_arg ~arg_sym ~body
-              ~sig_ ~captures ~recursive
+            go_needed_clos ~lam_sym ~t_clos ~t_arg ~arg_sym ~body ~sig_
+              ~captures ~recursive
+          in
+          let (Letfn { bind; arg; body; sig_; lam_sym; captures; recursive }) =
+            letfn
+          in
+          (* Re-bind the let to what we expect. *)
+          let bind = (fst bind, bind_sym) in
+          let letfn =
+            Letfn { recursive; bind; arg; body; sig_; lam_sym; captures }
           in
           let rest, r_needed = go rest in
           let needed = needed @ r_needed in
           (LetFn (letfn, rest), needed)
       | Clos { arg = t_arg, arg_sym; body; captures; lam_sym } ->
           let letfn, needed =
-            go_needed_clos ~lam_sym ~bind_sym:lam_sym ~t_clos:t ~t_arg ~arg_sym
-              ~body ~sig_:None ~captures ~recursive:None
+            go_needed_clos ~lam_sym ~t_clos:t ~t_arg ~arg_sym ~body ~sig_:None
+              ~captures ~recursive:None
           in
           let (Letfn { arg; body; lam_sym; captures; _ }) = letfn in
           (Clos { arg; body; captures; lam_sym }, needed)
@@ -291,16 +294,6 @@ let specialize_queue ~(ctx : Ir.ctx) ~specs ~fenv ~queue =
     in
     (letfn, needed @ captures_needed)
   in
-  let specialize_clos
-      (Letfn
-        { recursive; bind = t_x, _; arg; body; sig_; lam_sym = _; captures })
-      ~new_sym =
-    let bind = (t_x, new_sym) in
-    let letfn =
-      Letfn { recursive; bind; arg; body; sig_; lam_sym = new_sym; captures }
-    in
-    (letfn, [])
-  in
   let specialize_let_val (Letval { bind = t_x, _old_sym; body; sig_ }) ~t_needed
       ~new_sym =
     let type_cache : type_cache = ref [] in
@@ -317,12 +310,10 @@ let specialize_queue ~(ctx : Ir.ctx) ~specs ~fenv ~queue =
   in
   let rec go : queue -> ready_specialization list = function
     | [] -> []
-    | `Fn (letfn, new_sym, t_needed, leave_witness) :: rest ->
+    | `ToplevelFn (letfn, new_sym, t_needed) :: rest ->
         let letrec, needed = specialize_let_fn letfn ~t_needed ~new_sym in
-        (go needed @ [ `Letfn (letrec, leave_witness) ]) @ go rest
-    | `NeededClos (letfn, new_sym) :: rest ->
-        let letrec, needed = specialize_clos letfn ~new_sym in
-        (go needed @ [ `Letfn (letrec, false) ]) @ go rest
+        (go needed @ [ `Letfn (letrec, true) ]) @ go rest
+    | `Clos letfn :: rest -> `Letfn (letfn, false) :: go rest
     | `Val (letval, new_sym, t_needed) :: rest ->
         let letval, needed = specialize_let_val letval ~t_needed ~new_sym in
         (go needed @ [ `Letval letval ]) @ go rest
