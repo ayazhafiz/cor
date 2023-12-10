@@ -11,8 +11,6 @@ type layout_repr =
   | Struct of layout list
   | Union of layout list
   | Box of layout * rec_id option
-  | Erased
-  | FunctionPointer
 
 and layout = layout_repr ref
 
@@ -30,13 +28,10 @@ type expr =
   | GetUnionStruct of var
   | MakeStruct of var list
   | GetStructField of var * int
-  | CallIndirect of var * var list
   | CallDirect of symbol * var list
   | CallKFn of Syntax.kernelfn * var list
   | MakeBox of var
   | GetBoxed of var
-  | PtrCast of var * layout
-  | MakeFnPtr of symbol
 
 type stmt =
   | Let of var * expr
@@ -115,8 +110,6 @@ let pp_layout : ?max_depth:int -> Format.formatter -> layout -> unit =
           seen_recs := r :: !seen_recs;
           fprintf f "@[<hv 2>box<@,%a =@ %a>@]" pp_rec_id r go lay
       | Box (lay, None) -> fprintf f "@[<hv 2>box<@,%a>@]" go lay
-      | Erased -> fprintf f "erased"
-      | FunctionPointer -> fprintf f "*fn"
   in
   go ~max_depth f l
 
@@ -133,8 +126,6 @@ let rec show_layout_head l =
   | Box (l, None) -> Format.sprintf "box<%s>" (show_layout_head l)
   | Box (l, Some r) ->
       Format.sprintf "box<%s = %s>" (show_rec_id r) (show_layout_head l)
-  | Erased -> "erased"
-  | FunctionPointer -> "*fn"
 
 let pp_symbol : Format.formatter -> symbol -> unit =
  fun f s -> Format.fprintf f "%s" (Symbol.norm_of s)
@@ -184,12 +175,6 @@ let pp_expr : Format.formatter -> expr -> unit =
           (pp_print_custom_break ~fits:("", 0, "") ~breaks:(";", 0, ""))
     | GetStructField (v, i) ->
         fprintf f "@[<hv 2>@get_struct_field<@,%a,@ %d>@]" pp_v_name v i
-    | CallIndirect (var, args) ->
-        let pp_args f = function
-          | [] -> ()
-          | args -> fprintf f ",@ %a" pp_v_names args
-        in
-        fprintf f "@[<hv 2>@call_indirect(@,%a%a)@]" pp_v_name var pp_args args
     | CallDirect (fn, args) ->
         let pp_args f = function
           | [] -> ()
@@ -206,10 +191,6 @@ let pp_expr : Format.formatter -> expr -> unit =
           pp_args args
     | MakeBox v -> fprintf f "@[<hv 2>@make_box(@,%a)@]" pp_v_name v
     | GetBoxed v -> fprintf f "@[<hv 2>@get_boxed<@,%a>@]" pp_v_name v
-    | PtrCast (v, lay) ->
-        fprintf f "@[<hv 2>@ptr_cast(@,%a as@ %a)@]" pp_v_name v pp_layout_top
-          lay
-    | MakeFnPtr fn -> fprintf f "@[<hv 2>@make_fn_ptr<@,%a>@]" pp_symbol fn
 
 let rec pp_stmt : Format.formatter -> stmt -> unit =
   let open Format in

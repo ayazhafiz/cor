@@ -104,8 +104,6 @@ let is_lay_equiv : layout -> layout -> bool =
     | Box (l1, None), Box (l2, None) -> go l1 l2
     | Box (_, Some _), Box (_, None) -> false
     | Box (_, None), Box (_, Some _) -> false
-    | Erased, Erased -> true
-    | FunctionPointer, FunctionPointer -> true
     | _ -> false
   in
   go l1 l2

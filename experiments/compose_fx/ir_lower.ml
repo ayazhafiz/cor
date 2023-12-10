@@ -336,19 +336,13 @@ let compile_pending_procs : ctx -> pending_proc list -> definition list =
           match rec_var with
           | None -> []
           | Some (rec_layout, rec_var) ->
-              let fn_ptr_name =
-                ctx.symbols.fresh_symbol @@ "rec_fn_ptr_"
-                ^ Symbol.syn_of ctx.symbols rec_var
-              in
-              let fn_ptr_var = (ref @@ FunctionPointer, fn_ptr_name) in
-              let fn_ptr_asgn = Let (fn_ptr_var, MakeFnPtr name) in
               let rec_clos_var = (rec_layout, rec_var) in
               let asgns, rec_clos_struct =
-                build_possibly_boxed_union ~ctx ~union_id:lam_id
-                  ~payload_vars:captures_vars ~layout:rec_layout
+                build_closure ~ctx ~captures:captures_vars ~lam_id
+                  ~layout:rec_layout
               in
               let rec_clos_asgn = Let (rec_clos_var, rec_clos_struct) in
-              (fn_ptr_asgn :: asgns) @ [ rec_clos_asgn ]
+              asgns @ [ rec_clos_asgn ]
         in
 
         let (asgns, ret), new_pending_procs = stmt_of_expr ctx body in

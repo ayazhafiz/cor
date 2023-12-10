@@ -151,7 +151,6 @@ run main = map mapper l;;
 > {
 >   let captures_stack1: { [ `0 {} ] } = @get_union_struct<captures_go>;
 >   let f: [ `0 {} ] = @get_struct_field<captures_stack1, 0>;
->   let rec_fn_ptr_go: *fn = @make_fn_ptr<go11>;
 >   let struct1: { [ `0 {} ] } = @make_struct{ f };
 >   let go: [ `0 { [ `0 {} ] } ] = @make_union<0, struct1>;
 >   let inner:

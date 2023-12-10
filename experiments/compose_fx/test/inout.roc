@@ -342,7 +342,6 @@ run main_handler =
 >   str
 > {
 >   let captures_stack11: {} = @get_union_struct<captures_handle>;
->   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle11>;
 >   let struct13: {} = @make_struct{};
 >   let handle: [ `0 {} ] = @make_union<0, struct13>;
 >   let discr: int = @get_union_id<op1>;

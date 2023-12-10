@@ -45,10 +45,6 @@ let rec eval_expr : procs -> memory -> expr -> memory_cell =
   | GetUnionStruct var -> block @@ List.tl @@ get_block @@ lookup var
   | MakeStruct vs -> block @@ List.map lookup vs
   | GetStructField (v, i) -> List.nth (get_block @@ lookup v) i
-  | CallIndirect (fn, args) ->
-      let fn = get_label @@ lookup fn in
-      let args = List.map lookup args in
-      eval_call procs memory fn args
   | CallDirect (fn, args) ->
       let args = List.map lookup args in
       eval_call procs memory fn args
@@ -58,8 +54,6 @@ let rec eval_expr : procs -> memory -> expr -> memory_cell =
   (* ignore boxes *)
   | MakeBox v -> lookup v
   | GetBoxed v -> lookup v
-  | PtrCast (v, _) -> lookup v
-  | MakeFnPtr fn -> label fn
 
 and eval_stmt : procs -> memory -> stmt -> memory =
  fun procs memory stmt ->

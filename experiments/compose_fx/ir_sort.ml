@@ -29,15 +29,11 @@ let expr_edges ~def_map = function
   | GetUnionStruct v -> var_edges ~def_map v
   | MakeStruct vs -> List.concat (List.map (var_edges ~def_map) vs)
   | GetStructField (v, _) -> var_edges ~def_map v
-  | CallIndirect (v, vs) ->
-      var_edges ~def_map v @ List.concat (List.map (var_edges ~def_map) vs)
   | CallDirect (s, vs) ->
       sym_edges ~def_map s @ List.concat (List.map (var_edges ~def_map) vs)
   | CallKFn (_, vs) -> List.concat (List.map (var_edges ~def_map) vs)
   | MakeBox v -> var_edges ~def_map v
   | GetBoxed v -> var_edges ~def_map v
-  | PtrCast (v, _) -> var_edges ~def_map v
-  | MakeFnPtr s -> sym_edges ~def_map s
 
 let rec stmt_edges ~def_map = function
   | Let (_, e) -> expr_edges ~def_map e
