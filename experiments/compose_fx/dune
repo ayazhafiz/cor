@@ -9,7 +9,7 @@
           lexer parser
           can can_lower
           solve
-          ir ir_layout
+          ir ir_layout ir_ctx
           mono mono_lower mono_symbol
           ir_lower ir_sort ir_check
           eval

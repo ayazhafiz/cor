@@ -108,12 +108,12 @@ run main_handler =
 > 
 > sig main : Task Str (Op *)
 > let main = await lineIn (\s -> lineOut s)
-> #                              ^^^^^^^ Str -[lineOut1]-> Task Str %(Op 'a)
+> #                              ^^^^^^^ Str -[lineOut]-> Task Str %(Op 'a)
 > #                         ^ Str
 > #          ^^^^^ (Task Str %(Op 'a))
-> #          ^^^^^   -[await1]-> (Str -[lam6]-> Task Str %(Op 'a))
-> #          ^^^^^                 -[lam2 (Task Str %(Op 'a))]-> 
-> #          ^^^^^                 Task Str %(Op 'a)
+> #          ^^^^^   -[await]-> (Str -[lam6]-> Task Str %(Op 'a))
+> #          ^^^^^                -[lam2 (Task Str %(Op 'a))]-> 
+> #          ^^^^^                Task Str %(Op 'a)
 > ;;
 > 
 > run main_handler =
@@ -133,9 +133,10 @@ run main_handler =
 > 
 
 > cor-out +ir -print
-> proc lam71(captures_13: box<erased>, x1: str):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
+> proc lam21(captures_: [ `0 { [ `0 {} ] } ], next: [ `0 {} ]):
+>   [ `0 { [ `0 {} ], [ `0 {} ] } ]
 > {
+<<<<<<< Updated upstream
 >   let captures_box10: box<{}> = @ptr_cast(captures_13 as box<{}>);
 >   let captures_stack10: {} = @get_boxed<captures_box10>;
 >   let struct2: { str } = @make_struct{ x1 };
@@ -207,272 +208,273 @@ run main_handler =
 >   }
 >   } in join join;
 >   return join;
+=======
+>   let captures_stack: { [ `0 {} ] } = @get_union_struct<captures_>;
+>   let fromResult: [ `0 {} ] = @get_struct_field<captures_stack, 0>;
+>   let struct: { [ `0 {} ], [ `0 {} ] } = @make_struct{ fromResult, next };
+>   let var: [ `0 { [ `0 {} ], [ `0 {} ] } ] = @make_union<0, struct>;
+>   return var;
+>>>>>>> Stashed changes
 > }
 > 
-> proc lam41(captures_10: box<erased>, x: str):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
+> proc lam71(captures_10: [ `0 {} ], x1: str):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
 > {
->   let captures_box8: box<{ { *fn, box<erased> } }>
->     = @ptr_cast(captures_10 as box<{ { *fn, box<erased> } }>);
->   let captures_stack8: { { *fn, box<erased> } } = @get_boxed<captures_box8>;
->   let toNext1: { *fn, box<erased> } = @get_struct_field<captures_stack8, 0>;
->   let fnptr5: *fn = @get_struct_field<toNext1, 0>;
->   let captures5: box<erased> = @get_struct_field<toNext1, 1>;
->   let var11:
+>   let captures_stack10: {} = @get_union_struct<captures_10>;
+>   let struct12: { str } = @make_struct{ x1 };
+>   let var12:
 >         [
 >            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
+>            `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>            `2 { str, [ `0 { [ `0 {} ] } ] }
 >         ]
->     = @call_indirect(fnptr5, captures5, x);
->   return var11;
-> }
-> 
-> proc lam31(captures_5: box<erased>, s: str):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
-> {
->   let captures_box4: box<{ { *fn, box<erased> } }>
->     = @ptr_cast(captures_5 as box<{ { *fn, box<erased> } }>);
->   let captures_stack4: { { *fn, box<erased> } } = @get_boxed<captures_box4>;
->   let toNext: { *fn, box<erased> } = @get_struct_field<captures_stack4, 0>;
->   let fnptr3: *fn = @get_struct_field<toNext, 0>;
->   let captures3: box<erased> = @get_struct_field<toNext, 1>;
->   let var5:
->         [
->            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @call_indirect(fnptr3, captures3, s);
->   return var5;
-> }
-> 
-> proc lam8(captures_2: box<erased>, result: str):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
-> {
->   let captures_box2: box<{ { *fn, box<erased> }, { *fn, box<erased> } }>
->     = @ptr_cast(
->         captures_2 as
->         box<{ { *fn, box<erased> }, { *fn, box<erased> } }>);
->   let captures_stack2: { { *fn, box<erased> }, { *fn, box<erased> } }
->     = @get_boxed<captures_box2>;
->   let continue: { *fn, box<erased> } = @get_struct_field<captures_stack2, 0>;
->   let next: { *fn, box<erased> } = @get_struct_field<captures_stack2, 1>;
->   let fnptr1: *fn = @get_struct_field<next, 0>;
->   let captures1: box<erased> = @get_struct_field<next, 1>;
->   let inner: { *fn, box<erased> } = @call_indirect(fnptr1, captures1, result);
->   let fnptr2: *fn = @get_struct_field<inner, 0>;
->   let captures2: box<erased> = @get_struct_field<inner, 1>;
->   let var3:
->         [
->            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @call_indirect(fnptr2, captures2, continue);
->   return var3;
-> }
-> 
-> proc lam51(captures_9: box<erased>, toNext1: { *fn, box<erased> }):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
-> {
->   let captures_box7: box<{ str }> = @ptr_cast(captures_9 as box<{ str }>);
->   let captures_stack7: { str } = @get_boxed<captures_box7>;
->   let s1: str = @get_struct_field<captures_stack7, 0>;
->   let captures_stack_7: { { *fn, box<erased> } } = @make_struct{ toNext1 };
->   let captures_box_7: box<{ { *fn, box<erased> } }>
->     = @make_box(captures_stack_7);
->   let captures_18: box<erased> = @ptr_cast(captures_box_7 as box<erased>);
->   let fn_ptr_7: *fn = @make_fn_ptr<lam41>;
->   let var9: { *fn, box<erased> } = @make_struct{ fn_ptr_7, captures_18 };
->   let struct1: { str, { *fn, box<erased> } } = @make_struct{ s1, var9 };
->   let var10:
->         [
->            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @make_union<2, struct1>;
->   return var10;
-> }
-> 
-> proc clos_lineIn2(captures_6: box<erased>, toNext: { *fn, box<erased> }):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
-> {
->   let captures_box5: box<{}> = @ptr_cast(captures_6 as box<{}>);
->   let captures_stack5: {} = @get_boxed<captures_box5>;
->   let captures_stack_6: { { *fn, box<erased> } } = @make_struct{ toNext };
->   let captures_box_6: box<{ { *fn, box<erased> } }>
->     = @make_box(captures_stack_6);
->   let captures_17: box<erased> = @ptr_cast(captures_box_6 as box<erased>);
->   let fn_ptr_6: *fn = @make_fn_ptr<lam31>;
->   let var6: { *fn, box<erased> } = @make_struct{ fn_ptr_6, captures_17 };
->   let struct: { { *fn, box<erased> } } = @make_struct{ var6 };
->   let var7:
->         [
->            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @make_union<1, struct>;
->   return var7;
-> }
-> 
-> proc lam11(captures_1: box<erased>, continue: { *fn, box<erased> }):
->   [ `0 { str }, `1 { { *fn, box<erased> } }, `2 { str, { *fn, box<erased> } } ]
-> {
->   let captures_box1: box<{ { *fn, box<erased> }, { *fn, box<erased> } }>
->     = @ptr_cast(
->         captures_1 as
->         box<{ { *fn, box<erased> }, { *fn, box<erased> } }>);
->   let captures_stack1: { { *fn, box<erased> }, { *fn, box<erased> } }
->     = @get_boxed<captures_box1>;
->   let fromResult: { *fn, box<erased> } = @get_struct_field<captures_stack1, 0>;
->   let next: { *fn, box<erased> } = @get_struct_field<captures_stack1, 1>;
->   let fnptr: *fn = @get_struct_field<fromResult, 0>;
->   let captures: box<erased> = @get_struct_field<fromResult, 1>;
->   let captures_stack_4: { { *fn, box<erased> }, { *fn, box<erased> } }
->     = @make_struct{ continue, next };
->   let captures_box_4: box<{ { *fn, box<erased> }, { *fn, box<erased> } }>
->     = @make_box(captures_stack_4);
->   let captures_15: box<erased> = @ptr_cast(captures_box_4 as box<erased>);
->   let fn_ptr_4: *fn = @make_fn_ptr<lam8>;
->   let var1: { *fn, box<erased> } = @make_struct{ fn_ptr_4, captures_15 };
->   let var2:
->         [
->            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
->         ]
->     = @call_indirect(fnptr, captures, var1);
->   return var2;
-> }
-> 
-> proc clos_lineOut2(captures_11: box<erased>, s1: str): { *fn, box<erased> }
-> {
->   let captures_box9: box<{}> = @ptr_cast(captures_11 as box<{}>);
->   let captures_stack9: {} = @get_boxed<captures_box9>;
->   let captures_stack_8: { str } = @make_struct{ s1 };
->   let captures_box_8: box<{ str }> = @make_box(captures_stack_8);
->   let captures_19: box<erased> = @ptr_cast(captures_box_8 as box<erased>);
->   let fn_ptr_8: *fn = @make_fn_ptr<lam51>;
->   let var12: { *fn, box<erased> } = @make_struct{ fn_ptr_8, captures_19 };
+>     = @make_union<0, struct12>;
 >   return var12;
 > }
 > 
-> proc lineIn2_thunk(): { *fn, box<erased> }
+> proc lineOut2(captures_9: [ `0 {} ], s1: str): [ `0 { str } ]
 > {
->   let captures_stack_1: {} = @make_struct{};
->   let captures_box_1: box<{}> = @make_box(captures_stack_1);
->   let captures_7: box<erased> = @ptr_cast(captures_box_1 as box<erased>);
->   let fn_ptr_1: *fn = @make_fn_ptr<clos_lineIn2>;
->   let lineIn2_closure: { *fn, box<erased> }
->     = @make_struct{ fn_ptr_1, captures_7 };
->   return lineIn2_closure;
-> }
-> 
-> proc lam21(captures_: box<erased>, next: { *fn, box<erased> }):
->   { *fn, box<erased> }
-> {
->   let captures_box: box<{ { *fn, box<erased> } }>
->     = @ptr_cast(captures_ as box<{ { *fn, box<erased> } }>);
->   let captures_stack: { { *fn, box<erased> } } = @get_boxed<captures_box>;
->   let fromResult: { *fn, box<erased> } = @get_struct_field<captures_stack, 0>;
->   let captures_stack_3: { { *fn, box<erased> }, { *fn, box<erased> } }
->     = @make_struct{ fromResult, next };
->   let captures_box_3: box<{ { *fn, box<erased> }, { *fn, box<erased> } }>
->     = @make_box(captures_stack_3);
->   let captures_14: box<erased> = @ptr_cast(captures_box_3 as box<erased>);
->   let fn_ptr_3: *fn = @make_fn_ptr<lam11>;
->   let var: { *fn, box<erased> } = @make_struct{ fn_ptr_3, captures_14 };
->   return var;
-> }
-> 
-> proc lineOut2_thunk(): { *fn, box<erased> }
-> {
->   let captures_stack_2: {} = @make_struct{};
->   let captures_box_2: box<{}> = @make_box(captures_stack_2);
->   let captures_12: box<erased> = @ptr_cast(captures_box_2 as box<erased>);
->   let fn_ptr_2: *fn = @make_fn_ptr<clos_lineOut2>;
->   let lineOut2_closure: { *fn, box<erased> }
->     = @make_struct{ fn_ptr_2, captures_12 };
->   return lineOut2_closure;
-> }
-> 
-> global lineIn2: { *fn, box<erased> } = @call_direct(lineIn2_thunk);
-> 
-> proc clos_await2(captures_3: box<erased>, fromResult: { *fn, box<erased> }):
->   { *fn, box<erased> }
-> {
->   let captures_box3: box<{}> = @ptr_cast(captures_3 as box<{}>);
->   let captures_stack3: {} = @get_boxed<captures_box3>;
->   let captures_stack_5: { { *fn, box<erased> } } = @make_struct{ fromResult };
->   let captures_box_5: box<{ { *fn, box<erased> } }>
->     = @make_box(captures_stack_5);
->   let captures_16: box<erased> = @ptr_cast(captures_box_5 as box<erased>);
->   let fn_ptr_5: *fn = @make_fn_ptr<lam21>;
->   let var4: { *fn, box<erased> } = @make_struct{ fn_ptr_5, captures_16 };
->   return var4;
-> }
-> 
-> global lineOut2: { *fn, box<erased> } = @call_direct(lineOut2_thunk);
-> 
-> proc await2_thunk(): { *fn, box<erased> }
-> {
->   let captures_stack_: {} = @make_struct{};
->   let captures_box_: box<{}> = @make_box(captures_stack_);
->   let captures_4: box<erased> = @ptr_cast(captures_box_ as box<erased>);
->   let fn_ptr_: *fn = @make_fn_ptr<clos_await2>;
->   let await2_closure: { *fn, box<erased> }
->     = @make_struct{ fn_ptr_, captures_4 };
->   return await2_closure;
-> }
-> 
-> proc lam61(captures_8: box<erased>, s2: str): { *fn, box<erased> }
-> {
->   let captures_box6: box<{}> = @ptr_cast(captures_8 as box<{}>);
->   let captures_stack6: {} = @get_boxed<captures_box6>;
->   let fnptr4: *fn = @get_struct_field<lineOut2, 0>;
->   let captures4: box<erased> = @get_struct_field<lineOut2, 1>;
->   let var8: { *fn, box<erased> } = @call_indirect(fnptr4, captures4, s2);
+>   let captures_stack9: {} = @get_union_struct<captures_9>;
+>   let struct8: { str } = @make_struct{ s1 };
+>   let var8: [ `0 { str } ] = @make_union<0, struct8>;
 >   return var8;
 > }
 > 
-> global await2: { *fn, box<erased> } = @call_direct(await2_thunk);
-> 
-> proc main_thunk(): { *fn, box<erased> }
+> proc await2(captures_3: [ `0 {} ], fromResult: [ `0 {} ]): [ `0 { [ `0 {} ] } ]
 > {
->   let fnptr6: *fn = @get_struct_field<await2, 0>;
->   let captures6: box<erased> = @get_struct_field<await2, 1>;
->   let var13: { *fn, box<erased> } = @call_indirect(fnptr6, captures6, lineIn2);
->   let fnptr7: *fn = @get_struct_field<var13, 0>;
->   let captures7: box<erased> = @get_struct_field<var13, 1>;
->   let captures_stack_9: {} = @make_struct{};
->   let captures_box_9: box<{}> = @make_box(captures_stack_9);
->   let captures_20: box<erased> = @ptr_cast(captures_box_9 as box<erased>);
->   let fn_ptr_9: *fn = @make_fn_ptr<lam61>;
->   let var14: { *fn, box<erased> } = @make_struct{ fn_ptr_9, captures_20 };
->   let var15: { *fn, box<erased> } = @call_indirect(fnptr7, captures7, var14);
->   return var15;
+>   let captures_stack3: {} = @get_union_struct<captures_3>;
+>   let struct2: { [ `0 {} ] } = @make_struct{ fromResult };
+>   let var2: [ `0 { [ `0 {} ] } ] = @make_union<0, struct2>;
+>   return var2;
 > }
 > 
-> global main1: { *fn, box<erased> } = @call_direct(main_thunk);
+> proc lineIn2(captures_5: [ `0 {} ], toNext: [ `0 { [ `0 {} ], [ `0 {} ] } ]):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
+> {
+>   let captures_stack5: {} = @get_union_struct<captures_5>;
+>   let struct3: { [ `0 { [ `0 {} ], [ `0 {} ] } ] } = @make_struct{ toNext };
+>   let var3: [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ]
+>     = @make_union<0, struct3>;
+>   let struct4: { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] }
+>     = @make_struct{ var3 };
+>   let var4:
+>         [
+>            `0 { str },
+>            `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>            `2 { str, [ `0 { [ `0 {} ] } ] }
+>         ]
+>     = @make_union<1, struct4>;
+>   return var4;
+> }
+> 
+> proc lam51(captures_7: [ `0 { str } ], toNext1: [ `0 {} ]):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
+> {
+>   let captures_stack7: { str } = @get_union_struct<captures_7>;
+>   let s1: str = @get_struct_field<captures_stack7, 0>;
+>   let struct6: { [ `0 {} ] } = @make_struct{ toNext1 };
+>   let var6: [ `0 { [ `0 {} ] } ] = @make_union<0, struct6>;
+>   let struct7: { str, [ `0 { [ `0 {} ] } ] } = @make_struct{ s1, var6 };
+>   let var7:
+>         [
+>            `0 { str },
+>            `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>            `2 { str, [ `0 { [ `0 {} ] } ] }
+>         ]
+>     = @make_union<2, struct7>;
+>   return var7;
+> }
+> 
+> proc lam41(captures_8: [ `0 { [ `0 {} ] } ], x: str):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
+> {
+>   let captures_stack8: { [ `0 {} ] } = @get_union_struct<captures_8>;
+>   let toNext1: [ `0 {} ] = @get_struct_field<captures_stack8, 0>;
+>   let cond5: int = @get_union_id<toNext1>;
+>   switch cond5 {
+>   0 -> { @call_direct(lam71, toNext1, x) }
+>   } in join join5;
+>   return join5;
+> }
+> 
+> proc lam61(captures_6: [ `0 {} ], s2: str): [ `0 { str } ]
+> {
+>   let captures_stack6: {} = @get_union_struct<captures_6>;
+>   let struct5: {} = @make_struct{};
+>   let var5: [ `0 {} ] = @make_union<0, struct5>;
+>   let cond4: int = @get_union_id<var5>;
+>   switch cond4 {
+>   0 -> { @call_direct(lineOut2, var5, s2) }
+>   } in join join4;
+>   return join4;
+> }
+> 
+> proc main_thunk(): [ `0 { [ `0 {} ], [ `0 {} ] } ]
+> {
+>   let struct9: {} = @make_struct{};
+>   let var9: [ `0 {} ] = @make_union<0, struct9>;
+>   let struct10: {} = @make_struct{};
+>   let var10: [ `0 {} ] = @make_union<0, struct10>;
+>   let cond6: int = @get_union_id<var9>;
+>   switch cond6 {
+>   0 -> { @call_direct(await2, var9, var10) }
+>   } in join join6;
+>   let struct11: {} = @make_struct{};
+>   let var11: [ `0 {} ] = @make_union<0, struct11>;
+>   let cond7: int = @get_union_id<join6>;
+>   switch cond7 {
+>   0 -> { @call_direct(lam21, join6, var11) }
+>   } in join join7;
+>   return join7;
+> }
+> 
+> proc lam11(captures_1: [ `0 { [ `0 {} ], [ `0 {} ] } ], continue: [ `0 {} ]):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
+> {
+>   let captures_stack1: { [ `0 {} ], [ `0 {} ] } = @get_union_struct<captures_1>;
+>   let fromResult: [ `0 {} ] = @get_struct_field<captures_stack1, 0>;
+>   let next: [ `0 {} ] = @get_struct_field<captures_stack1, 1>;
+>   let struct1: { [ `0 {} ], [ `0 {} ] } = @make_struct{ continue, next };
+>   let var1: [ `0 { [ `0 {} ], [ `0 {} ] } ] = @make_union<0, struct1>;
+>   let cond: int = @get_union_id<fromResult>;
+>   switch cond {
+>   0 -> { @call_direct(lineIn2, fromResult, var1) }
+>   } in join join;
+>   return join;
+> }
+> 
+> proc lam8(captures_2: [ `0 { [ `0 {} ], [ `0 {} ] } ], result: str):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
+> {
+>   let captures_stack2: { [ `0 {} ], [ `0 {} ] } = @get_union_struct<captures_2>;
+>   let continue: [ `0 {} ] = @get_struct_field<captures_stack2, 0>;
+>   let next: [ `0 {} ] = @get_struct_field<captures_stack2, 1>;
+>   let cond1: int = @get_union_id<next>;
+>   switch cond1 {
+>   0 -> { @call_direct(lam61, next, result) }
+>   } in join join1;
+>   let inner: [ `0 { str } ] = join1;
+>   let cond2: int = @get_union_id<inner>;
+>   switch cond2 {
+>   0 -> { @call_direct(lam51, inner, continue) }
+>   } in join join2;
+>   return join2;
+> }
+> 
+> global main1: [ `0 { [ `0 {} ], [ `0 {} ] } ] = @call_direct(main_thunk);
+> 
+> proc lam31(captures_4: [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ], s: str):
+>   [
+>      `0 { str },
+>      `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>      `2 { str, [ `0 { [ `0 {} ] } ] }
+>   ]
+> {
+>   let captures_stack4: { [ `0 { [ `0 {} ], [ `0 {} ] } ] }
+>     = @get_union_struct<captures_4>;
+>   let toNext: [ `0 { [ `0 {} ], [ `0 {} ] } ]
+>     = @get_struct_field<captures_stack4, 0>;
+>   let cond3: int = @get_union_id<toNext>;
+>   switch cond3 {
+>   0 -> { @call_direct(lam8, toNext, s) }
+>   } in join join3;
+>   return join3;
+> }
+> 
+> proc handle11(
+>   captures_handle: [ `0 {} ],
+>    op1:
+>      [
+>         `0 { str },
+>         `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>         `2 { str, [ `0 { [ `0 {} ] } ] }
+>      ]):
+>   str
+> {
+>   let captures_stack11: {} = @get_union_struct<captures_handle>;
+>   let rec_fn_ptr_handle: *fn = @make_fn_ptr<handle11>;
+>   let struct13: {} = @make_struct{};
+>   let handle: [ `0 {} ] = @make_union<0, struct13>;
+>   let discr: int = @get_union_id<op1>;
+>   switch discr {
+>   0 -> {
+>     let payload2: { str } = @get_union_struct<op1>;
+>     let x2: str = @get_struct_field<payload2, 0>;
+>     x2
+>   }
+>   1 -> {
+>     let payload: { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] }
+>       = @get_union_struct<op1>;
+>     let f: [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ]
+>       = @get_struct_field<payload, 0>;
+>     let var13: str = "hello";
+>     let cond8: int = @get_union_id<f>;
+>     switch cond8 {
+>     0 -> { @call_direct(lam31, f, var13) }
+>     } in join join8;
+>     let cond9: int = @get_union_id<handle>;
+>     switch cond9 {
+>     0 -> { @call_direct(handle11, handle, join8) }
+>     } in join join9;
+>     join9
+>   }
+>   2 -> {
+>     let payload1: { str, [ `0 { [ `0 {} ] } ] } = @get_union_struct<op1>;
+>     let s3: str = @get_struct_field<payload1, 0>;
+>     let f1: [ `0 { [ `0 {} ] } ] = @get_struct_field<payload1, 1>;
+>     let cond10: int = @get_union_id<f1>;
+>     switch cond10 {
+>     0 -> { @call_direct(lam41, f1, s3) }
+>     } in join join10;
+>     let cond11: int = @get_union_id<handle>;
+>     switch cond11 {
+>     0 -> { @call_direct(handle11, handle, join10) }
+>     } in join join11;
+>     join11
+>   }
+>   } in join join12;
+>   return join12;
+> }
 > 
 > proc main_handler_thunk(): str
 > {
->   let fnptr12: *fn = @get_struct_field<main1, 0>;
->   let captures12: box<erased> = @get_struct_field<main1, 1>;
->   let captures_stack_10: {} = @make_struct{};
->   let captures_box_10: box<{}> = @make_box(captures_stack_10);
->   let captures_21: box<erased> = @ptr_cast(captures_box_10 as box<erased>);
->   let fn_ptr_10: *fn = @make_fn_ptr<lam71>;
->   let var20: { *fn, box<erased> } = @make_struct{ fn_ptr_10, captures_21 };
+>   let struct14: {} = @make_struct{};
+>   let var14: [ `0 {} ] = @make_union<0, struct14>;
+>   let cond12: int = @get_union_id<main1>;
+>   switch cond12 {
+>   0 -> { @call_direct(lam11, main1, var14) }
+>   } in join join13;
 >   let op:
 >         [
 >            `0 { str },
->            `1 { { *fn, box<erased> } },
->            `2 { str, { *fn, box<erased> } }
+>            `1 { [ `0 { [ `0 { [ `0 {} ], [ `0 {} ] } ] } ] },
+>            `2 { str, [ `0 { [ `0 {} ] } ] }
 >         ]
+<<<<<<< Updated upstream
 >     = @call_indirect(fnptr12, captures12, var20);
 >   let captures_stack_11: {} = @make_struct{};
 >   let captures_box_11: box<{}> = @make_box(captures_stack_11);
@@ -483,6 +485,16 @@ run main_handler =
 >   let captures13: box<erased> = @get_struct_field<handle, 1>;
 >   let var21: str = @call_indirect(fnptr13, captures13, op);
 >   return var21;
+=======
+>     = join13;
+>   let struct15: {} = @make_struct{};
+>   let handle: [ `0 {} ] = @make_union<0, struct15>;
+>   let cond13: int = @get_union_id<handle>;
+>   switch cond13 {
+>   0 -> { @call_direct(handle11, handle, op) }
+>   } in join join14;
+>   return join14;
+>>>>>>> Stashed changes
 > }
 > 
 > global main_handler: str = @call_direct(main_handler_thunk);

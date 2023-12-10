@@ -8,6 +8,7 @@ sig map : (a -> b) -> List a -> List b
 #   ^^^
 let map = \f -> \xs ->
   let go = \xs ->
+  #   ^^
     when xs is
 #        ^^
       | Nil -> Nil
@@ -15,7 +16,7 @@ let map = \f -> \xs ->
       #        ^^                   ^^
     end
   in go xs
-#       ^^
+#    ^^ ^^
 ;;
 
 let mapper = \x -> A x;;
@@ -31,10 +32,11 @@ run main = map mapper l;;
 > 
 > sig map : (a -> b) -> List a -> List b
 > #   ^^^ ('a -'c-> 'b)
-> #   ^^^   -[map1]-> %(List 'a1)
-> #   ^^^               -[lam ('a2 -'c-> 'b2)]-> %List 'b1
+> #   ^^^   -[map]-> %(List 'a1)
+> #   ^^^              -[lam ('a2 -'c-> 'b2)]-> %List 'b1
 > let map = \f -> \xs ->
 >   let go = \xs ->
+> #     ^^ %(List 'a) -[go1 ('a -'*-> 'b)]-> %List 'b
 >     when xs is
 > #        ^^ %List 'a
 >       | Nil -> Nil
@@ -44,10 +46,11 @@ run main = map mapper l;;
 >     end
 >   in go xs
 > #       ^^ %List 'a
+> #    ^^ %(List 'a) -[go1 ('a -'*-> 'b)]-> %List 'b
 > ;;
 > 
 > let mapper = \x -> A x;;
-> #   ^^^^^^ 'a -[mapper1]-> [A 'a]'*
+> #   ^^^^^^ 'a -[mapper]-> [A 'a]'*
 > 
 > sig l : List Int
 > let l = Cons 1 (Cons 2 Nil);;
@@ -95,6 +98,7 @@ run main = map mapper l;;
 >   main
 
 > cor-out +ir -print
+<<<<<<< Updated upstream
 > proc clos_mapper2(captures_3: box<erased>, x1: int): [ `0 { int } ]
 > {
 >   let captures_box3: box<{}> = @ptr_cast(captures_3 as box<{}>);
@@ -145,6 +149,64 @@ run main = map mapper l;;
 >   let f: { *fn, box<erased> } = @get_struct_field<captures_stack1, 0>;
 >   let rec_fn_ptr_go: *fn = @make_fn_ptr<go11>;
 >   let go: { *fn, box<erased> } = @make_struct{ rec_fn_ptr_go, captures_go };
+=======
+> proc mapper2(captures_2: [ `0 {} ], x1: int): [ `0 { int } ]
+> {
+>   let captures_stack3: {} = @get_union_struct<captures_2>;
+>   let struct5: { int } = @make_struct{ x1 };
+>   let var1: [ `0 { int } ] = @make_union<0, struct5>;
+>   return var1;
+> }
+> 
+> proc map2(captures_1: [ `0 {} ], f: [ `0 {} ]): [ `0 { [ `0 {} ] } ]
+> {
+>   let captures_stack2: {} = @get_union_struct<captures_1>;
+>   let struct4: { [ `0 {} ] } = @make_struct{ f };
+>   let var: [ `0 { [ `0 {} ] } ] = @make_union<0, struct4>;
+>   return var;
+> }
+> 
+> proc l_thunk(): box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]>
+> {
+>   let var2: int = 1;
+>   let var3: int = 2;
+>   let struct6: {} = @make_struct{};
+>   let unboxed2:
+>         [ `0 { int, box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]> }, `1 {}
+>         ]
+>     = @make_union<1, struct6>;
+>   let var4: box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]>
+>     = @make_box(unboxed2);
+>   let struct7: { int, box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]> }
+>     = @make_struct{ var3, var4 };
+>   let unboxed3:
+>         [ `0 { int, box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]> }, `1 {}
+>         ]
+>     = @make_union<0, struct7>;
+>   let var5: box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]>
+>     = @make_box(unboxed3);
+>   let struct8: { int, box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]> }
+>     = @make_struct{ var2, var5 };
+>   let unboxed4:
+>         [ `0 { int, box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]> }, `1 {}
+>         ]
+>     = @make_union<0, struct8>;
+>   let var6: box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]>
+>     = @make_box(unboxed4);
+>   return var6;
+> }
+> 
+> proc go11(
+>   captures_go: [ `0 { [ `0 {} ] } ],
+>    xs1: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>):
+>   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
+> {
+>   let captures_stack1: { [ `0 {} ] } = @get_union_struct<captures_go>;
+>   let f: [ `0 {} ] = @get_struct_field<captures_stack1, 0>;
+>   let rec_fn_ptr_go: *fn = @make_fn_ptr<go11>;
+>   let struct1: { [ `0 {} ] } = @make_struct{ f };
+>   let go: [ `0 { [ `0 {} ] } ] = @make_union<0, struct1>;
+>>>>>>> Stashed changes
 >   let inner:
 >         [ `0 { int, box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]> }, `1 {}
 >         ]
@@ -157,6 +219,7 @@ run main = map mapper l;;
 >     let x: int = @get_struct_field<payload1, 0>;
 >     let xs2: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>
 >       = @get_struct_field<payload1, 1>;
+<<<<<<< Updated upstream
 >     let fnptr1: *fn = @get_struct_field<f, 0>;
 >     let captures1: box<erased> = @get_struct_field<f, 1>;
 >     let var1: [ `0 { int } ] = @call_indirect(fnptr1, captures1, x);
@@ -168,36 +231,59 @@ run main = map mapper l;;
 >           {
 >            [ `0 { int } ],
 >             box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
+=======
+>     let cond1: int = @get_union_id<f>;
+>     switch cond1 {
+>     0 -> { @call_direct(mapper2, f, x) }
+>     } in join join1;
+>     let cond2: int = @get_union_id<go>;
+>     switch cond2 {
+>     0 -> { @call_direct(go11, go, xs2) }
+>     } in join join2;
+>     let struct3:
+>           {
+>            [ `0 { int } ],
+>             box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
+>>>>>>> Stashed changes
 >            ,
 >           }
->       = @make_struct{ var1, var2 };
+>       = @make_struct{ join1, join2 };
 >     let unboxed1:
 >           [
 >              `0 {
 >                  [ `0 { int } ],
+<<<<<<< Updated upstream
 >                   box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
+=======
+>                   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
+>>>>>>> Stashed changes
 >                  ,
 >                 },
 >              `1 {}
 >           ]
->       = @make_union<0, struct1>;
+>       = @make_union<0, struct3>;
 >     @make_box(unboxed1)
 >   }
 >   1 -> {
 >     let payload: {} = @get_union_struct<inner>;
->     let struct: {} = @make_struct{};
+>     let struct2: {} = @make_struct{};
 >     let unboxed:
 >           [
 >              `0 {
 >                  [ `0 { int } ],
+<<<<<<< Updated upstream
 >                   box<%type_4 = [ `0 { [ `0 { int } ], box<%type_4> }, `1 {} ]>
+=======
+>                   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
+>>>>>>> Stashed changes
 >                  ,
 >                 },
 >              `1 {}
 >           ]
->       = @make_union<1, struct>;
+>       = @make_union<1, struct2>;
 >     @make_box(unboxed)
 >   }
+<<<<<<< Updated upstream
 >   } in join join;
 >   return join;
 > }
@@ -256,20 +342,36 @@ run main = map mapper l;;
 > }
 > 
 > proc map2_thunk(): { *fn, box<erased> }
-> {
->   let captures_stack_: {} = @make_struct{};
->   let captures_box_: box<{}> = @make_box(captures_stack_);
->   let captures_2: box<erased> = @ptr_cast(captures_box_ as box<erased>);
->   let fn_ptr_: *fn = @make_fn_ptr<clos_map2>;
->   let map2_closure: { *fn, box<erased> } = @make_struct{ fn_ptr_, captures_2 };
->   return map2_closure;
+=======
+>   } in join join3;
+>   return join3;
 > }
 > 
-> global map2: { *fn, box<erased> } = @call_direct(map2_thunk);
+> global l1:
+>   box<%type_7 = [ `0 { int, box<%type_7> }, `1 {} ]>
+>   = @call_direct(l_thunk);
+> 
+> proc lam1(
+>   captures_: [ `0 { [ `0 {} ] } ],
+>    xs: box<%type_5 = [ `0 { int, box<%type_5> }, `1 {} ]>):
+>   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
+>>>>>>> Stashed changes
+> {
+>   let captures_stack: { [ `0 {} ] } = @get_union_struct<captures_>;
+>   let f: [ `0 {} ] = @get_struct_field<captures_stack, 0>;
+>   let struct: { [ `0 {} ] } = @make_struct{ f };
+>   let go: [ `0 { [ `0 {} ] } ] = @make_union<0, struct>;
+>   let cond: int = @get_union_id<go>;
+>   switch cond {
+>   0 -> { @call_direct(go11, go, xs) }
+>   } in join join;
+>   return join;
+> }
 > 
 > proc main_thunk():
 >   box<%type_7 = [ `0 { [ `0 { int } ], box<%type_7> }, `1 {} ]>
 > {
+<<<<<<< Updated upstream
 >   let fnptr3: *fn = @get_struct_field<map2, 0>;
 >   let captures3: box<erased> = @get_struct_field<map2, 1>;
 >   let var10: { *fn, box<erased> } = @call_indirect(fnptr3, captures3, mapper2);
@@ -282,6 +384,25 @@ run main = map mapper l;;
 > 
 > global main:
 >   box<%type_6 = [ `0 { [ `0 { int } ], box<%type_6> }, `1 {} ]>
+=======
+>   let struct9: {} = @make_struct{};
+>   let var7: [ `0 {} ] = @make_union<0, struct9>;
+>   let struct10: {} = @make_struct{};
+>   let var8: [ `0 {} ] = @make_union<0, struct10>;
+>   let cond3: int = @get_union_id<var7>;
+>   switch cond3 {
+>   0 -> { @call_direct(map2, var7, var8) }
+>   } in join join4;
+>   let cond4: int = @get_union_id<join4>;
+>   switch cond4 {
+>   0 -> { @call_direct(lam1, join4, l1) }
+>   } in join join5;
+>   return join5;
+> }
+> 
+> global main:
+>   box<%type_8 = [ `0 { [ `0 { int } ], box<%type_8> }, `1 {} ]>
+>>>>>>> Stashed changes
 >   = @call_direct(main_thunk);
 > 
 > entry main;

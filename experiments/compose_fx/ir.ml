@@ -18,8 +18,6 @@ and layout = layout_repr ref
 
 let layout_str () = ref Str
 let layout_int () = ref Int
-let erased_captures_lay () = ref @@ Box (ref @@ Erased, None)
-let closure_repr () = Struct [ ref @@ FunctionPointer; erased_captures_lay () ]
 
 type var = layout * symbol
 type lit = [ `Int of int | `String of string ]
@@ -59,23 +57,6 @@ type program = {
 
 type fresh_rec_id = unit -> rec_id
 type layout_cache = (variable * layout) list ref
-
-type ctx = {
-  symbols : Symbol.t;
-  cache : layout_cache;
-  fresh_rec_id : fresh_rec_id;
-  fresh_tvar : fresh_tvar;
-}
-
-let new_ctx symbols fresh_tvar =
-  let cache = ref [] in
-  let next_id = ref 0 in
-  let fresh_rec_id () =
-    let id = !next_id in
-    next_id := id + 1;
-    `Rec id
-  in
-  { symbols; cache; fresh_rec_id; fresh_tvar }
 
 let pp_rec_id : Format.formatter -> rec_id -> unit =
  fun f (`Rec i) -> Format.fprintf f "%%type_%d" i
@@ -237,11 +218,14 @@ let rec pp_stmt : Format.formatter -> stmt -> unit =
     | Switch { cond; branches; join } ->
         let pp_stmts f = function
           | [] -> ()
-          | stmts -> fprintf f "%a@ " (pp_print_list ~pp_sep:pp_print_space pp_stmt) stmts
+          | stmts ->
+              fprintf f "%a@ "
+                (pp_print_list ~pp_sep:pp_print_space pp_stmt)
+                stmts
         in
         let pp_branch f (i, (lets, ret)) =
-          fprintf f "@[<hv 0>@[<hv 2>%d -> {@ %a%a@]@ }@]" i
-            pp_stmts lets pp_expr ret
+          fprintf f "@[<hv 0>@[<hv 2>%d -> {@ %a%a@]@ }@]" i pp_stmts lets
+            pp_expr ret
         in
         fprintf f "@[<v 0>switch %a {@,%a@,} in join %a;@]" pp_v_name cond
           (pp_print_list pp_branch) branches pp_v_name join

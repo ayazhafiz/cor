@@ -1,4 +1,4 @@
-# cor +solve -elab
+# cor +mono -print
 # cor +ir -print
 # cor +eval -print
 
@@ -37,11 +37,8 @@ let inLine = \toNext -> StdinLine (\s -> toNext (Ok s));;
 
 sig main : Task {} * (Op *)
 let main =
-    await (outLine "What's your first name?")
-        (\x -> await (inLine)
-            (\firstName -> await (outLine "What's your last name?")
-                (\y -> await (inLine)
-                    (\lastName -> outLine (~str_concat "Hello " firstName " " lastName "!")))))
+    await (inLine)
+        (\firstName -> outLine "What's your last name?")
 ;;
 
 run main_handler =

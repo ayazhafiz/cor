@@ -120,7 +120,7 @@ let check_expr : string -> fenv -> venv -> layout -> expr -> unit =
              lookup_var (ctx_join ctx ("arg " ^ string_of_int i)) venv x)
            args
   | CallDirect (f, args) ->
-      let proc = List.assoc f fenv in
+      let proc = lookup_proc ctx fenv f in
       let l_args = List.map (lookup_var ctx venv) args in
       let proc_args = List.map (fun (l, _) -> l) proc.args in
       List.iter2 (check_lay_equiv ctx) proc_args l_args;

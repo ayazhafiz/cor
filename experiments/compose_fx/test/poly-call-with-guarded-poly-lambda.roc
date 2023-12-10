@@ -11,6 +11,7 @@ run main =
 ;;
 
 > cor-out +ir -print
+<<<<<<< Updated upstream
 > proc f11(captures_: box<erased>, x1: int): int
 > {
 >   let captures_box: box<{}> = @ptr_cast(captures_ as box<{}>);
@@ -54,46 +55,59 @@ run main =
 >   let var1: str = @call_indirect(fnptr1, captures1, x);
 >   return var1;
 > }
+=======
+> proc f11(captures_: [ `0 {} ], x1: int): int
+> {let captures_stack: {} = @get_union_struct<captures_>;
+>  return x1;}
 > 
-> proc poly2_thunk(): { *fn, box<erased> }
+> proc f12(captures_2: [ `0 {} ], x1: str): str
+> {let captures_stack2: {} = @get_union_struct<captures_2>;
+>  return x1;}
+>>>>>>> Stashed changes
+> 
+> proc poly2(captures_1: [ `0 {} ], x: int): int
 > {
->   let captures_stack_: {} = @make_struct{};
->   let captures_box_: box<{}> = @make_box(captures_stack_);
->   let captures_2: box<erased> = @ptr_cast(captures_box_ as box<erased>);
->   let fn_ptr_: *fn = @make_fn_ptr<clos_poly2>;
->   let poly2_closure: { *fn, box<erased> }
->     = @make_struct{ fn_ptr_, captures_2 };
->   return poly2_closure;
+>   let captures_stack1: {} = @get_union_struct<captures_1>;
+>   let struct: {} = @make_struct{};
+>   let f: [ `0 {} ] = @make_union<0, struct>;
+>   let cond: int = @get_union_id<f>;
+>   switch cond {
+>   0 -> { @call_direct(f11, f, x) }
+>   } in join join;
+>   return join;
 > }
 > 
-> proc poly3_thunk(): { *fn, box<erased> }
+> proc poly3(captures_3: [ `0 {} ], x: str): str
 > {
->   let captures_stack_1: {} = @make_struct{};
->   let captures_box_1: box<{}> = @make_box(captures_stack_1);
->   let captures_5: box<erased> = @ptr_cast(captures_box_1 as box<erased>);
->   let fn_ptr_1: *fn = @make_fn_ptr<clos_poly3>;
->   let poly3_closure: { *fn, box<erased> }
->     = @make_struct{ fn_ptr_1, captures_5 };
->   return poly3_closure;
+>   let captures_stack3: {} = @get_union_struct<captures_3>;
+>   let struct1: {} = @make_struct{};
+>   let f: [ `0 {} ] = @make_union<0, struct1>;
+>   let cond1: int = @get_union_id<f>;
+>   switch cond1 {
+>   0 -> { @call_direct(f12, f, x) }
+>   } in join join1;
+>   return join1;
 > }
-> 
-> global poly2: { *fn, box<erased> } = @call_direct(poly2_thunk);
-> 
-> global poly3: { *fn, box<erased> } = @call_direct(poly3_thunk);
 > 
 > proc main_thunk(): [ `0 { int, str } ]
 > {
->   let fnptr2: *fn = @get_struct_field<poly2, 0>;
->   let captures2: box<erased> = @get_struct_field<poly2, 1>;
->   let var2: int = 1;
->   let var3: int = @call_indirect(fnptr2, captures2, var2);
->   let fnptr3: *fn = @get_struct_field<poly3, 0>;
->   let captures3: box<erased> = @get_struct_field<poly3, 1>;
->   let var4: str = "";
->   let var5: str = @call_indirect(fnptr3, captures3, var4);
->   let struct: { int, str } = @make_struct{ var3, var5 };
->   let var6: [ `0 { int, str } ] = @make_union<0, struct>;
->   return var6;
+>   let struct2: {} = @make_struct{};
+>   let var: [ `0 {} ] = @make_union<0, struct2>;
+>   let var1: int = 1;
+>   let cond2: int = @get_union_id<var>;
+>   switch cond2 {
+>   0 -> { @call_direct(poly2, var, var1) }
+>   } in join join2;
+>   let struct3: {} = @make_struct{};
+>   let var2: [ `0 {} ] = @make_union<0, struct3>;
+>   let var3: str = "";
+>   let cond3: int = @get_union_id<var2>;
+>   switch cond3 {
+>   0 -> { @call_direct(poly3, var2, var3) }
+>   } in join join3;
+>   let struct4: { int, str } = @make_struct{ join2, join3 };
+>   let var4: [ `0 { int, str } ] = @make_union<0, struct4>;
+>   return var4;
 > }
 > 
 > global main: [ `0 { int, str } ] = @call_direct(main_thunk);

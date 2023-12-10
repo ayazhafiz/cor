@@ -320,8 +320,8 @@ let pp_tvar :
             if not (is_empty_tag ext) then print_ext ();
             fprintf f "@]"
         | Content (TLambdaSet { lambdas; ambient_fn = _ }) ->
-            let pp_lambda i { lambda; captures } =
-              if i > 0 then pp_print_string f ",@ ";
+            let pp_lambda i { lambda; captures; _ } =
+              if i > 0 then fprintf f ",@ ";
               fprintf f "@[<hov 2>%a" (pp_symbol symbols) lambda;
               List.iter
                 (fun v ->
