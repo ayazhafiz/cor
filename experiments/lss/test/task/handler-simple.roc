@@ -35,21 +35,34 @@ run main_handler =
 >   Done x1
 > let clos1: Str -> [Done Str, StdinLine <rec>, StdoutLine Str (Str -> <rec>)] = \s1 ->
 >   StdoutLine s1 clos
-> let handle: [Done Str, StdinLine (Str -> <rec>), StdoutLine Str (Str -> <rec>)]
->               -> Str = \op ->
+> let handle1: [
+>                Done Str,
+>                StdinLine (Str -> <rec>),
+>                StdoutLine Str (Str -> <rec>)
+>                ] -> Str = \op ->
 >   when op is
->     | StdinLine f -> handle (f "hello")
->     | StdoutLine s f1 -> handle (f1 s)
+>     | StdinLine f -> handle1 (f "hello")
+>     | StdoutLine s f1 -> handle1 (f1 s)
 >     | Done x -> x
 >   end
 > run main_handler: Str =
->   handle (StdinLine clos1)
+>   handle1 (StdinLine clos1)
 
 > cor-out +lambdasolved -print
+> let handle1: [
+>                Done Str,
+>                StdinLine (Str -<'1271>-> <rec>),
+>                StdoutLine Str (Str -<'1269>-> <rec>)
+>                ] -[handle1]-> Str = \op ->
+>   when op is
+>     | StdinLine f -> handle1 (f "hello")
+>     | StdoutLine s f1 -> handle1 (f1 s)
+>     | Done x -> x
+>   end
 > let clos: Str
 >             -[clos]-> [
 >                         Done Str,
->                         StdinLine (Str -<'1167>-> <rec>),
+>                         StdinLine (Str -<'1287>-> <rec>),
 >                         StdoutLine Str <rec>
 >                         ] = \x1 ->
 >   Done x1
@@ -60,43 +73,33 @@ run main_handler =
 >                           StdoutLine Str (Str -[clos]-> <rec>)
 >                           ] = \s1 ->
 >   StdoutLine s1 clos
-> let handle: [
->               Done Str,
->               StdinLine (Str -<'1338>-> <rec>),
->               StdoutLine Str (Str -<'1336>-> <rec>)
->               ] -[handle]-> Str = \op ->
->   when op is
->     | StdinLine f -> handle (f "hello")
->     | StdoutLine s f1 -> handle (f1 s)
->     | Done x -> x
->   end
 > run main_handler: Str =
->   handle (StdinLine clos1)
+>   handle1 (StdinLine clos1)
 
 > cor-out +lambdamono -print
 > fn clos3(x1: Str): [Done Str, StdinLine [Clos1], StdoutLine Str [Clos]] =
 >   Done x1
 > fn clos2(s1: Str): [Done Str, StdinLine [Clos1], StdoutLine Str [Clos]] =
 >   StdoutLine s1 (Clos)
-> fn handle1(op: [Done Str, StdinLine [Clos1], StdoutLine Str [Clos]]): Str =
+> fn handle2(op: [Done Str, StdinLine [Clos1], StdoutLine Str [Clos]]): Str =
 >   when op is
 >     | StdinLine f ->
->       when Handle is
->         | Handle -> handle1(when f is
->                               | Clos1 -> clos2("hello")
->                             end)
+>       when Handle1 is
+>         | Handle1 -> handle2(when f is
+>                                | Clos1 -> clos2("hello")
+>                              end)
 >       end
 >     | StdoutLine s f1 ->
->       when Handle is
->         | Handle -> handle1(when f1 is
->                               | Clos -> clos3(s)
->                             end)
+>       when Handle1 is
+>         | Handle1 -> handle2(when f1 is
+>                                | Clos -> clos3(s)
+>                              end)
 >       end
 >     | Done x -> x
 >   end
 > run main_handler: Str =
->   when Handle is
->     | Handle -> handle1(StdinLine (Clos1))
+>   when Handle1 is
+>     | Handle1 -> handle2(StdinLine (Clos1))
 >   end
 
 > cor-out +ir -print
@@ -118,7 +121,7 @@ run main_handler =
 >   return var2;
 > }
 > 
-> fn handle1(op: [ `0 { str }, `1 { [ `0 {} ] }, `2 { str, [ `0 {} ] } ]): str
+> fn handle2(op: [ `0 { str }, `1 { [ `0 {} ] }, `2 { str, [ `0 {} ] } ]): str
 > {
 >   let discr: int = @get_union_id<op>;
 >   switch discr {
@@ -142,7 +145,7 @@ run main_handler =
 >         @call_direct(clos2, var4)
 >       }
 >       } in join join;
->       @call_direct(handle1, join)
+>       @call_direct(handle2, join)
 >     }
 >     } in join join1;
 >     join1
@@ -162,7 +165,7 @@ run main_handler =
 >         @call_direct(clos3, s)
 >       }
 >       } in join join2;
->       @call_direct(handle1, join2)
+>       @call_direct(handle2, join2)
 >     }
 >     } in join join3;
 >     join3
@@ -183,7 +186,7 @@ run main_handler =
 >     let struct6: { [ `0 {} ] } = @make_struct{ var7 };
 >     let var8: [ `0 { str }, `1 { [ `0 {} ] }, `2 { str, [ `0 {} ] } ]
 >       = @make_union<1, struct6>;
->     @call_direct(handle1, var8)
+>     @call_direct(handle2, var8)
 >   }
 >   } in join join5;
 >   return join5;

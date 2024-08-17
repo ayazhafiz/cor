@@ -6,11 +6,11 @@
 # cor +ir -print
 # cor +eval -print
 
-let f1 = \x -> ~add x 1;;
+let f1 = \x -> x + 1;;
 #   ^^
-let f2 = \x -> ~add x 2;;
+let f2 = \x -> x + 2;;
 #   ^^
-let f3 = \x -> ~add x 3;;
+let f3 = \x -> x + 3;;
 #   ^^
 
 let f = \t -> when t is
@@ -25,11 +25,11 @@ run x = f T2 0
 
 > cor-out +solve -elab
 > 
-> let f1 = \x -> ~add x 1;;
+> let f1 = \x -> x + 1;;
 > #   ^^ Int -> Int
-> let f2 = \x -> ~add x 2;;
+> let f2 = \x -> x + 2;;
 > #   ^^ Int -> Int
-> let f3 = \x -> ~add x 3;;
+> let f3 = \x -> x + 3;;
 > #   ^^ Int -> Int
 > 
 > let f = \t -> when t is

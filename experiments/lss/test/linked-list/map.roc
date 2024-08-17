@@ -19,7 +19,7 @@ run main1 =
     map f (Cons 1 (Cons 2 Nil));;
 
 run main2 =
-    let f = \x -> ~add x 1 in
+    let f = \x -> x + 1 in
     map f (Cons 1 (Cons 2 Nil));;
 
 > cor-out +monotype -print

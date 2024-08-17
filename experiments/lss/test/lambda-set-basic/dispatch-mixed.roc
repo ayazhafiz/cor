@@ -9,8 +9,8 @@
 let f = \t ->
   when t is
     | A -> \w -> w
-    | B y -> \w -> ~add w y
-    | C y z -> \w -> ~add w (~add y z)
+    | B y -> \w -> w + y
+    | C y z -> \w -> w + y + z
   end
 ;;
 

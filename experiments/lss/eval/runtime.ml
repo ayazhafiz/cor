@@ -28,6 +28,9 @@ let eval_kcall : S.kernelfn -> memory_cell list -> memory_cell =
   | `Add ->
       let is = List.map get_word args in
       word @@ List.fold_left ( + ) 0 is
+  | `Sub ->
+      let is = List.map get_word args in
+      word @@ List.fold_left ( - ) (List.hd is) (List.tl is)
 
 let rec eval_expr ~ctx memory expr =
   let lookup x = List.assoc (snd x) memory in

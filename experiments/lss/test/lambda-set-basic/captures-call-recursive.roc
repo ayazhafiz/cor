@@ -7,7 +7,7 @@
 
 let f = \x ->
   let g = \t -> when t is
-    | T -> ~add x 1
+    | T -> x + 1
     | F -> g T
   end
   in g

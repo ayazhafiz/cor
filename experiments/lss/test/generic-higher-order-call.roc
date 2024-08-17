@@ -9,7 +9,7 @@
 let id = \x -> x;;
 run run1 =
   let n = 2 in
-  id (\x -> ~add x n) 1;;
+  id (\x -> x + n) 1;;
 run run2 = id (\x -> x) 2;;
 
 > cor-out +canonicalize -print

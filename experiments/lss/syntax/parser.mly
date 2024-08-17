@@ -53,6 +53,10 @@ let noloc = Language.noloc
 %token <Language.loc> STAR
 %token <Language.loc> PIPE
 %token <Language.loc> LAMBDA
+
+%token <Language.loc> PLUS
+%token <Language.loc> MINUS
+
 %token EOF
 
 %start toplevel
@@ -134,6 +138,7 @@ alias_vars:
 
 expr:
   | app=expr_app { app }
+  | binop=expr_binop { fun ctx -> binop ctx }
   | e=expr_lets { fun c -> e c }
   | lam=LAMBDA arg=LOWER ARROW body=expr { fun ctx ->
       let (loc_arg, sym_arg) = add_scoped_def_sym ctx arg in
@@ -222,6 +227,18 @@ expr_atom:
       let tvar = ctx.fresh_tvar @@ Unbd None in
       (loc, tvar, Unit)
   }
+
+expr_binop:
+  | l=expr b=binop r=expr { fun ctx ->
+      let l = l ctx in
+      let r = r ctx in
+      let loc = range (xloc l) (xloc r) in
+      (loc, ctx.fresh_tvar @@ Unbd None, KCall(b, [l; r]))
+  }
+
+binop:
+  | PLUS { `Add }
+  | MINUS { `Sub }
 
 branch_seq:
   | e=END { fun _ -> ([], e) }

@@ -7,7 +7,7 @@ type e_pat = loc * tvar * pat
 
 and pat = PTag of (loc * string) * e_pat list | PVar of loc_symbol
 
-type kernelfn = [ `StrConcat | `Itos | `Add ]
+type kernelfn = [ `StrConcat | `Itos | `Add | `Sub ]
 
 let string_of_kernelfn : (kernelfn * string) list =
   [ (`StrConcat, "str_concat"); (`Add, "add"); (`Itos, "itos") ]
@@ -23,6 +23,7 @@ type kernel_sig = {
 let kernel_sig : kernelfn -> kernel_sig = function
   | `StrConcat -> { args = `Variadic (tvar_str ()); ret = tvar_str () }
   | `Add -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
+  | `Sub -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
   | `Itos -> { args = `List [ tvar_int () ]; ret = tvar_str () }
 
 type e_expr = loc * tvar * expr

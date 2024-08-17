@@ -7,7 +7,7 @@
 # cor +eval -print
 
 let map = \x ->
-  let f = \y -> ~add y x in
+  let f = \y -> x + y in
   f 2
 ;;
 
@@ -16,7 +16,7 @@ run main = map 1;;
 > cor-out +canonicalize -print
 > let map = \x ->
 >   let f = \y ->
->     ~add y x in
+>     ~add x y in
 >   f 2
 > let main =
 >   map 1
@@ -24,14 +24,14 @@ run main = map 1;;
 > cor-out +monotype -print
 > let map1: Int -> Int = \x ->
 >   let f: Int -> Int = \y ->
->     ~add y x in
+>     ~add x y in
 >   f 2
 > run main: Int =
 >   map1 1
 
 > cor-out +monotype_lifted -print
 > let f1(x: Int): Int -> Int = \y ->
->   ~add y x
+>   ~add x y
 > let map1: Int -> Int = \x ->
 >   f1 2
 > run main: Int =
@@ -39,7 +39,7 @@ run main = map 1;;
 
 > cor-out +lambdasolved -print
 > let f1(x: Int): Int -[f1 (x: Int)]-> Int = \y ->
->   ~add y x
+>   ~add x y
 > let map1: Int -[map1]-> Int = \x ->
 >   f1 2
 > run main: Int =
@@ -48,7 +48,7 @@ run main = map 1;;
 > cor-out +lambdamono -print
 > fn f2(y: Int, captures2: {x: Int}): Int =
 >   let x: Int = captures2.x in
->   ~add y x
+>   ~add x y
 > fn map2(x: Int): Int =
 >   when F1 {x: x} is
 >     | F1 captures1 -> f2(2, captures1)
@@ -62,7 +62,7 @@ run main = map 1;;
 > fn f2(y: int, captures2: { int }): int
 > {
 >   let x: int = @get_struct_field<captures2, 0>;
->   let var: int = @call_kfn(add, y, x);
+>   let var: int = @call_kfn(add, x, y);
 >   return var;
 > }
 > 

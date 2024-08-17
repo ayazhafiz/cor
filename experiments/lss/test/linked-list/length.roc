@@ -9,7 +9,7 @@
 let len = \l ->
   when l is
     | Nil -> 0
-    | Cons x xs -> ~add 1 (len xs)
+    | Cons x xs -> 1 + (len xs)
   end
 ;;
 

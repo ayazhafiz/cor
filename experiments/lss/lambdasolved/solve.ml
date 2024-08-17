@@ -254,6 +254,7 @@ type kernel_sig = {
 let kernel_sig : kernelfn -> kernel_sig = function
   | `StrConcat -> { args = `Variadic (tvar_str ()); ret = tvar_str () }
   | `Add -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
+  | `Sub -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
   | `Itos -> { args = `List [ tvar_int () ]; ret = tvar_str () }
 
 let infer_pat : Ctx.t -> venv -> e_pat -> venv * tvar =

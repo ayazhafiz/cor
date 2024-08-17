@@ -68,6 +68,8 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | upper -> make lexbuf (fun i -> UPPER (i, Utf8.lexeme lexbuf))
   | nat ->
       make lexbuf (fun i -> NUMBER (i, int_of_string @@ Utf8.lexeme lexbuf))
+  | "+" -> make lexbuf (fun i -> PLUS i)
+  | "-" -> make lexbuf (fun i -> MINUS i)
   | "#" -> comment lexbuf
   | eof -> EOF
   | _ ->
