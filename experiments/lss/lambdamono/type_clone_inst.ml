@@ -40,6 +40,10 @@ let clone_inst : fresh_tvar -> ty_cache -> tvar -> tvar =
               let go_tag (tag, args) = (tag, List.map go args) in
               let tags = List.map go_tag tags in
               Content (TTag tags)
+          | Content (TRecord fields) ->
+              let go_field (field, ty) = (field, go ty) in
+              let fields = List.map go_field fields in
+              Content (TRecord fields)
           | Content (TPrim p) -> Content (TPrim p)
         in
         tvar_set tvar ty;

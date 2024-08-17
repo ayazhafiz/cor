@@ -14,7 +14,6 @@ let readback : Symbol.t -> memory_cell -> tvar -> e_expr =
       | Link _ -> failwith "link after unlink"
       | Unbd _ -> Var (symbols.fresh_symbol "<unbound>")
       | ForA _ -> failwith "forA after monomorphization"
-      | Content (TPrim `Unit) -> Unit
       | Content (TPrim `Int) -> Int (get_word cell)
       | Content (TPrim `Str) -> Str (get_string cell)
       | Content TTagEmpty -> Var (symbols.fresh_symbol "<void>")
@@ -30,6 +29,15 @@ let readback : Symbol.t -> memory_cell -> tvar -> e_expr =
 
           let tag_payloads = List.map2 go tag_struct tag_payload_vars in
           Tag (tag_name, tag_payloads)
+      | Content TRecordEmpty -> Record []
+      | Content (TRecord { fields; ext = _, ext }) ->
+          let go_field (f, (_, t)) cell =
+            let e = go cell t in
+            (f, e)
+          in
+          let fields, _ext = chase_fields fields ext in
+          let fields = List.map2 go_field fields (get_block cell) in
+          Record fields
       | Content (TFn _) -> Var (symbols.fresh_symbol "<fn>")
       | Alias _ -> failwith "alias after unlink"
     in

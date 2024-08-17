@@ -29,20 +29,26 @@ let lower_type : mono_cache -> T.tvar -> ty =
         TFn (in', out)
     | T.TTag { tags; ext = _, ext } ->
         let tags, ext = T.chase_tags tags ext in
-        let tags = List.map go_tag tags in
-        let tags =
-          List.sort (fun (tag1, _) (tag2, _) -> compare tag1 tag2) tags
-        in
+        let tags = Util.sort_tagged @@ List.map go_tag tags in
         assert (!(go ext) = TTag []);
         TTag tags
     | T.TTagEmpty -> TTag []
+    | T.TRecord { fields; ext = _, ext } ->
+        let fields, ext = T.chase_fields fields ext in
+        let fields = Util.sort_tagged @@ List.map go_field fields in
+        assert (!(go ext) = TTag [] || !(go ext) = TRecord []);
+        TRecord fields
+    | T.TRecordEmpty -> TRecord []
     | T.TPrim `Str -> TPrim `Str
     | T.TPrim `Int -> TPrim `Int
-    | T.TPrim `Unit -> TPrim `Unit
   and go_tag : T.ty_tag -> ty_tag =
    fun (tag, args) ->
     let args = List.map (fun (_, t) -> go t) args in
     (tag, args)
+  and go_field : T.ty_field -> ty_field =
+   fun (field, (_, t)) ->
+    let t = go t in
+    (field, t)
   and go tvar =
     let tvar = unlink_tvar tvar in
     let var = T.tvar_v tvar in

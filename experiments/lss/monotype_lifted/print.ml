@@ -52,7 +52,6 @@ let rec pp_expr f =
     | Var x -> pp_symbol f x
     | Int i -> pp_print_int f i
     | Str s -> fprintf f "\"%s\"" (String.escaped s)
-    | Unit -> pp_print_string f "{}"
     | Tag (tag, payloads) ->
         fprintf f "@[<v 0>";
         let expr () =
@@ -66,6 +65,12 @@ let rec pp_expr f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
+    | Record fields ->
+        fprintf f "@[<v 0>@[<hv 2>{%a}@]@]"
+          (Format.pp_print_list ~pp_sep:comma_sep (fun f (field, e) ->
+               fprintf f "@[<hv 2>%s:@ %a@]" field pp_expr e))
+          fields
+    | Access (e, field) -> fprintf f "@[<hv 2>%a.%s@]" pp_expr e field
     | Let ((t, x), body, rest) ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =

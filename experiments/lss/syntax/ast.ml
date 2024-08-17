@@ -33,8 +33,9 @@ and expr =
   | Var of symbol
   | Int of int
   | Str of string
-  | Unit
   | Tag of string * e_expr list
+  | Record of (string * e_expr) list
+  | Access of e_expr * string
   | Let of {
       recursive : bool ref;
       bind : loc * loc_tvar * symbol;

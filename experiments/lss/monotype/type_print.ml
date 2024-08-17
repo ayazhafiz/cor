@@ -42,9 +42,17 @@ let pp_ty : Format.formatter -> ty -> unit =
                 if i < List.length tags - 1 then fprintf f ",@ ")
               tags;
             fprintf f "@,]@]"
+        | TRecord fields ->
+            fprintf f "@[<hv 2>{@,";
+            List.iteri
+              (fun i (field, ty) ->
+                fprintf f "@[<hov 2>%s: " field;
+                go `Free visited ty;
+                if i < List.length fields - 1 then fprintf f ",@ ")
+              fields;
+            fprintf f "@,}@]"
         | TPrim `Str -> pp_print_string f "Str"
         | TPrim `Int -> pp_print_string f "Int"
-        | TPrim `Unit -> pp_print_string f "{}"
     in
     go `Free [] ty
 

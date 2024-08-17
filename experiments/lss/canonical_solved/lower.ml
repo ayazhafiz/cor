@@ -23,12 +23,16 @@ let is_generalized : tvar -> bool =
       | Unbd _ -> false
       | Link t -> go t
       | ForA _ -> true
-      | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> false
+      | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> false
       | Content (TTag { tags; ext }) ->
           let check_tag : ty_tag -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
           in
           List.exists check_tag tags || go (snd ext)
+      | Content (TRecord { fields; ext }) ->
+          let check_field : ty_field -> bool = fun (_, (_, t)) -> go t in
+          List.exists check_field fields || go (snd ext)
+      | Content TRecordEmpty -> false
       | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
       | Alias { alias = _, args; real } ->
           List.exists (fun (_, t) -> go t) args || go real)
@@ -53,7 +57,7 @@ let inst : ctx -> tvar -> tvar =
             | Unbd _ -> gt
             | Link t -> go t
             | ForA x -> ctx.fresh_tvar (Unbd x)
-            | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> gt
+            | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> gt
             | Content (TTag { tags; ext = _, ext }) ->
                 let map_tag : ty_tag -> ty_tag =
                  fun (tag, args) ->
@@ -63,6 +67,16 @@ let inst : ctx -> tvar -> tvar =
                 let tags = List.map map_tag tags in
                 let ext = (noloc, go ext) in
                 ctx.fresh_tvar @@ Content (TTag { tags; ext })
+            | Content (TRecord { fields; ext = _, ext }) ->
+                let map_field : ty_field -> ty_field =
+                 fun (field, (_, t)) ->
+                  let t' = go t in
+                  (field, (noloc, t'))
+                in
+                let fields = List.map map_field fields in
+                let ext = (noloc, go ext) in
+                ctx.fresh_tvar @@ Content (TRecord { fields; ext })
+            | Content TRecordEmpty -> ctx.fresh_tvar @@ Content TRecordEmpty
             | Content (TFn ((_, t1), (_, t2))) ->
                 let t1 = (noloc, go t1) in
                 let t2 = (noloc, go t2) in
@@ -92,12 +106,16 @@ let occurs : variable -> tvar -> bool =
           assert (var <> v);
           false
       | Link t -> go t
-      | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> false
+      | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> false
       | Content (TTag { tags; ext }) ->
           let check_tag : ty_tag -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
           in
           List.exists check_tag tags || go (snd ext)
+      | Content (TRecord { fields; ext }) ->
+          let check_field : ty_field -> bool = fun (_, (_, t)) -> go t in
+          List.exists check_field fields || go (snd ext)
+      | Content TRecordEmpty -> false
       | Content (TFn ((_, t1), (_, t2))) -> go t1 || go t2
       | Alias { alias = _, args; real } ->
           List.exists (fun (_, t) -> go t) args || go real)
@@ -120,13 +138,18 @@ let gen : venv -> tvar -> unit =
           else tvar_set t (ForA s)
       | Link t -> go t
       | ForA _ -> ()
-      | Content (TPrim (`Str | `Unit | `Int)) | Content TTagEmpty -> ()
+      | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> ()
       | Content (TTag { tags; ext }) ->
           let gen_tag : ty_tag -> unit =
            fun (_, args) -> List.iter (fun (_, t) -> go t) args
           in
           List.iter gen_tag tags;
           go (snd ext)
+      | Content (TRecord { fields; ext }) ->
+          let gen_field : ty_field -> unit = fun (_, (_, t)) -> go t in
+          List.iter gen_field fields;
+          go (snd ext)
+      | Content TRecordEmpty -> ()
       | Content (TFn ((_, t1), (_, t2))) ->
           go t1;
           go t2
@@ -136,19 +159,17 @@ let gen : venv -> tvar -> unit =
   in
   go t
 
-type separated_tags = {
-  shared : (ty_tag * ty_tag) list;
-  only1 : ty_tag list;
-  only2 : ty_tag list;
+type 'a separated = {
+  shared : ('a * 'a) list;
+  only1 : 'a list;
+  only2 : 'a list;
 }
 
-let sort_tags : ty_tag list -> ty_tag list =
- fun tags -> List.sort (fun (tag1, _) (tag2, _) -> compare tag1 tag2) tags
-
-let separate_tags tags1 ext1 tags2 ext2 =
-  let tags1, ext1 = chase_tags tags1 ext1 in
-  let tags2, ext2 = chase_tags tags2 ext2 in
-  let tags1, tags2 = (sort_tags tags1, sort_tags tags2) in
+let separate ~(chase : 'a list -> tvar -> 'a list * tvar) (tags1 : 'a list)
+    (ext1 : tvar) (tags2 : 'a list) (ext2 : tvar) : 'a separated * tvar * tvar =
+  let tags1, ext1 = chase tags1 ext1 in
+  let tags2, ext2 = chase tags2 ext2 in
+  let tags1, tags2 = (Util.sort_tagged tags1, Util.sort_tagged tags2) in
   let rec walk shared only1 only2 = function
     | [], [] -> { shared; only1 = List.rev only1; only2 = List.rev only2 }
     | o :: rest, [] -> walk shared (o :: only1) only2 (rest, [])
@@ -171,6 +192,9 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
       failsolve "arity mismatch for tag" t1;
     List.iter2 (unify fresh_tvar visited) (List.map snd args1)
       (List.map snd args2)
+  and unify_fields fresh_tvar visited (f1, (_, t1)) (f2, (_, t2)) =
+    assert (f1 = f2);
+    unify fresh_tvar visited t1 t2
   and unify fresh_tvar visited t u =
     let t, u = (unlink t, unlink u) in
     let vart, varu = (tvar_v t, tvar_v u) in
@@ -205,7 +229,6 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
               match (c1, c2) with
               | TPrim `Str, TPrim `Str -> TPrim `Str
               | TPrim `Int, TPrim `Int -> TPrim `Int
-              | TPrim `Unit, TPrim `Unit -> TPrim `Unit
               | TTagEmpty, TTagEmpty -> TTagEmpty
               | TTagEmpty, TTag { tags = []; ext = _, ext } ->
                   unify t ext;
@@ -215,8 +238,9 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
                   TTagEmpty
               | ( TTag { tags = tags1; ext = _, ext1 },
                   TTag { tags = tags2; ext = _, ext2 } ) -> (
-                  let ({ shared; only1; only2 } : separated_tags), ext1, ext2 =
-                    separate_tags tags1 ext1 tags2 ext2
+                  let ({ shared; only1; only2 } : ty_tag separated), ext1, ext2
+                      =
+                    separate ~chase:chase_tags tags1 ext1 tags2 ext2
                   in
                   let shared : ty_tag list =
                     List.map
@@ -228,7 +252,7 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
                   match ((only1, ext1), (only2, ext2)) with
                   | ([], ext1), ([], ext2) ->
                       unify ext1 ext2;
-                      let tags = sort_tags shared in
+                      let tags = Util.sort_tagged shared in
                       TTag { tags; ext = (noloc, ext1) }
                   | (others, ext1), ([], ext2) | ([], ext2), (others, ext1) ->
                       let other_tag_union =
@@ -236,7 +260,7 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
                         @@ Content (TTag { tags = others; ext = (noloc, ext1) })
                       in
                       unify ext2 other_tag_union;
-                      let tags = sort_tags @@ shared @ others in
+                      let tags = Util.sort_tagged @@ shared @ others in
                       TTag { tags; ext = (noloc, ext1) }
                   | (others1, ext1), (others2, ext2) ->
                       let new_ext = (noloc, fresh_tvar @@ Unbd None) in
@@ -251,8 +275,61 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
                       unify ext1 tags2;
                       unify ext2 tags1;
 
-                      let all_tags = sort_tags @@ shared @ others1 @ others2 in
+                      let all_tags =
+                        Util.sort_tagged @@ shared @ others1 @ others2
+                      in
                       TTag { tags = all_tags; ext = new_ext })
+              | TRecordEmpty, TRecordEmpty -> TRecordEmpty
+              | TRecordEmpty, TRecord { fields = []; ext = _, ext } ->
+                  unify t ext;
+                  TRecordEmpty
+              | TRecord { fields = []; ext = _, ext }, TRecordEmpty ->
+                  unify u ext;
+                  TRecordEmpty
+              | ( TRecord { fields = fields1; ext = _, ext1 },
+                  TRecord { fields = fields2; ext = _, ext2 } ) -> (
+                  let ( ({ shared; only1; only2 } : ty_field separated),
+                        ext1,
+                        ext2 ) =
+                    separate ~chase:chase_fields fields1 ext1 fields2 ext2
+                  in
+                  let shared : ty_field list =
+                    List.iter
+                      (fun (f1, f2) -> unify_fields fresh_tvar visited f1 f2)
+                      shared;
+                    List.map fst shared
+                  in
+                  match ((only1, ext1), (only2, ext2)) with
+                  | ([], ext1), ([], ext2) ->
+                      unify ext1 ext2;
+                      let fields = Util.sort_tagged shared in
+                      TRecord { fields; ext = (noloc, ext1) }
+                  | (others, ext1), ([], ext2) | ([], ext2), (others, ext1) ->
+                      let other_record =
+                        fresh_tvar
+                        @@ Content
+                             (TRecord { fields = others; ext = (noloc, ext1) })
+                      in
+                      unify ext2 other_record;
+                      let fields = Util.sort_tagged @@ shared @ others in
+                      TRecord { fields; ext = (noloc, ext1) }
+                  | (others1, ext1), (others2, ext2) ->
+                      let new_ext = (noloc, fresh_tvar @@ Unbd None) in
+                      let fields1 =
+                        fresh_tvar
+                        @@ Content (TRecord { fields = others1; ext = new_ext })
+                      in
+                      let fields2 =
+                        fresh_tvar
+                        @@ Content (TRecord { fields = others2; ext = new_ext })
+                      in
+                      unify ext1 fields2;
+                      unify ext2 fields1;
+
+                      let all_fields =
+                        Util.sort_tagged @@ shared @ others1 @ others2
+                      in
+                      TRecord { fields = all_fields; ext = new_ext })
               | TFn ((_, ta1), (_, tr1)), TFn ((_, ta2), (_, tr2)) ->
                   unify ta1 ta2;
                   unify tr1 tr2;
@@ -282,7 +359,6 @@ let rec infer_expr : ctx -> venv -> e_expr -> tvar =
     match e with
     | Str _ -> ctx.fresh_tvar @@ Content (TPrim `Str)
     | Int _ -> ctx.fresh_tvar @@ Content (TPrim `Int)
-    | Unit -> ctx.fresh_tvar @@ Content (TPrim `Unit)
     | Var x -> (
         match List.assoc_opt x venv with
         | Some t -> inst ctx t
@@ -295,6 +371,27 @@ let rec infer_expr : ctx -> venv -> e_expr -> tvar =
         in
         let ext = (noloc, ctx.fresh_tvar @@ Unbd None) in
         ctx.fresh_tvar @@ Content (TTag { tags = [ (tag, arg_tys) ]; ext })
+    | Record fields ->
+        let go_field (f, e) =
+          let t = infer_expr ctx venv e in
+          (f, (noloc, t))
+        in
+        let field_tys = List.map go_field fields in
+        let ext = (noloc, ctx.fresh_tvar @@ Unbd None) in
+        ctx.fresh_tvar @@ Content (TRecord { fields = field_tys; ext })
+    | Access (e, f) ->
+        let t_e = infer_expr ctx venv e in
+        let t = ctx.fresh_tvar @@ Unbd None in
+        let record_wanted =
+          TRecord
+            {
+              fields = [ (f, (noloc, t)) ];
+              ext = (noloc, ctx.fresh_tvar @@ Unbd None);
+            }
+        in
+        let t_e_wanted = ctx.fresh_tvar @@ Content record_wanted in
+        unify ctx.fresh_tvar t_e t_e_wanted;
+        t
     | Let (let_def, rest) ->
         let let_def_t = infer_let_def ~nested:true ctx venv let_def in
         let let_def_s = name_of_let_def let_def in

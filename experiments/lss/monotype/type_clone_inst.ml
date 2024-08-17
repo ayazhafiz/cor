@@ -21,13 +21,18 @@ let clone_inst : fresh_tvar -> ty_cache -> tvar -> tvar =
           | ForA x -> Unbd x
           | Content (TPrim `Str) -> Content (TPrim `Str)
           | Content (TPrim `Int) -> Content (TPrim `Int)
-          | Content (TPrim `Unit) -> Content (TPrim `Unit)
           | Content (TTag { tags; ext }) ->
               let go_tag (tag, args) = (tag, List.map go_loc args) in
               let tags = List.map go_tag tags in
               let ext = go_loc ext in
               Content (TTag { tags; ext })
           | Content TTagEmpty -> Content TTagEmpty
+          | Content (TRecord { fields; ext }) ->
+              let go_field (field, ty) = (field, go_loc ty) in
+              let fields = List.map go_field fields in
+              let ext = go_loc ext in
+              Content (TRecord { fields; ext })
+          | Content TRecordEmpty -> Content TRecordEmpty
           | Content (TFn (in', out)) ->
               let in' = go_loc in' in
               let out = go_loc out in

@@ -26,6 +26,11 @@ let inst_type ~(cache : cache) ~fresh_tvar t =
                 List.map (fun (tag, ts) -> (tag, List.map go ts)) tags
               in
               Content (TTag tags)
+          | T.TRecord fields ->
+              let fields =
+                List.map (fun (field, ty) -> (field, go ty)) fields
+              in
+              Content (TRecord fields)
           | T.TPrim x -> Content (TPrim x)
         in
         tvar_set t' content;
@@ -45,8 +50,11 @@ let inst_expr ~cache ~fresh_tvar (e : M.e_expr) =
       | M.Var x -> Var x
       | M.Int i -> Int i
       | M.Str s -> Str s
-      | M.Unit -> Unit
       | M.Tag (tag, es) -> Tag (tag, List.map go es)
+      | M.Record fields ->
+          let go_field (field, e) = (field, go e) in
+          Record (List.map go_field fields)
+      | M.Access (e, field) -> Access (go e, field)
       | M.Let (x, e1, e2) ->
           let x = inst_typed_symbol ~cache ~fresh_tvar x in
           Let (x, go e1, go e2)

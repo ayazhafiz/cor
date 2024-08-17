@@ -6,13 +6,16 @@ type variable = [ `Var of int ] [@@deriving show]
 
 type loc_tvar = loc * tvar
 and ty_tag = string * loc_tvar list
+and ty_field = string * loc_tvar
 
 (** Concrete type content *)
 and ty_content =
   | TFn of loc_tvar * loc_tvar
   | TTag of { tags : ty_tag list; ext : loc_tvar }
   | TTagEmpty
-  | TPrim of [ `Str | `Int | `Unit ]
+  | TRecord of { fields : ty_field list; ext : loc_tvar }
+  | TRecordEmpty
+  | TPrim of [ `Str | `Int ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
 
@@ -53,9 +56,28 @@ let chase_tags tags ext : ty_tag list * tvar =
     | Content (TTag { tags; ext }) -> go (all_tags @ tags) (snd ext)
     | Content (TFn _) -> failwith "not a tag"
     | Content (TPrim _) -> failwith "not a tag"
+    | Content (TRecord _) -> failwith "not a tag"
+    | Content TRecordEmpty -> failwith "not a tag"
     | Alias { real; _ } -> go all_tags real
   in
   go tags ext
+
+let chase_fields fields ext : ty_field list * tvar =
+  let rec go : ty_field list -> tvar -> _ =
+   fun all_fields ext ->
+    match tvar_deref @@ unlink ext with
+    | Link _ -> failwith "unreachable"
+    | Unbd _ -> (all_fields, ext)
+    | ForA _ -> (all_fields, ext)
+    | Content TTagEmpty -> failwith "not a record"
+    | Content (TTag _) -> failwith "not a record"
+    | Content (TFn _) -> failwith "not a record"
+    | Content (TPrim _) -> failwith "not a record"
+    | Content (TRecord { fields; ext }) -> go (all_fields @ fields) (snd ext)
+    | Content TRecordEmpty -> (all_fields, ext)
+    | Alias { real; _ } -> go all_fields real
+  in
+  go fields ext
 
 type fresh_tvar = ty -> tvar
 

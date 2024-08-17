@@ -1,9 +1,11 @@
 type ty_content =
   | TFn of ty * ty
   | TTag of ty_tag list
-  | TPrim of [ `Str | `Int | `Unit ]
+  | TRecord of ty_field list
+  | TPrim of [ `Str | `Int ]
 
 and ty_tag = string * ty list
+and ty_field = string * ty
 and ty = ty_content ref
 
 let equal_ty : ty -> ty -> bool =
@@ -23,9 +25,13 @@ let equal_ty : ty -> ty -> bool =
               && List.length tys1 = List.length tys2
               && List.for_all2 (go visited) tys1 tys2)
             ty_tags ty_tags'
+      | TRecord ty_fields, TRecord ty_fields' ->
+          List.for_all2
+            (fun (field1, ty1) (field2, ty2) ->
+              field1 = field2 && go visited ty1 ty2)
+            ty_fields ty_fields'
       | TPrim `Str, TPrim `Str -> true
       | TPrim `Int, TPrim `Int -> true
-      | TPrim `Unit, TPrim `Unit -> true
       | _ -> false
   in
   go [] ty1 ty2

@@ -36,7 +36,6 @@ let pp_expr symbols f =
     | Var x -> pp_symbol symbols f x
     | Int i -> pp_print_int f i
     | Str s -> fprintf f "\"%s\"" (String.escaped s)
-    | Unit -> pp_print_string f "{}"
     | Tag (tag, payloads) ->
         fprintf f "@[<v 0>";
         let expr () =
@@ -50,6 +49,20 @@ let pp_expr symbols f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
+    | Record fields ->
+        fprintf f "@[<v 0>@[<hv 2>{";
+        List.iteri
+          (fun i (label, e) ->
+            if i > 0 then fprintf f "@ ";
+            fprintf f "@[<hov 2>%s =@ " label;
+            go `Free e;
+            fprintf f "@]")
+          fields;
+        fprintf f "@,}@]@]"
+    | Access (e, label) ->
+        fprintf f "@[<hov 2>";
+        go `Apply e;
+        fprintf f "@ .%s@]" label
     | Let { recursive = _; bind = _, _, x; expr = rhs; body } ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =

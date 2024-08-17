@@ -34,6 +34,8 @@ let is_generalized : tvar -> bool =
           List.exists
             (fun (_, captures) -> List.exists is_generalized captures)
             tags
+      | Content (TRecord fields) ->
+          List.exists (fun (_, t) -> is_generalized t) fields
       | Content (TPrim _) -> false
   in
   is_generalized [] t
@@ -71,6 +73,11 @@ let inst : fresh_tvar -> tvar -> tvar =
                     tags
                 in
                 fresh_tvar @@ Content (TTag tags)
+            | Content (TRecord fields) ->
+                let fields =
+                  List.map (fun (field, t) -> (field, inst t)) fields
+                in
+                fresh_tvar @@ Content (TRecord fields)
             | Content (TPrim prim) -> fresh_tvar @@ Content (TPrim prim)
           in
           tvar_set t (Link t');
@@ -102,6 +109,7 @@ let occurs : variable -> tvar -> bool =
           occurs tin || occurs tlset || occurs tout
       | Content (TTag tags) ->
           List.exists (fun (_, captures) -> List.exists occurs captures) tags
+      | Content (TRecord fields) -> List.exists (fun (_, t) -> occurs t) fields
       | Content (TPrim _) -> false)
   in
   occurs t
@@ -132,21 +140,19 @@ let gen : venv -> tvar -> unit =
           gen tout
       | Content (TTag tags) ->
           List.iter (fun (_, captures) -> List.iter gen captures) tags
+      | Content (TRecord fields) -> List.iter (fun (_, t) -> gen t) fields
       | Content (TPrim _) -> ())
   in
   gen t
 
-type separated_tags = {
-  shared : (ty_tag * ty_tag) list;
-  only1 : ty_tag list;
-  only2 : ty_tag list;
+type 'a separated = {
+  shared : ('a * 'a) list;
+  only1 : 'a list;
+  only2 : 'a list;
 }
 
-let sort_tags : ty_tag list -> ty_tag list =
- fun tags -> List.sort (fun (tag1, _) (tag2, _) -> compare tag1 tag2) tags
-
-let separate_tags tags1 tags2 =
-  let tags1, tags2 = (sort_tags tags1, sort_tags tags2) in
+let separate tags1 tags2 =
+  let tags1, tags2 = (Util.sort_tagged tags1, Util.sort_tagged tags2) in
   let rec walk shared only1 only2 = function
     | [], [] -> { shared; only1 = List.rev only1; only2 = List.rev only2 }
     | o :: rest, [] -> walk shared (o :: only1) only2 (rest, [])
@@ -220,8 +226,8 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
             unify visited tout uout;
             Content (TFn (tin, tlset, tout))
         | Content (TTag tags1), Content (TTag tags2) ->
-            let ({ shared; only1; only2 } : separated_tags) =
-              separate_tags tags1 tags2
+            let ({ shared; only1; only2 } : ty_tag separated) =
+              separate tags1 tags2
             in
             let shared : ty_tag list =
               List.map
@@ -233,8 +239,20 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
                   (t1, args1))
                 shared
             in
-            let all_tags = sort_tags @@ shared @ only1 @ only2 in
+            let all_tags = Util.sort_tagged @@ shared @ only1 @ only2 in
             Content (TTag all_tags)
+        | Content (TRecord fields1), Content (TRecord fields2) ->
+            let ({ shared; only1; only2 } : ty_field separated) =
+              separate fields1 fields2
+            in
+            let go_field ((f1, t1), (f2, t2)) =
+              assert (f1 = f2);
+              unify visited t1 t2;
+              (f1, t1)
+            in
+            let shared = List.map go_field shared in
+            let all_fields = Util.sort_tagged @@ shared @ only1 @ only2 in
+            Content (TRecord all_fields)
         | Content (TPrim prim1), Content (TPrim prim2) ->
             if prim1 <> prim2 then fail "incompatible primitives";
             Content (TPrim prim1)
@@ -318,11 +336,20 @@ let infer_expr : Ctx.t -> venv -> e_expr -> tvar =
                ^ show_venv venv))
       | Int _ -> ctx.fresh_tvar @@ Content (TPrim `Int)
       | Str _ -> ctx.fresh_tvar @@ Content (TPrim `Str)
-      | Unit -> ctx.fresh_tvar @@ Content (TPrim `Unit)
       | Tag (tag, args) ->
           let arg_tys = List.map (go venv) args in
           let tag = TTag [ (tag, arg_tys) ] in
           ctx.fresh_tvar @@ Content tag
+      | Record fields ->
+          let field_tys = List.map (fun (f, e) -> (f, go venv e)) fields in
+          let fields_ty = TRecord field_tys in
+          ctx.fresh_tvar @@ Content fields_ty
+      | Access (e, f) ->
+          let t_e = go venv e in
+          let t = ctx.fresh_tvar @@ Unbd in
+          let t_e_wanted = ctx.fresh_tvar @@ Content (TRecord [ (f, t) ]) in
+          unify ctx.fresh_tvar t_e t_e_wanted;
+          t
       | Let ((t_x, x), e, rest) ->
           let t_e = go venv e in
           unify ctx.fresh_tvar t_e t_x;

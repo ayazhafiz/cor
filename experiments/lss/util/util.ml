@@ -47,3 +47,6 @@ let fresh_name_generator () =
   fun hint -> find hint 0
 
 let default_width = 80
+
+let sort_tagged tags =
+  List.sort (fun (tag1, _) (tag2, _) -> compare tag1 tag2) tags

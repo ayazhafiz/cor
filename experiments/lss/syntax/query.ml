@@ -18,11 +18,15 @@ let tightest_node_at_var : loc -> loc_tvar -> found_node =
       match tvar_deref ty with
       | Link ty -> go (l, ty)
       | Unbd _ | ForA _ -> None
-      | Content (TPrim (`Str | `Unit | `Int)) -> None
+      | Content (TPrim (`Str | `Int)) -> None
       | Content TTagEmpty -> None
       | Content (TTag { tags; ext }) ->
           let found_in_tag = List.find_map go_tag tags in
           or_else found_in_tag (fun () -> go ext)
+      | Content (TRecord { fields; ext }) ->
+          let found_in_record = List.find_map go @@ List.map snd fields in
+          or_else found_in_record (fun () -> go ext)
+      | Content TRecordEmpty -> None
       | Content (TFn (in', out)) -> or_else (go in') (fun () -> go out)
       | Alias { alias = (l_x, x), vars; real = _ } ->
           if within loc l_x then Some (l_x, ty, `Alias x)
@@ -47,11 +51,13 @@ let tightest_node_at_expr : loc -> e_expr -> found_node =
   let rec expr (l, ty, e) : found_node =
     let deeper =
       match e with
-      | Var _ | Int _ | Str _ | Unit -> None
+      | Var _ | Int _ | Str _ -> None
       | Let { recursive = _; bind = l, ty, x; expr = e1; body = e2 } ->
           if within loc l then Some (l, snd ty, `Def x)
           else or_else (expr e1) (fun () -> expr e2)
       | Tag (_, tags) -> List.find_map (fun tag -> expr tag) tags
+      | Record fields -> List.find_map (fun (_, e) -> expr e) fields
+      | Access (e, _) -> expr e
       | Clos { arg = l, ty, x; body = e } ->
           if within loc l then Some (l, snd ty, `Var x) else expr e
       | Call (e1, e2) -> or_else (expr e1) (fun () -> expr e2)

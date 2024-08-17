@@ -39,7 +39,6 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "end" -> make lexbuf (fun i -> END i)
   | "Str" -> make lexbuf (fun i -> STR i)
   | "Int" -> make lexbuf (fun i -> INT i)
-  | "{}" -> make lexbuf (fun i -> UNIT i)
   | "in" -> make lexbuf (fun i -> IN i)
   | "=" -> make lexbuf (fun i -> EQ i)
   | ":" -> make lexbuf (fun i -> COLON i)
@@ -50,9 +49,12 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | ")" -> make lexbuf (fun i -> RPAREN i)
   | "[" -> make lexbuf (fun i -> LBRACKET i)
   | "]" -> make lexbuf (fun i -> RBRACKET i)
+  | "{" -> make lexbuf (fun i -> LBRACE i)
+  | "}" -> make lexbuf (fun i -> RBRACE i)
   | "*" -> make lexbuf (fun i -> STAR i)
   | "|" -> make lexbuf (fun i -> PIPE i)
   | "\\" -> make lexbuf (fun i -> LAMBDA i)
+  | "." -> make lexbuf (fun i -> DOT i)
   | string_literal ->
       make lexbuf (fun i ->
           let s = Utf8.lexeme lexbuf in

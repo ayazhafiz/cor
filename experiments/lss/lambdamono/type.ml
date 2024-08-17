@@ -3,7 +3,7 @@ type variable = [ `Var of int ] [@@deriving show]
 type ty_content =
   | TTag of (string * tvar list) list
   | TRecord of (string * tvar) list
-  | TPrim of [ `Str | `Int | `Unit ]
+  | TPrim of [ `Str | `Int ]
 
 and tvar = { ty : ty_content ref; var : variable }
 
@@ -44,7 +44,6 @@ let equal_tvar : tvar -> tvar -> bool =
             tys tys'
       | TPrim `Str, TPrim `Str -> true
       | TPrim `Int, TPrim `Int -> true
-      | TPrim `Unit, TPrim `Unit -> true
       | _ -> false
   in
   go [] ty1 ty2

@@ -64,7 +64,14 @@ let rec extract_all_named_vars : tvar -> named_var list =
       let extracted = List.flatten (List.map extract_all_named_vars tag_args) in
       extracted @ extract_all_named_vars (snd ext)
   | Content TTagEmpty -> []
-  | Content (TPrim (`Str | `Unit | `Int)) -> []
+  | Content (TRecord { fields; ext }) ->
+      let field_args = List.map snd @@ List.map snd fields in
+      let extracted =
+        List.flatten (List.map extract_all_named_vars field_args)
+      in
+      extracted @ extract_all_named_vars (snd ext)
+  | Content TRecordEmpty -> []
+  | Content (TPrim (`Str | `Int)) -> []
   | Alias { alias = (_, _), args; real } ->
       (match tvar_deref real with
       | Unbd None -> ()
@@ -115,7 +122,12 @@ let canonicalize_alias { alias_type; name; args; real } =
         List.iter update_ty tag_args;
         update_ty @@ snd ext
     | Content TTagEmpty -> ()
-    | Content (TPrim (`Str | `Unit | `Int)) -> ()
+    | Content (TRecord { fields; ext }) ->
+        let field_args = List.map snd @@ List.map snd fields in
+        List.iter update_ty field_args;
+        update_ty @@ snd ext
+    | Content TRecordEmpty -> ()
+    | Content (TPrim (`Str | `Int)) -> ()
     | Alias { alias; real = _ } when is_same_alias alias ->
         tvar_set tvar @@ Link alias_type;
         (*tvar_set_recur (unlink alias_type) true*)
@@ -214,7 +226,6 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
             | ForA a -> ForA a
             | Content TTagEmpty -> Content TTagEmpty
             | Content (TPrim `Str) -> Content (TPrim `Str)
-            | Content (TPrim `Unit) -> Content (TPrim `Unit)
             | Content (TPrim `Int) -> Content (TPrim `Int)
             | Content (TFn ((_, t1), (_, t2))) ->
                 let t1' = ctx.fresh_tvar @@ Link (inst_ty t1) in
@@ -234,6 +245,16 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
                 let tags' = List.map map_tag tags in
                 let ext' = ctx.fresh_tvar @@ Link (inst_ty ext) in
                 Content (TTag { tags = tags'; ext = (noloc, ext') })
+            | Content (TRecord { fields; ext = _, ext }) ->
+                let map_field : ty_field -> ty_field =
+                 fun (field, (_, t)) ->
+                  let t' = ctx.fresh_tvar @@ Link (inst_ty t) in
+                  (field, (noloc, t'))
+                in
+                let fields' = List.map map_field fields in
+                let ext' = ctx.fresh_tvar @@ Link (inst_ty ext) in
+                Content (TRecord { fields = fields'; ext = (noloc, ext') })
+            | Content TRecordEmpty -> Content TRecordEmpty
             | Alias alias_content ->
                 let real_ty = inst_alias arg_map t' alias_content in
                 tvar_set alias_content.real (Link real_ty);
@@ -284,9 +305,6 @@ let canonicalize_expr e =
       | S.Int i ->
           let can_int = Int i in
           (can_int, SymbolMap.empty)
-      | S.Unit ->
-          let can_unit = Unit in
-          (can_unit, SymbolMap.empty)
       | S.Tag (tag, es) ->
           let can_exprs, free_es = List.split @@ List.map go_expr es in
           let free_es =
@@ -294,6 +312,22 @@ let canonicalize_expr e =
           in
           let can_tag = Tag (tag, can_exprs) in
           (can_tag, free_es)
+      | S.Record fields ->
+          let go_field (f, e) =
+            let can_e, free_e = go_expr e in
+            ((f, can_e), free_e)
+          in
+          let can_fields, free_fields =
+            List.split @@ List.map go_field fields
+          in
+          let free_fields =
+            List.fold_left SymbolMap.union_uc SymbolMap.empty free_fields
+          in
+          let can_record = Record can_fields in
+          (can_record, free_fields)
+      | S.Access (e, field) ->
+          let can_e, free_e = go_expr e in
+          (Access (can_e, field), free_e)
       | S.Let { recursive; bind = _, (_, t_x), x; expr; body } ->
           let expr, free_e = go_expr expr in
           recursive := SymbolMap.mem x free_e;

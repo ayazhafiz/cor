@@ -39,13 +39,14 @@ let noloc = Language.noloc
 %token <Language.loc> END
 %token <Language.loc> STR
 %token <Language.loc> INT
-%token <Language.loc> UNIT
 %token <Language.loc> IN
 %token <Language.loc> COMMA
 %token <Language.loc> LPAREN
 %token <Language.loc> RPAREN
 %token <Language.loc> LBRACKET
 %token <Language.loc> RBRACKET
+%token <Language.loc> LBRACE
+%token <Language.loc> RBRACE
 %token <Language.loc> EQ
 %token <Language.loc> COLON
 %token <Language.loc> SEMI
@@ -53,6 +54,7 @@ let noloc = Language.noloc
 %token <Language.loc> STAR
 %token <Language.loc> PIPE
 %token <Language.loc> LAMBDA
+%token <Language.loc> DOT
 
 %token <Language.loc> PLUS
 %token <Language.loc> MINUS
@@ -223,9 +225,29 @@ expr_atom:
       let sym = ctx.fresh_tvar @@ Unbd None in
       (loc, sym, Int (snd n))
   }
-  | loc=UNIT { fun ctx ->
-      let tvar = ctx.fresh_tvar @@ Unbd None in
-      (loc, tvar, Unit)
+  | l=LBRACE fields=expr_record_fields { fun ctx ->
+      let rb, fields = fields ctx in
+      let l = range l rb in
+      (l, ctx.fresh_tvar @@ Unbd None, Record fields)
+  }
+  | e=expr_atom DOT f=LOWER { fun ctx ->
+      let e = e ctx in
+      let (loc_f, f) = f in
+      let loc = range (xloc e) loc_f in
+      (loc, ctx.fresh_tvar @@ Unbd None, Access(e, f))
+  }
+
+expr_record_fields:
+  | rb=RBRACE { fun _ -> rb, [] }
+  | f=expr_record_field rb=RBRACE { fun ctx -> rb, [f ctx] }
+  | f=expr_record_field COMMA rest=expr_record_fields { fun ctx -> 
+      let rb, fields = rest ctx in
+      rb, (f ctx)::fields
+  }
+
+expr_record_field:
+  | l=LOWER COLON e=expr { fun ctx ->
+      (snd l, e ctx)
   }
 
 expr_binop:
@@ -340,8 +362,12 @@ ty_atom:
   | s=INT { fun ctx ->
       (s, ctx.fresh_tvar @@ Content (TPrim `Int))
   }
-  | s=UNIT { fun ctx ->
-      (s, ctx.fresh_tvar @@ Content (TPrim `Unit))
+  | l=LBRACE fields=ty_record_fields { fun ctx ->
+      let rb, fields = fields ctx in
+      let ext = (noloc, ctx.fresh_tvar @@ Content (TRecordEmpty)) in
+      let ext = ctx.fresh_tvar @@ Content (TRecord { fields; ext }) in
+      let l = range l rb in
+      (l, ext)
   }
 
 ty_tags:
@@ -359,3 +385,16 @@ ty_tag:
 ty_list:
   | t=ty { fun ctx -> [t ctx] }
   | t=ty rest=ty_list { fun ctx -> (t ctx)::(rest ctx) }
+
+ty_record_fields:
+  | rb=RBRACE { fun _ -> rb, [] }
+  | t=ty_record_field rb=RBRACE { fun ctx -> rb, [t ctx] }
+  | t=ty_record_field COMMA rest=ty_record_fields { fun ctx -> 
+      let rb, fields = rest ctx in
+      rb, (t ctx)::fields
+  }
+
+ty_record_field:
+  | l=LOWER COLON t=ty { fun ctx ->
+      (snd l, t ctx)
+  }

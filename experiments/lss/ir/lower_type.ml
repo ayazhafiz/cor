@@ -31,7 +31,6 @@ let lower_type : type_cache -> T.tvar -> layout =
           | T.TRecord fields ->
               let struct' = List.map snd fields |> List.map go in
               Struct struct'
-          | T.TPrim `Unit -> Struct []
           | T.TPrim `Str -> Str
           | T.TPrim `Int -> Int
         in

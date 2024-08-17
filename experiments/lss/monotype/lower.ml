@@ -27,10 +27,14 @@ let specialize_expr ~ctx ~ty_cache ~mono_cache expr =
           | None -> Var x (* No specialization needed *))
       | C.Int i -> Int i
       | C.Str s -> Str s
-      | C.Unit -> Unit
       | C.Tag (t, args) ->
           let args = List.map go args in
           Tag (t, args)
+      | C.Record fields ->
+          let go_field (f, e) = (f, go e) in
+          let fields = List.map go_field fields in
+          Record fields
+      | C.Access (e, f) -> Access (go e, f)
       | C.Let (def, rest) ->
           let def =
             match def with

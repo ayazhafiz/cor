@@ -28,8 +28,9 @@ and expr =
   | Var of symbol
   | Int of int
   | Str of string
-  | Unit
   | Tag of string * e_expr list
+  | Record of (string * e_expr) list
+  | Access of e_expr * string
   | Let of let_def * e_expr
   | Clos of { arg : typed_symbol; body : e_expr }
   | Call of e_expr * e_expr

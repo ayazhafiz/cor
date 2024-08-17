@@ -25,8 +25,9 @@ let edges_expr def_map e =
     | Var v -> edges_sym def_map v
     | Int _ -> SymbolSet.empty
     | Str _ -> SymbolSet.empty
-    | Unit -> SymbolSet.empty
     | Tag (_, es) -> SymbolSet.concat (List.map go es)
+    | Record fields -> SymbolSet.concat (List.map go @@ List.map snd fields)
+    | Access (e, _) -> go e
     | Let (_, e, r) -> SymbolSet.union (go e) (go r)
     | Call (e1, e2) -> SymbolSet.union (go e1) (go e2)
     | KCall (_, es) -> SymbolSet.concat (List.map go es)

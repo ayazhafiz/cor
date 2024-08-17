@@ -60,9 +60,16 @@ let pp_ty f (t : tvar) =
             ~pp_sep:(fun f () -> fprintf f ",@ ")
             (go_tag visited) f tags;
           fprintf f "@,]@]"
+      | Content (TRecord fields) ->
+          fprintf f "@[<hv 2>{@,";
+          pp_print_list
+            ~pp_sep:(fun f () -> fprintf f ",@ ")
+            (fun f (field, ty) ->
+              fprintf f "@[<hov 2>%s: %a@]" field (go visited `AppHead) ty)
+            f fields;
+          fprintf f "@,}@]"
       | Content (TPrim `Str) -> pp_print_string f "Str"
       | Content (TPrim `Int) -> pp_print_string f "Int"
-      | Content (TPrim `Unit) -> pp_print_string f "{}"
   and go_tag visited f ((tag_name, payloads) : ty_tag) =
     fprintf f "@[<hov 2>%s" tag_name;
     List.iter (fun p -> fprintf f "@ %a" (go visited `AppHead) p) payloads;

@@ -8,8 +8,9 @@ let free_vars e =
     | M.Var x -> SymbolMap.singleton x t
     | M.Int _ -> SymbolMap.empty
     | M.Str _ -> SymbolMap.empty
-    | M.Unit -> SymbolMap.empty
     | M.Tag (_, es) -> List.map go es |> SymbolMap.concat
+    | M.Record fields -> List.map snd fields |> List.map go |> SymbolMap.concat
+    | M.Access (e, _) -> go e
     | M.Let (`Letval (Letval { bind = _, x; body }), rest) ->
         let free_body = go body in
         let free_rest = go rest |> SymbolMap.remove x in
@@ -50,10 +51,19 @@ let lambda_lift_expr ~(ctx : Ctx.t) expr : def list * e_expr =
           ([], Var x)
       | M.Int x -> ([], Int x)
       | M.Str x -> ([], Str x)
-      | M.Unit -> ([], Unit)
       | M.Tag (x, es) ->
           let lifted, es = List.split (List.map (go venv) es) in
           (List.flatten lifted, Tag (x, es))
+      | M.Record fields ->
+          let go_field (field, e) =
+            let lifted, e = go venv e in
+            (lifted, (field, e))
+          in
+          let lifted, fields = List.split (List.map go_field fields) in
+          (List.flatten lifted, Record fields)
+      | M.Access (e, field) ->
+          let lifted, e = go venv e in
+          (lifted, Access (e, field))
       | M.Let (`Letval (Letval { bind; body }), rest) ->
           let lifted1, body = go venv body in
           let lifted2, rest = go venv rest in

@@ -39,10 +39,15 @@ let specialize_expr ~(ctx : Ctx.t) ~ty_cache ~mono_cache expr =
               tag)
       | M.Int i -> Int i
       | M.Str s -> Str s
-      | M.Unit -> Unit
       | M.Tag (t, args) ->
           let args = List.map go args in
           Tag (t, args)
+      | M.Record fields ->
+          let fields = List.map (fun (f, e) -> (f, go e)) fields in
+          Record fields
+      | M.Access (e, f) ->
+          let e = go e in
+          Access (e, f)
       | M.Let ((t_x, x), body, rest) ->
           let t_x = clone_inst ctx.s_fresh_tvar ty_cache t_x in
           let body = go body in

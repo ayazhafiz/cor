@@ -17,8 +17,9 @@ and expr =
   | Var of symbol
   | Int of int
   | Str of string
-  | Unit
   | Tag of string * e_expr list
+  | Record of (string * e_expr) list
+  | Access of e_expr * string
   | Let of typed_symbol * e_expr * e_expr
   | Call of e_expr * e_expr
   | KCall of kernelfn * e_expr list

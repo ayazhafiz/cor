@@ -48,6 +48,7 @@ let lower_type : mono_cache -> fresh_tvar -> T.tvar -> tvar =
     in
     TRecord bindings
   and lower_tag (tag, args) = (tag, List.map lower_tvar args)
+  and lower_field (field, ty) = (field, lower_tvar ty)
   and lower_tvar tvar : tvar =
     let tvar = unlink_to_lset tvar in
     let var = T.tvar_v tvar in
@@ -64,6 +65,8 @@ let lower_type : mono_cache -> fresh_tvar -> T.tvar -> tvar =
           | T.Content (T.LSet lset) -> lower_lambda_set lset
           | T.Content (T.TFn _) -> failwith "unexpected function"
           | T.Content (T.TTag tags) -> TTag (List.map lower_tag tags)
+          | T.Content (T.TRecord fields) ->
+              TRecord (List.map lower_field fields)
           | T.Content (T.TPrim p) -> TPrim p
         in
         tvar_set ty content;

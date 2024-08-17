@@ -10,10 +10,12 @@ and lambda_set = captures SymbolMap.t
 and ty_content =
   | TFn of tvar * tvar * tvar
   | TTag of ty_tag list
-  | TPrim of [ `Str | `Int | `Unit ]
+  | TRecord of ty_field list
+  | TPrim of [ `Str | `Int ]
   | LSet of lambda_set
 
 and ty_tag = string * tvar list
+and ty_field = string * tvar
 
 let tvar_int () = { ty = ref (Content (TPrim `Int)); var = `Var 0 }
 let tvar_str () = { ty = ref (Content (TPrim `Str)); var = `Var 1 }

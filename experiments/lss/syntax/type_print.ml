@@ -36,6 +36,11 @@ let preprocess : tvar list -> claimed_names * type_hit_counts =
           let tag_vars = List.map snd tags |> List.flatten |> List.map snd in
           List.iter (go_ty visited) tag_vars;
           go_ty visited @@ snd ext
+      | Content (TRecord { fields; ext }) ->
+          let field_vars = List.map snd fields |> List.map snd in
+          List.iter (go_ty visited) field_vars;
+          go_ty visited @@ snd ext
+      | Content TRecordEmpty -> ()
       | Content (TFn (in', out')) ->
           go_ty visited @@ snd in';
           go_ty visited @@ snd out'
@@ -141,9 +146,9 @@ let pp_tvar :
         | ForA _ -> pp_named var '\''
         | Link t -> go visited parens t
         | Content TTagEmpty -> pp_print_string f "[]"
+        | Content TRecordEmpty -> pp_print_string f "{}"
         | Content (TPrim `Str) -> pp_print_string f "Str"
         | Content (TPrim `Int) -> pp_print_string f "Int"
-        | Content (TPrim `Unit) -> pp_print_string f "{}"
         | Content (TTag { tags; ext }) ->
             let tags, ext = chase_tags tags @@ snd ext in
             fprintf f "@[<hv 2>[@,";
@@ -153,6 +158,19 @@ let pp_tvar :
                 if i < List.length tags - 1 then fprintf f ",@ ")
               tags;
             fprintf f "@,]";
+            let print_ext () = go visited `Free ext in
+            if not (is_empty_tag ext) then print_ext ();
+            fprintf f "@]"
+        | Content (TRecord { fields; ext }) ->
+            let fields, ext = chase_fields fields @@ snd ext in
+            fprintf f "@[<hv 2>{@,";
+            List.iteri
+              (fun i (name, (_, t)) ->
+                fprintf f "@[<hov 2>%s:@ " name;
+                go visited `Free t;
+                if i < List.length fields - 1 then fprintf f ",@ ")
+              fields;
+            fprintf f "@,}";
             let print_ext () = go visited `Free ext in
             if not (is_empty_tag ext) then print_ext ();
             fprintf f "@]"
