@@ -1754,86 +1754,34 @@ run main_handler =
 >                                             StdinLine (Str -<'4238>-> <rec>),
 >                                             StdoutLine Str <rec>
 >                                             ])
->                            ]
->            next:
->              Str
->                -<'3994>-> [Err [], Ok {}]
->                             -<'4194>-> [
->                                          Done [Err [], Ok {}],
->                                          StdinLine (Str -<'4238>-> <rec>),
->                                          StdoutLine Str
->                                            ({}
->                                              -<'4237>-> [
->                                                           Done [Err [], Ok {}],
->                                                           StdinLine
->                                                             (Str
->                                                               -<'4238>-> 
->                                                               <rec>),
->                                                           StdoutLine Str <rec>
->                                                           ])
->                                          ]
->                             -[clos (err: [])]-> [
->                                                   Done [Err [], Ok {}],
->                                                   StdinLine
->                                                     (Str -<'4238>-> <rec>),
->                                                   StdoutLine Str
->                                                     ({}
->                                                       -<'4237>-> [
->                                                                    Done
+>                            ], next:
+>                                 Str
+>                                   -<'3994>-> [Err [], Ok {}]
+>                                                -<'4194>-> [
+>                                                             Done [Err [], Ok {}],
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'4238>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               ({}
+>                                                                 -<'4237>-> 
+>                                                                 [
+>                                                                   Done
 >                                                                     [
 >                                                                     Err [],
 >                                                                     Ok {}
 >                                                                     ],
->                                                                    StdinLine
+>                                                                   StdinLine
 >                                                                     (Str
 >                                                                     -<'4238>-> 
 >                                                                     <rec>),
->                                                                    StdoutLine
+>                                                                   StdoutLine
 >                                                                     Str 
 >                                                                     <rec>
->                                                                    ])
->                                                   ]): [Err [], Ok Str]
->                                                         -[
->                                                            clos2
->                                                              (continue: 
->                                                              ([Err [], Ok {}]
->                                                                -<'4194>-> 
->                                                                [
->                                                                  Done
->                                                                    [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                  StdinLine
->                                                                    (Str
->                                                                     -<'4238>-> 
->                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    ({}
->                                                                     -<'4237>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4238>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                  ]))
->                                                              (next: (Str
->                                                                     -<'3994>-> 
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'4194>-> 
->                                                                     [
+>                                                                   ])
+>                                                             ]
+>                                                -[clos (err: [])]-> [
 >                                                                     Done
 >                                                                     [
 >                                                                     Err [],
@@ -1861,27 +1809,48 @@ run main_handler =
 >                                                                     Str 
 >                                                                     <rec>
 >                                                                     ])
->                                                                     ]
->                                                                     -[
->                                                                     clos
->                                                                     (err: 
->                                                                     [])
->                                                                     ]-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4238>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4237>-> 
->                                                                     [
+>                                                                     ]): 
+>   [Err [], Ok Str]
+>     -[
+>        clos2
+>          (continue: ([Err [], Ok {}]
+>                       -<'4194>-> [
+>                                    Done [Err [], Ok {}],
+>                                    StdinLine (Str -<'4238>-> <rec>),
+>                                    StdoutLine Str
+>                                      ({}
+>                                        -<'4237>-> [
+>                                                     Done [Err [], Ok {}],
+>                                                     StdinLine
+>                                                       (Str -<'4238>-> <rec>),
+>                                                     StdoutLine Str <rec>
+>                                                     ])
+>                                    ]))
+>          (next: (Str
+>                   -<'3994>-> [Err [], Ok {}]
+>                                -<'4194>-> [
+>                                             Done [Err [], Ok {}],
+>                                             StdinLine (Str -<'4238>-> <rec>),
+>                                             StdoutLine Str
+>                                               ({}
+>                                                 -<'4237>-> [
+>                                                              Done
+>                                                                [Err [], Ok {}],
+>                                                              StdinLine
+>                                                                (Str
+>                                                                  -<'4238>-> 
+>                                                                  <rec>),
+>                                                              StdoutLine Str
+>                                                                <rec>
+>                                                              ])
+>                                             ]
+>                                -[clos (err: [])]-> [
+>                                                      Done [Err [], Ok {}],
+>                                                      StdinLine
+>                                                        (Str -<'4238>-> <rec>),
+>                                                      StdoutLine Str
+>                                                        ({}
+>                                                          -<'4237>-> [
 >                                                                     Done
 >                                                                     [
 >                                                                     Err [],
@@ -1895,35 +1864,18 @@ run main_handler =
 >                                                                     Str 
 >                                                                     <rec>
 >                                                                     ])
->                                                                     ]))
->                                                            ]-> [
->                                                                  Done
->                                                                    [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                  StdinLine
->                                                                    (Str
->                                                                     -<'4238>-> 
->                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    ({}
->                                                                     -<'4237>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4238>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                  ] = \result ->
+>                                                      ]))
+>        ]-> [
+>              Done [Err [], Ok {}],
+>              StdinLine (Str -<'4238>-> <rec>),
+>              StdoutLine Str
+>                ({}
+>                  -<'4237>-> [
+>                               Done [Err [], Ok {}],
+>                               StdinLine (Str -<'4238>-> <rec>),
+>                               StdoutLine Str <rec>
+>                               ])
+>              ] = \result ->
 >   let inner: [Err [], Ok {}]
 >                -<'4194>-> [
 >                             Done [Err [], Ok {}],
@@ -2043,187 +1995,18 @@ run main_handler =
 >                                             StdinLine (Str -<'4461>-> <rec>),
 >                                             StdoutLine Str <rec>
 >                                             ])
->                            ]
->            next:
->              Str
->                -<'4392>-> [Err [], Ok {}]
->                             -<'4457>-> [
->                                          Done [Err [], Ok {}],
->                                          StdinLine (Str -<'4461>-> <rec>),
->                                          StdoutLine Str
->                                            ({}
->                                              -<'4459>-> [
->                                                           Done [Err [], Ok {}],
->                                                           StdinLine
->                                                             (Str
->                                                               -<'4461>-> 
->                                                               <rec>),
->                                                           StdoutLine Str <rec>
->                                                           ])
->                                          ]
->                             -[clos (err: [])]-> [
->                                                   Done [Err [], Ok {}],
->                                                   StdinLine
->                                                     (Str -<'4461>-> <rec>),
->                                                   StdoutLine Str
->                                                     ({}
->                                                       -<'4459>-> [
->                                                                    Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                    StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                    StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                    ])
->                                                   ]): [Err [], Ok {}]
->                                                         -<'4457>-> [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4459>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                     ]
->                                                         -[
->                                                            clos3
->                                                              (fromResult: 
->                                                              ([Err [], Ok Str]
->                                                                 -[
->                                                                    clos2
->                                                                     (continue: 
->                                                                     ([
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'4457>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4459>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                     ]))
->                                                                     (next: 
->                                                                     (Str
->                                                                     -<'4392>-> 
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'4457>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4459>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                     ]
->                                                                     -[
->                                                                     clos
->                                                                     (err: 
->                                                                     [])
->                                                                     ]-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4459>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                     ]))
->                                                                    ]-> 
+>                            ], next:
+>                                 Str
+>                                   -<'4392>-> [Err [], Ok {}]
+>                                                -<'4457>-> [
+>                                                             Done [Err [], Ok {}],
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'4461>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               ({}
+>                                                                 -<'4459>-> 
 >                                                                 [
 >                                                                   Done
 >                                                                     [
@@ -2235,6 +2018,21 @@ run main_handler =
 >                                                                     -<'4461>-> 
 >                                                                     <rec>),
 >                                                                   StdoutLine
+>                                                                     Str 
+>                                                                     <rec>
+>                                                                   ])
+>                                                             ]
+>                                                -[clos (err: [])]-> [
+>                                                                     Done
+>                                                                     [
+>                                                                     Err [],
+>                                                                     Ok {}
+>                                                                     ],
+>                                                                     StdinLine
+>                                                                     (Str
+>                                                                     -<'4461>-> 
+>                                                                     <rec>),
+>                                                                     StdoutLine
 >                                                                     Str
 >                                                                     ({}
 >                                                                     -<'4459>-> 
@@ -2252,9 +2050,48 @@ run main_handler =
 >                                                                     Str 
 >                                                                     <rec>
 >                                                                     ])
->                                                                   ]
->                                                                -<'4438>-> 
->                                                                [
+>                                                                     ]): 
+>   [Err [], Ok {}]
+>     -<'4457>-> [
+>                  Done [Err [], Ok {}],
+>                  StdinLine (Str -<'4461>-> <rec>),
+>                  StdoutLine Str
+>                    ({}
+>                      -<'4459>-> [
+>                                   Done [Err [], Ok {}],
+>                                   StdinLine (Str -<'4461>-> <rec>),
+>                                   StdoutLine Str <rec>
+>                                   ])
+>                  ]
+>     -[
+>        clos3
+>          (fromResult: ([Err [], Ok Str]
+>                          -[
+>                             clos2
+>                               (continue: ([Err [], Ok {}]
+>                                            -<'4457>-> [
+>                                                         Done [Err [], Ok {}],
+>                                                         StdinLine
+>                                                           (Str
+>                                                             -<'4461>-> 
+>                                                             <rec>),
+>                                                         StdoutLine Str
+>                                                           ({}
+>                                                             -<'4459>-> 
+>                                                             [
+>                                                               Done
+>                                                                 [Err [], Ok {}],
+>                                                               StdinLine
+>                                                                 (Str
+>                                                                   -<'4461>-> 
+>                                                                   <rec>),
+>                                                               StdoutLine Str
+>                                                                 <rec>
+>                                                               ])
+>                                                         ]))
+>                               (next: (Str
+>                                        -<'4392>-> [Err [], Ok {}]
+>                                                     -<'4457>-> [
 >                                                                  Done
 >                                                                    [
 >                                                                     Err [],
@@ -2281,91 +2118,74 @@ run main_handler =
 >                                                                     Str 
 >                                                                     <rec>
 >                                                                     ])
->                                                                  ]))
->                                                              (next: (Str
->                                                                     -<'4392>-> 
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'4457>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4459>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                     ]
->                                                                     -[
->                                                                     clos
->                                                                     (err: 
->                                                                     [])
->                                                                     ]-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'4459>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                     ]))
->                                                            ]-> [
->                                                                  Done
->                                                                    [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                  StdinLine
->                                                                    (Str
->                                                                     -<'4461>-> 
->                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    ({}
->                                                                     -<'4459>-> 
->                                                                     [
+>                                                                  ]
+>                                                     -[clos (err: [])]-> 
+>                                                     [
+>                                                       Done [Err [], Ok {}],
+>                                                       StdinLine
+>                                                         (Str -<'4461>-> <rec>),
+>                                                       StdoutLine Str
+>                                                         ({}
+>                                                           -<'4459>-> 
+>                                                           [
+>                                                             Done [Err [], Ok {}],
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'4461>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               <rec>
+>                                                             ])
+>                                                       ]))
+>                             ]-> [
+>                                   Done [Err [], Ok {}],
+>                                   StdinLine (Str -<'4461>-> <rec>),
+>                                   StdoutLine Str
+>                                     ({}
+>                                       -<'4459>-> [
+>                                                    Done [Err [], Ok {}],
+>                                                    StdinLine
+>                                                      (Str -<'4461>-> <rec>),
+>                                                    StdoutLine Str <rec>
+>                                                    ])
+>                                   ]
+>                         -<'4438>-> [
+>                                      Done [Err [], Ok {}],
+>                                      StdinLine (Str -<'4461>-> <rec>),
+>                                      StdoutLine Str
+>                                        ({}
+>                                          -<'4459>-> [
+>                                                       Done [Err [], Ok {}],
+>                                                       StdinLine
+>                                                         (Str -<'4461>-> <rec>),
+>                                                       StdoutLine Str <rec>
+>                                                       ])
+>                                      ]))
+>          (next: (Str
+>                   -<'4392>-> [Err [], Ok {}]
+>                                -<'4457>-> [
+>                                             Done [Err [], Ok {}],
+>                                             StdinLine (Str -<'4461>-> <rec>),
+>                                             StdoutLine Str
+>                                               ({}
+>                                                 -<'4459>-> [
+>                                                              Done
+>                                                                [Err [], Ok {}],
+>                                                              StdinLine
+>                                                                (Str
+>                                                                  -<'4461>-> 
+>                                                                  <rec>),
+>                                                              StdoutLine Str
+>                                                                <rec>
+>                                                              ])
+>                                             ]
+>                                -[clos (err: [])]-> [
+>                                                      Done [Err [], Ok {}],
+>                                                      StdinLine
+>                                                        (Str -<'4461>-> <rec>),
+>                                                      StdoutLine Str
+>                                                        ({}
+>                                                          -<'4459>-> [
 >                                                                     Done
 >                                                                     [
 >                                                                     Err [],
@@ -2379,7 +2199,18 @@ run main_handler =
 >                                                                     Str 
 >                                                                     <rec>
 >                                                                     ])
->                                                                  ] = \continue ->
+>                                                      ]))
+>        ]-> [
+>              Done [Err [], Ok {}],
+>              StdinLine (Str -<'4461>-> <rec>),
+>              StdoutLine Str
+>                ({}
+>                  -<'4459>-> [
+>                               Done [Err [], Ok {}],
+>                               StdinLine (Str -<'4461>-> <rec>),
+>                               StdoutLine Str <rec>
+>                               ])
+>              ] = \continue ->
 >   fromResult clos2
 > let clos4(fromResult:
 >             [Err [], Ok Str]
@@ -4408,50 +4239,21 @@ run main_handler =
 >                            Done [Err [], Ok {}],
 >                            StdinLine (Str -<'5664>-> <rec>),
 >                            StdoutLine Str ({} -<'5661>-> <rec>)
->                            ]
->            next:
->              {}
->                -<'5429>-> [Err [], Ok {}]
->                             -<'5622>-> [
->                                          Done [Err [], Ok {}],
->                                          StdinLine (Str -<'5664>-> <rec>),
->                                          StdoutLine Str ({} -<'5661>-> <rec>)
->                                          ]
->                             -[clos (err: [])]-> [
->                                                   Done [Err [], Ok {}],
->                                                   StdinLine
->                                                     (Str -<'5664>-> <rec>),
->                                                   StdoutLine Str
->                                                     ({} -<'5661>-> <rec>)
->                                                   ]): [Err [], Ok {}]
->                                                         -[
->                                                            clos7
->                                                              (continue: 
->                                                              ([Err [], Ok {}]
->                                                                -<'5622>-> 
->                                                                [
->                                                                  Done
->                                                                    [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                  StdinLine
->                                                                    (Str
->                                                                     -<'5664>-> 
->                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    ({}
->                                                                     -<'5661>-> 
->                                                                     <rec>)
->                                                                  ]))
->                                                              (next: ({}
->                                                                     -<'5429>-> 
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'5622>-> 
->                                                                     [
+>                            ], next:
+>                                 {}
+>                                   -<'5429>-> [Err [], Ok {}]
+>                                                -<'5622>-> [
+>                                                             Done [Err [], Ok {}],
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'5664>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               ({}
+>                                                                 -<'5661>-> 
+>                                                                 <rec>)
+>                                                             ]
+>                                                -[clos (err: [])]-> [
 >                                                                     Done
 >                                                                     [
 >                                                                     Err [],
@@ -4466,43 +4268,36 @@ run main_handler =
 >                                                                     ({}
 >                                                                     -<'5661>-> 
 >                                                                     <rec>)
->                                                                     ]
->                                                                     -[
->                                                                     clos
->                                                                     (err: 
->                                                                     [])
->                                                                     ]-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5664>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5661>-> 
->                                                                     <rec>)
->                                                                     ]))
->                                                            ]-> [
->                                                                  Done
->                                                                    [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                  StdinLine
->                                                                    (Str
->                                                                     -<'5664>-> 
->                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    ({}
->                                                                     -<'5661>-> 
->                                                                     <rec>)
->                                                                  ] = \result ->
+>                                                                     ]): 
+>   [Err [], Ok {}]
+>     -[
+>        clos7
+>          (continue: ([Err [], Ok {}]
+>                       -<'5622>-> [
+>                                    Done [Err [], Ok {}],
+>                                    StdinLine (Str -<'5664>-> <rec>),
+>                                    StdoutLine Str ({} -<'5661>-> <rec>)
+>                                    ]))
+>          (next: ({}
+>                   -<'5429>-> [Err [], Ok {}]
+>                                -<'5622>-> [
+>                                             Done [Err [], Ok {}],
+>                                             StdinLine (Str -<'5664>-> <rec>),
+>                                             StdoutLine Str
+>                                               ({} -<'5661>-> <rec>)
+>                                             ]
+>                                -[clos (err: [])]-> [
+>                                                      Done [Err [], Ok {}],
+>                                                      StdinLine
+>                                                        (Str -<'5664>-> <rec>),
+>                                                      StdoutLine Str
+>                                                        ({} -<'5661>-> <rec>)
+>                                                      ]))
+>        ]-> [
+>              Done [Err [], Ok {}],
+>              StdinLine (Str -<'5664>-> <rec>),
+>              StdoutLine Str ({} -<'5661>-> <rec>)
+>              ] = \result ->
 >   let inner: [Err [], Ok {}]
 >                -<'5622>-> [
 >                             Done [Err [], Ok {}],
@@ -4577,23 +4372,21 @@ run main_handler =
 >                                             StdinLine (Str -<'5879>-> <rec>),
 >                                             StdoutLine Str <rec>
 >                                             ])
->                            ]
->            next:
->              {}
->                -<'5812>-> [Err [], Ok {}]
->                             -<'5874>-> [
->                                          Done [Err [], Ok {}],
->                                          StdinLine (Str -<'5879>-> <rec>),
->                                          StdoutLine Str ({} -<'5876>-> <rec>)
->                                          ]
->                             -[clos (err: [])]-> [
->                                                   Done [Err [], Ok {}],
->                                                   StdinLine
->                                                     (Str -<'5879>-> <rec>),
->                                                   StdoutLine Str
->                                                     ({} -<'5876>-> <rec>)
->                                                   ]): [Err [], Ok {}]
->                                                         -<'5874>-> [
+>                            ], next:
+>                                 {}
+>                                   -<'5812>-> [Err [], Ok {}]
+>                                                -<'5874>-> [
+>                                                             Done [Err [], Ok {}],
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'5879>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               ({}
+>                                                                 -<'5876>-> 
+>                                                                 <rec>)
+>                                                             ]
+>                                                -[clos (err: [])]-> [
 >                                                                     Done
 >                                                                     [
 >                                                                     Err [],
@@ -4608,99 +4401,31 @@ run main_handler =
 >                                                                     ({}
 >                                                                     -<'5876>-> 
 >                                                                     <rec>)
->                                                                     ]
->                                                         -[
->                                                            clos8
->                                                              (fromResult: 
->                                                              ([Err [], Ok {}]
->                                                                 -[
->                                                                    clos7
->                                                                     (continue: 
->                                                                     ([
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'5874>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                     ]))
->                                                                     (next: 
->                                                                     ({}
->                                                                     -<'5812>-> 
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'5874>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                     ]
->                                                                     -[
->                                                                     clos
->                                                                     (err: 
->                                                                     [])
->                                                                     ]-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                     ]))
->                                                                    ]-> 
->                                                                 [
->                                                                   Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                   StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                   StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                   ]
->                                                                -<'5855>-> 
->                                                                [
+>                                                                     ]): 
+>   [Err [], Ok {}]
+>     -<'5874>-> [
+>                  Done [Err [], Ok {}],
+>                  StdinLine (Str -<'5879>-> <rec>),
+>                  StdoutLine Str ({} -<'5876>-> <rec>)
+>                  ]
+>     -[
+>        clos8
+>          (fromResult: ([Err [], Ok {}]
+>                          -[
+>                             clos7
+>                               (continue: ([Err [], Ok {}]
+>                                            -<'5874>-> [
+>                                                         Done [Err [], Ok {}],
+>                                                         StdinLine
+>                                                           (Str
+>                                                             -<'5879>-> 
+>                                                             <rec>),
+>                                                         StdoutLine Str
+>                                                           ({} -<'5876>-> <rec>)
+>                                                         ]))
+>                               (next: ({}
+>                                        -<'5812>-> [Err [], Ok {}]
+>                                                     -<'5874>-> [
 >                                                                  Done
 >                                                                    [
 >                                                                     Err [],
@@ -4709,123 +4434,76 @@ run main_handler =
 >                                                                  StdinLine
 >                                                                    (Str
 >                                                                     -<'5879>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     <rec>,
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                     ]),
+>                                                                     <rec>),
 >                                                                  StdoutLine Str
 >                                                                    ({}
 >                                                                     -<'5876>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                  ]))
->                                                              (next: ({}
->                                                                     -<'5812>-> 
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ]
->                                                                     -<'5874>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
 >                                                                     <rec>)
->                                                                     ]
->                                                                     -[
->                                                                     clos
->                                                                     (err: 
->                                                                     [])
->                                                                     ]-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                     ]))
->                                                            ]-> [
->                                                                  Done
->                                                                    [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                  StdinLine
->                                                                    (Str
->                                                                     -<'5879>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     <rec>,
->                                                                     StdoutLine
->                                                                     Str
->                                                                     ({}
->                                                                     -<'5876>-> 
->                                                                     <rec>)
->                                                                     ]),
->                                                                  StdoutLine Str
->                                                                    ({}
->                                                                     -<'5876>-> 
->                                                                     [
->                                                                     Done
->                                                                     [
->                                                                     Err [],
->                                                                     Ok {}
->                                                                     ],
->                                                                     StdinLine
->                                                                     (Str
->                                                                     -<'5879>-> 
->                                                                     <rec>),
->                                                                     StdoutLine
->                                                                     Str 
->                                                                     <rec>
->                                                                     ])
->                                                                  ] = \continue ->
+>                                                                  ]
+>                                                     -[clos (err: [])]-> 
+>                                                     [
+>                                                       Done [Err [], Ok {}],
+>                                                       StdinLine
+>                                                         (Str -<'5879>-> <rec>),
+>                                                       StdoutLine Str
+>                                                         ({} -<'5876>-> <rec>)
+>                                                       ]))
+>                             ]-> [
+>                                   Done [Err [], Ok {}],
+>                                   StdinLine (Str -<'5879>-> <rec>),
+>                                   StdoutLine Str ({} -<'5876>-> <rec>)
+>                                   ]
+>                         -<'5855>-> [
+>                                      Done [Err [], Ok {}],
+>                                      StdinLine
+>                                        (Str
+>                                          -<'5879>-> [
+>                                                       Done [Err [], Ok {}],
+>                                                       StdinLine <rec>,
+>                                                       StdoutLine Str
+>                                                         ({} -<'5876>-> <rec>)
+>                                                       ]),
+>                                      StdoutLine Str
+>                                        ({}
+>                                          -<'5876>-> [
+>                                                       Done [Err [], Ok {}],
+>                                                       StdinLine
+>                                                         (Str -<'5879>-> <rec>),
+>                                                       StdoutLine Str <rec>
+>                                                       ])
+>                                      ]))
+>          (next: ({}
+>                   -<'5812>-> [Err [], Ok {}]
+>                                -<'5874>-> [
+>                                             Done [Err [], Ok {}],
+>                                             StdinLine (Str -<'5879>-> <rec>),
+>                                             StdoutLine Str
+>                                               ({} -<'5876>-> <rec>)
+>                                             ]
+>                                -[clos (err: [])]-> [
+>                                                      Done [Err [], Ok {}],
+>                                                      StdinLine
+>                                                        (Str -<'5879>-> <rec>),
+>                                                      StdoutLine Str
+>                                                        ({} -<'5876>-> <rec>)
+>                                                      ]))
+>        ]-> [
+>              Done [Err [], Ok {}],
+>              StdinLine
+>                (Str
+>                  -<'5879>-> [
+>                               Done [Err [], Ok {}],
+>                               StdinLine <rec>,
+>                               StdoutLine Str ({} -<'5876>-> <rec>)
+>                               ]),
+>              StdoutLine Str
+>                ({}
+>                  -<'5876>-> [
+>                               Done [Err [], Ok {}],
+>                               StdinLine (Str -<'5879>-> <rec>),
+>                               StdoutLine Str <rec>
+>                               ])
+>              ] = \continue ->
 >   fromResult clos7
 > let clos9(fromResult:
 >             [Err [], Ok {}]
@@ -18088,24 +17766,27 @@ run main_handler =
 >                             ]-> <rec>)
 >                      ] =
 >   (await1 (outLine1 "What's your first name?")) clos13
-> let clos15(i: Int
->             op1:
->               [
->                 Done [Err [], Ok {}],
->                 StdinLine (Str -<'8187>-> <rec>),
->                 StdoutLine Str ({} -<'8184>-> <rec>)
->                 ]): [EntryPoint, Stdin <rec>, Stdout Str <rec>]
->                       -[
->                          clos15 (i: Int)
->                            (op1: [
->                                    Done [Err [], Ok {}],
->                                    StdinLine (Str -<'8187>-> <rec>),
->                                    StdoutLine Str ({} -<'8184>-> <rec>)
->                                    ])
->                          ]-> [
->                                Done [Err [], Ok {}]
->                                  [EntryPoint, Stdin <rec>, Stdout Str <rec>]
->                                ] = \t ->
+> let clos15(i: Int, op1:
+>                      [
+>                        Done [Err [], Ok {}],
+>                        StdinLine (Str -<'8187>-> <rec>),
+>                        StdoutLine Str ({} -<'8184>-> <rec>)
+>                        ]): [EntryPoint, Stdin <rec>, Stdout Str <rec>]
+>                              -[
+>                                 clos15 (i: Int)
+>                                   (op1: [
+>                                           Done [Err [], Ok {}],
+>                                           StdinLine (Str -<'8187>-> <rec>),
+>                                           StdoutLine Str ({} -<'8184>-> <rec>)
+>                                           ])
+>                                 ]-> [
+>                                       Done [Err [], Ok {}]
+>                                         [
+>                                           EntryPoint,
+>                                           Stdin <rec>,
+>                                           Stdout Str <rec>
+>                                           ]
+>                                       ] = \t ->
 >   when op1 is
 >     | StdinLine f ->
 >       ((handle1 (f ~str_concat "stdin" ~itos i)) ~add i 1) (Stdin t)

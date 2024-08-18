@@ -53,8 +53,8 @@ let pp_expr symbols f =
         fprintf f "@[<v 0>@[<hv 2>{";
         List.iteri
           (fun i (label, e) ->
-            if i > 0 then fprintf f "@ ";
-            fprintf f "@[<hov 2>%s =@ " label;
+            if i > 0 then fprintf f ",@ ";
+            fprintf f "@[<hov 2>%s:@ " label;
             go `Free e;
             fprintf f "@]")
           fields;

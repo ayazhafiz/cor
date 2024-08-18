@@ -18,7 +18,7 @@ let tightest_node_at_var : loc -> loc_tvar -> found_node =
       match tvar_deref ty with
       | Link ty -> go (l, ty)
       | Unbd _ | ForA _ -> None
-      | Content (TPrim (`Str | `Int)) -> None
+      | Content (TPrim _) -> None
       | Content TTagEmpty -> None
       | Content (TTag { tags; ext }) ->
           let found_in_tag = List.find_map go_tag tags in

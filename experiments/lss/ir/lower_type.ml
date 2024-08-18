@@ -4,7 +4,7 @@ module T = Lambdamono.Type
 type type_cache = (T.variable * layout) list ref
 
 let new_type_cache () : type_cache = ref []
-let unfilled_layout = Unfilled
+let unfilled_layout = INTERNAL__Unfilled
 let unfilled_boxed_layout = Box (ref unfilled_layout)
 
 let lower_type : type_cache -> T.tvar -> layout =
@@ -33,6 +33,7 @@ let lower_type : type_cache -> T.tvar -> layout =
               Struct struct'
           | T.TPrim `Str -> Str
           | T.TPrim `Int -> Int
+          | T.TPrim `Erased -> OpaquePtr
         in
         let content =
           if !layout = unfilled_boxed_layout then Box (ref content) else content

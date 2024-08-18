@@ -84,13 +84,21 @@ let lambda_lift_expr ~(ctx : Ctx.t) expr : def list * e_expr =
           let x' =
             ctx.symbols.fresh_symbol_named (Symbol.syn_of ctx.symbols x)
           in
-          let venv = (x, x') :: venv in
-          if List.length captures = 0 then Ctx.add_toplevel ctx x';
-          let bind = (t_x, x') in
-          let lifted1, body = go venv body in
-          let def = (bind, `Fn { arg; captures; body }) in
-          let lifted2, (_, rest) = go venv rest in
-          (lifted1 @ lifted2 @ [ def ], rest)
+          if List.length captures = 0 then (
+            Ctx.add_toplevel ctx x';
+            let lifted1, body = go ((x, x') :: venv) body in
+            let def = ((t_x, x'), `Fn { arg; captures; body }) in
+            let lifted2, (_, rest) = go ((x, x') :: venv) rest in
+            (lifted1 @ lifted2 @ [ def ], rest))
+          else
+            let let_x =
+              ctx.symbols.fresh_symbol_named (Symbol.syn_of ctx.symbols x)
+            in
+            let lifted1, body = go ((x, x') :: venv) body in
+            let def = ((t_x, x'), `Fn { arg; captures; body }) in
+            let lifted2, rest = go ((x, let_x) :: venv) rest in
+            let let_x = Let ((t_x, let_x), (t_x, Var x'), rest) in
+            (lifted1 @ lifted2 @ [ def ], let_x)
       | M.Clos { arg; body } ->
           let captures =
             free_vars body |> SymbolMap.bindings

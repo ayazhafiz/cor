@@ -628,74 +628,91 @@ run main_handler =
 >                            Done Str,
 >                            StdinLine (Str -<'2141>-> <rec>),
 >                            StdoutLine Str (Str -<'2139>-> <rec>)
->                            ]
->            next:
->              Str
->                -<'2070>-> Str
->                             -<'2113>-> [
->                                          Done Str,
->                                          StdinLine (Str -<'2141>-> <rec>),
->                                          StdoutLine Str (Str -<'2139>-> <rec>)
->                                          ]
->                             -<'2120>-> [
->                                          Done Str,
->                                          StdinLine (Str -<'2141>-> <rec>),
->                                          StdoutLine Str (Str -<'2139>-> <rec>)
->                                          ]): Str
->                                                -[
->                                                   clos3
->                                                     (continue: (Str
->                                                                  -<'2113>-> 
->                                                                  [
->                                                                    Done Str,
->                                                                    StdinLine
+>                            ], next:
+>                                 Str
+>                                   -<'2070>-> Str
+>                                                -<'2113>-> [
+>                                                             Done Str,
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'2141>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               (Str
+>                                                                 -<'2139>-> 
+>                                                                 <rec>)
+>                                                             ]
+>                                                -<'2120>-> [
+>                                                             Done Str,
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'2141>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               (Str
+>                                                                 -<'2139>-> 
+>                                                                 <rec>)
+>                                                             ]): Str
+>                                                                   -[
+>                                                                     clos3
+>                                                                     (continue: 
+>                                                                     (Str
+>                                                                     -<'2113>-> 
+>                                                                     [
+>                                                                     Done Str,
+>                                                                     StdinLine
 >                                                                     (Str
 >                                                                     -<'2141>-> 
 >                                                                     <rec>),
->                                                                    StdoutLine
+>                                                                     StdoutLine
 >                                                                     Str
 >                                                                     (Str
 >                                                                     -<'2139>-> 
 >                                                                     <rec>)
->                                                                    ]))
->                                                     (next: (Str
->                                                              -<'2070>-> 
->                                                              Str
->                                                                -<'2113>-> 
->                                                                [
->                                                                  Done Str,
->                                                                  StdinLine
->                                                                    (Str
+>                                                                     ]))
+>                                                                     (next: 
+>                                                                     (Str
+>                                                                     -<'2070>-> 
+>                                                                     Str
+>                                                                     -<'2113>-> 
+>                                                                     [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
 >                                                                     -<'2141>-> 
 >                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    (Str
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
 >                                                                     -<'2139>-> 
 >                                                                     <rec>)
->                                                                  ]
->                                                                -<'2120>-> 
->                                                                [
->                                                                  Done Str,
->                                                                  StdinLine
->                                                                    (Str
+>                                                                     ]
+>                                                                     -<'2120>-> 
+>                                                                     [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
 >                                                                     -<'2141>-> 
 >                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    (Str
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
 >                                                                     -<'2139>-> 
 >                                                                     <rec>)
->                                                                  ]))
->                                                   ]-> [
->                                                         Done Str,
->                                                         StdinLine
->                                                           (Str
->                                                             -<'2141>-> 
->                                                             <rec>),
->                                                         StdoutLine Str
->                                                           (Str
->                                                             -<'2139>-> 
->                                                             <rec>)
->                                                         ] = \result ->
+>                                                                     ]))
+>                                                                     ]-> 
+>                                                                   [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
+>                                                                     -<'2141>-> 
+>                                                                     <rec>),
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
+>                                                                     -<'2139>-> 
+>                                                                     <rec>)
+>                                                                     ] = \result ->
 >   let inner: Str
 >                -<'2113>-> [
 >                             Done Str,
@@ -746,20 +763,9 @@ run main_handler =
 >                            Done Str,
 >                            StdinLine (Str -<'2278>-> <rec>),
 >                            StdoutLine Str (Str -<'2276>-> <rec>)
->                            ]
->            next:
->              Str
->                -<'2234>-> Str
->                             -<'2275>-> [
->                                          Done Str,
->                                          StdinLine (Str -<'2278>-> <rec>),
->                                          StdoutLine Str (Str -<'2276>-> <rec>)
->                                          ]
->                             -<'2242>-> [
->                                          Done Str,
->                                          StdinLine (Str -<'2278>-> <rec>),
->                                          StdoutLine Str (Str -<'2276>-> <rec>)
->                                          ]): Str
+>                            ], next:
+>                                 Str
+>                                   -<'2234>-> Str
 >                                                -<'2275>-> [
 >                                                             Done Str,
 >                                                             StdinLine
@@ -771,11 +777,35 @@ run main_handler =
 >                                                                 -<'2276>-> 
 >                                                                 <rec>)
 >                                                             ]
->                                                -[
->                                                   clos4
->                                                     (fromResult: (Str
->                                                                     -
->                                                                     [
+>                                                -<'2242>-> [
+>                                                             Done Str,
+>                                                             StdinLine
+>                                                               (Str
+>                                                                 -<'2278>-> 
+>                                                                 <rec>),
+>                                                             StdoutLine Str
+>                                                               (Str
+>                                                                 -<'2276>-> 
+>                                                                 <rec>)
+>                                                             ]): Str
+>                                                                   -<'2275>-> 
+>                                                                   [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
+>                                                                     -<'2278>-> 
+>                                                                     <rec>),
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
+>                                                                     -<'2276>-> 
+>                                                                     <rec>)
+>                                                                     ]
+>                                                                   -[
+>                                                                     clos4
+>                                                                     (fromResult: 
+>                                                                     (Str
+>                                                                     -[
 >                                                                     clos3
 >                                                                     (continue: 
 >                                                                     (Str
@@ -835,8 +865,8 @@ run main_handler =
 >                                                                     -<'2276>-> 
 >                                                                     <rec>)
 >                                                                     ]
->                                                                    -<'2263>-> 
->                                                                    [
+>                                                                     -<'2263>-> 
+>                                                                     [
 >                                                                     Done Str,
 >                                                                     StdinLine
 >                                                                     (Str
@@ -848,44 +878,49 @@ run main_handler =
 >                                                                     -<'2276>-> 
 >                                                                     <rec>)
 >                                                                     ]))
->                                                     (next: (Str
->                                                              -<'2234>-> 
->                                                              Str
->                                                                -<'2275>-> 
->                                                                [
->                                                                  Done Str,
->                                                                  StdinLine
->                                                                    (Str
+>                                                                     (next: 
+>                                                                     (Str
+>                                                                     -<'2234>-> 
+>                                                                     Str
+>                                                                     -<'2275>-> 
+>                                                                     [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
 >                                                                     -<'2278>-> 
 >                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    (Str
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
 >                                                                     -<'2276>-> 
 >                                                                     <rec>)
->                                                                  ]
->                                                                -<'2242>-> 
->                                                                [
->                                                                  Done Str,
->                                                                  StdinLine
->                                                                    (Str
+>                                                                     ]
+>                                                                     -<'2242>-> 
+>                                                                     [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
 >                                                                     -<'2278>-> 
 >                                                                     <rec>),
->                                                                  StdoutLine Str
->                                                                    (Str
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
 >                                                                     -<'2276>-> 
 >                                                                     <rec>)
->                                                                  ]))
->                                                   ]-> [
->                                                         Done Str,
->                                                         StdinLine
->                                                           (Str
->                                                             -<'2278>-> 
->                                                             <rec>),
->                                                         StdoutLine Str
->                                                           (Str
->                                                             -<'2276>-> 
->                                                             <rec>)
->                                                         ] = \continue ->
+>                                                                     ]))
+>                                                                     ]-> 
+>                                                                   [
+>                                                                     Done Str,
+>                                                                     StdinLine
+>                                                                     (Str
+>                                                                     -<'2278>-> 
+>                                                                     <rec>),
+>                                                                     StdoutLine
+>                                                                     Str
+>                                                                     (Str
+>                                                                     -<'2276>-> 
+>                                                                     <rec>)
+>                                                                     ] = \continue ->
 >   fromResult clos3
 > let clos5(fromResult:
 >             Str

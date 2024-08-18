@@ -20,6 +20,7 @@ let pp_layout : Format.formatter -> layout -> unit =
         match !l with
         | Str -> fprintf f "str"
         | Int -> fprintf f "int"
+        | OpaquePtr -> fprintf f "*opaque"
         | Struct [] -> fprintf f "{}"
         | Struct layouts ->
             (* format as { lay1, lay2, lay3 } *)
@@ -59,7 +60,7 @@ let pp_layout : Format.formatter -> layout -> unit =
             let rn = int_to_rec_name @@ List.length visited in
             let visited = (l, rn) :: visited in
             fprintf f "@[<hv 0>Box%a(%a)@]" pp_rec rn (go visited) inner
-        | Unfilled -> fprintf f "??Unfilled")
+        | INTERNAL__Unfilled -> fprintf f "??Unfilled")
   in
   go [] f l
 

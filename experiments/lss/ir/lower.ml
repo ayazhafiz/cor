@@ -78,6 +78,30 @@ let lower_expr ~ctx e : stmt list * var =
         let stmts, args = List.split @@ List.map go_var args in
         let call = CallDirect (f, args) in
         (List.concat stmts, call)
+    | M.PackedFn { lambda; captures } ->
+        let fn_var = (ref OpaquePtr, ctx.symbols.fresh_symbol "fn") in
+        let lambda = FnPtr lambda in
+        let let_fn_var = Let (fn_var, lambda) in
+        let captures_stmts, captures_var =
+          match captures with
+          | None ->
+              let captures_var =
+                (ref OpaquePtr, ctx.symbols.fresh_symbol "captures")
+              in
+              let captures_struct = NullPtr in
+              let let_captures = Let (captures_var, captures_struct) in
+              ([ let_captures ], captures_var)
+          | Some captures ->
+              let stmts, captures = go_var captures in
+              (stmts, captures)
+        in
+        let call = MakeStruct [ fn_var; captures_var ] in
+        ([ let_fn_var ] @ captures_stmts, call)
+    | M.CallIndirect (f, args) ->
+        let stmts_f, f = go_var f in
+        let stmts_args, args = List.split @@ List.map go_var args in
+        let call = CallIndirect (f, args) in
+        (stmts_f @ List.concat stmts_args, call)
     | M.KCall (kfn, args) ->
         let stmts, args = List.split @@ List.map go_var args in
         let call = CallKFn (kfn, args) in

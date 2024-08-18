@@ -4,6 +4,7 @@ type layout_content =
   | Struct of layout list
   | Union of layout list
   | Box of layout
-  | Unfilled
+  | OpaquePtr
+  | INTERNAL__Unfilled (* Internal only *)
 
 and layout = layout_content ref

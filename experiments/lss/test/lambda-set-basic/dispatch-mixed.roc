@@ -62,8 +62,8 @@ run main =
 >   adder 12
 
 > cor-out +lambdasolved -print
-> let clos2(y1: Int z: Int): Int
->                              -[clos, clos1 (y: Int), clos2 (y1: Int) (z: Int)]-> Int = \w2 ->
+> let clos2(y1: Int, z: Int): Int
+>                               -[clos, clos1 (y: Int), clos2 (y1: Int) (z: Int)]-> Int = \w2 ->
 >   ~add w2 ~add y1 z
 > let clos1(y: Int): Int -[clos, clos1 (y: Int), clos2 (y1: Int) (z: Int)]-> Int = \w1 ->
 >   ~add w1 y
@@ -86,10 +86,10 @@ run main =
 > fn clos5(w2: Int, captures4: {y1: Int, z: Int}): Int =
 >   let z: Int = captures4.z in
 >   let y1: Int = captures4.y1 in
->   ~add w2 ~add y1 z
+>   ~add w2, ~add y1, z
 > fn clos4(w1: Int, captures5: {y: Int}): Int =
 >   let y: Int = captures5.y in
->   ~add w1 y
+>   ~add w1, y
 > fn clos3(w: Int): Int =
 >   w
 > fn f2(t: [A, B Int, C Int Int]): [

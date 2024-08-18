@@ -11,20 +11,24 @@ run main1 = f { a: 1, b: 2 };;
 run main2 = f { a: "main2" };;
 
 > cor-out +monotype -print
-> let f2: {a: Str} -> Str = \x -> x .a
-> let f1: {a: Int, b: Int} -> Int = \x -> x .a
->   run main1: Int =
->     f1 {a: 1, b: 2}
->   run main2: Str =
->     f2 {a: "main2"}
+> let f2: {a: Str} -> Str = \x ->
+>   x .a
+> let f1: {a: Int, b: Int} -> Int = \x ->
+>   x .a
+> run main1: Int =
+>   f1 {a: 1, b: 2}
+> run main2: Str =
+>   f2 {a: "main2"}
 
 > cor-out +monotype_lifted -print
-> let f2: {a: Str} -> Str = \x -> x.a
-> let f1: {a: Int, b: Int} -> Int = \x -> x.a
->   run main1: Int =
->     f1 {a: 1, b: 2}
->   run main2: Str =
->     f2 {a: "main2"}
+> let f2: {a: Str} -> Str = \x ->
+>   x.a
+> let f1: {a: Int, b: Int} -> Int = \x ->
+>   x.a
+> run main1: Int =
+>   f1 {a: 1, b: 2}
+> run main2: Str =
+>   f2 {a: "main2"}
 
 > cor-out +lambdasolved -print
 > let f2: {a: Str} -[f2]-> Str = \x ->

@@ -19,11 +19,11 @@ let lambda_tag_name s =
 
 let ty_unfilled () = TTag [ ("__unfilled_lambdamono", []) ]
 
-let rec unlink_to_lset : T.tvar -> T.tvar =
+let rec unlink_with_fn : T.tvar -> T.tvar =
  fun tvar ->
   match T.tvar_deref tvar with
-  | T.Link tvar -> unlink_to_lset tvar
-  | T.Content (T.TFn (_, lset, _)) -> unlink_to_lset lset
+  | T.Link tvar -> unlink_with_fn tvar
+  | T.Content (T.TFn (_, lset, _)) -> unlink_with_fn lset
   | _ -> tvar
 
 let lower_type : mono_cache -> fresh_tvar -> T.tvar -> tvar =
@@ -50,7 +50,7 @@ let lower_type : mono_cache -> fresh_tvar -> T.tvar -> tvar =
   and lower_tag (tag, args) = (tag, List.map lower_tvar args)
   and lower_field (field, ty) = (field, lower_tvar ty)
   and lower_tvar tvar : tvar =
-    let tvar = unlink_to_lset tvar in
+    let tvar = unlink_with_fn tvar in
     let var = T.tvar_v tvar in
     match List.assoc_opt var !cache with
     | Some ty -> ty
@@ -75,48 +75,47 @@ let lower_type : mono_cache -> fresh_tvar -> T.tvar -> tvar =
   let ty = lower_tvar ty in
   ty
 
-type extracted_closure_captures = { captures : (symbol * tvar) list; ty : tvar }
+let lower_captures : mono_cache -> fresh_tvar -> (symbol * T.tvar) list -> tvar
+    =
+ fun mono_cache fresh_tvar captures ->
+  let lower_tvar = lower_type mono_cache fresh_tvar in
+  let t_captures =
+    List.map
+      (fun (name, ty) -> (Symbol.show_symbol_raw name, lower_tvar ty))
+      captures
+  in
+  fresh_tvar @@ TRecord t_captures
 
-let extract_lambda_set ty =
+let lambda_repr ty =
   let _in, lset, _out = extract_fn ty in
   let lset = T.unlink lset in
   match T.tvar_deref @@ lset with
-  | T.Content (LSet lset) -> lset
+  | T.Content (LSet lset) -> `LSet lset
+  | T.Content (TPrim `Erased) -> `LErased
   | _ ->
       failwith @@ "expected lambda set type, got " ^ P.show_ty lset ^ "\n"
       ^ P.show_ty ty
 
-let extract_lambda_capture_types ty lambda =
-  let lset = extract_lambda_set ty in
-  let captures = SymbolMap.find lambda lset in
-  SymbolMap.bindings captures
+type extracted_closure_captures = {
+  captures : (symbol * T.tvar) list;
+  ty : tvar;
+}
 
-let extract_closure_captures :
-    mono_cache ->
-    fresh_tvar ->
-    T.tvar ->
-    symbol ->
-    extracted_closure_captures option =
+type specific_lam_repr = [ `LSet of extracted_closure_captures | `Toplevel ]
+
+let extract_lset_fn :
+    mono_cache -> fresh_tvar -> T.tvar -> symbol -> specific_lam_repr =
  fun mono_cache fresh_tvar ty name ->
-  let t_lset = lower_type mono_cache fresh_tvar ty in
-  match tvar_deref t_lset with
-  | TTag bindings ->
-      let captures_list =
-        match List.assoc_opt (lambda_tag_name name) bindings with
-        | Some binding -> binding
-        | None ->
-            failwith @@ "expected tag " ^ lambda_tag_name name
-            ^ " to be available in " ^ P.show_ty ty
-      in
-      if List.length captures_list = 0 then None
-      else (
-        assert (List.length captures_list = 1);
-        let t_captures = List.hd captures_list in
-        match tvar_deref t_captures with
-        | TRecord bindings ->
-            let captures =
-              List.map (fun (k, v) -> (Symbol.unsafe_from_string k, v)) bindings
-            in
-            Some { captures; ty = t_captures }
-        | _ -> failwith "expected record")
-  | _ -> failwith "expected tag"
+  let lower_type = lower_type mono_cache fresh_tvar in
+
+  let _t_lset = lower_type ty in
+
+  match lambda_repr ty with
+  | `LSet lset ->
+      let captures_list = SymbolMap.find name lset in
+      if SymbolMap.cardinal captures_list = 0 then `Toplevel
+      else
+        let captures = SymbolMap.bindings captures_list in
+        let ty = lower_captures mono_cache fresh_tvar captures in
+        `LSet { captures; ty }
+  | _ -> failwith "extract_lset_fn: expected LSet"

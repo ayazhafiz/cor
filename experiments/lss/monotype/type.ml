@@ -2,7 +2,7 @@ type ty_content =
   | TFn of ty * ty
   | TTag of ty_tag list
   | TRecord of ty_field list
-  | TPrim of [ `Str | `Int ]
+  | TPrim of [ `Str | `Int | `Erased ]
 
 and ty_tag = string * ty list
 and ty_field = string * ty

@@ -39,6 +39,7 @@ let rec read (lexbuf : Sedlexing.lexbuf) =
   | "end" -> make lexbuf (fun i -> END i)
   | "Str" -> make lexbuf (fun i -> STR i)
   | "Int" -> make lexbuf (fun i -> INT i)
+  | "Erased" -> make lexbuf (fun i -> ERASED i)
   | "in" -> make lexbuf (fun i -> IN i)
   | "=" -> make lexbuf (fun i -> EQ i)
   | ":" -> make lexbuf (fun i -> COLON i)

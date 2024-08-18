@@ -93,11 +93,11 @@ run x = f T2 0
 
 > cor-out +lambdamono -print
 > fn f32(x2: Int): Int =
->   ~add x2 3
+>   ~add x2, 3
 > fn f22(x1: Int): Int =
->   ~add x1 2
+>   ~add x1, 2
 > fn f12(x: Int): Int =
->   ~add x 1
+>   ~add x, 1
 > fn f5(t: [T1, T2, T3]): [F11, F21, F31] =
 >   when t is
 >     | T1 -> F11

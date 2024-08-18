@@ -33,6 +33,7 @@ let pp_ty : Format.formatter -> tvar -> unit =
               bindings
         | TPrim `Str -> pp_print_string f "Str"
         | TPrim `Int -> pp_print_string f "Int"
+        | TPrim `Erased -> pp_print_string f "Erased"
     in
     go [] f ty
 

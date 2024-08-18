@@ -9,12 +9,15 @@ type kernelfn = C.kernelfn
 type expr =
   | Var of var
   | Lit of lit
+  | FnPtr of symbol
+  | NullPtr
   | MakeUnion of int * var
   | GetUnionId of var
   | GetUnionStruct of var
   | MakeStruct of var list
   | GetStructField of var * int
   | CallDirect of symbol * var list
+  | CallIndirect of var * var list
   | CallKFn of kernelfn * var list
 
 type stmt =

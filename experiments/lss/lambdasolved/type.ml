@@ -11,14 +11,24 @@ and ty_content =
   | TFn of tvar * tvar * tvar
   | TTag of ty_tag list
   | TRecord of ty_field list
-  | TPrim of [ `Str | `Int ]
+  | TPrim of [ `Str | `Int | `Erased ]
   | LSet of lambda_set
 
 and ty_tag = string * tvar list
 and ty_field = string * tvar
 
-let tvar_int () = { ty = ref (Content (TPrim `Int)); var = `Var 0 }
-let tvar_str () = { ty = ref (Content (TPrim `Str)); var = `Var 1 }
+let ty_erased = Content (TPrim `Erased)
+
+let next_var =
+  let n = ref 0 in
+  fun () ->
+    incr n;
+    `Var !n
+
+let tvar_int () = { ty = ref (Content (TPrim `Int)); var = next_var () }
+let tvar_str () = { ty = ref (Content (TPrim `Str)); var = next_var () }
+let tvar_erased () = { ty = ref (Content (TPrim `Erased)); var = next_var () }
+let tvar_gen1 () = { ty = ref ForA; var = next_var () }
 let min_var = 1000
 
 type fresh_tvar = ty -> tvar

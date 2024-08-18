@@ -30,6 +30,8 @@ let pp_expr : Format.formatter -> expr -> unit =
         match l with
         | `Int i -> fprintf f "%d" i
         | `String s -> fprintf f "\"%s\"" @@ String.escaped s)
+    | FnPtr s -> fprintf f "@[<hv 2>@fn<@,%a>@]" pp_symbol s
+    | NullPtr -> fprintf f "@[<hv 2>@nullptr@]"
     | MakeUnion (i, v) ->
         fprintf f "@[<hv 2>@make_union<@,%d,@ %a>@]" i pp_v_name v
     | GetUnionId v -> fprintf f "@[<hv 2>@get_union_id<@,%a>@]" pp_v_name v
@@ -50,6 +52,12 @@ let pp_expr : Format.formatter -> expr -> unit =
           | args -> fprintf f ",@ %a" pp_v_names args
         in
         fprintf f "@[<hv 2>@call_direct(@,%a%a)@]" pp_symbol fn pp_args args
+    | CallIndirect (fn, args) ->
+        let pp_args f = function
+          | [] -> ()
+          | args -> fprintf f ",@ %a" pp_v_names args
+        in
+        fprintf f "@[<hv 2>@call_indirect(@,%a%a)@]" pp_v_name fn pp_args args
     | CallKFn (kfn, args) ->
         let pp_args f = function
           | [] -> ()

@@ -106,13 +106,13 @@ run x = f 1 T2 0
 > cor-out +lambdamono -print
 > fn clos7(y2: Int, captures5: {x: Int}): Int =
 >   let x: Int = captures5.x in
->   ~add x ~add y2 3
+>   ~add x, ~add y2, 3
 > fn clos6(y1: Int, captures6: {x: Int}): Int =
 >   let x: Int = captures6.x in
->   ~add x ~add y1 2
+>   ~add x, ~add y1, 2
 > fn clos5(y: Int, captures7: {x: Int}): Int =
 >   let x: Int = captures7.x in
->   ~add x ~add y 1
+>   ~add x, ~add y, 1
 > fn clos4(t: [T1, T2, T3], captures8: {x: Int}): [
 >                                                   Clos {x: Int},
 >                                                   Clos1 {x: Int},

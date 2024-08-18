@@ -63,7 +63,7 @@ run run2 = id (\x -> x) 2;;
 > cor-out +lambdamono -print
 > fn clos3(x1: Int, captures4: {n: Int}): Int =
 >   let n: Int = captures4.n in
->   ~add x1 n
+>   ~add x1, n
 > fn id3(x: [Clos {n: Int}]): [Clos {n: Int}] =
 >   x
 > fn clos2(x2: Int): Int =

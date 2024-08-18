@@ -39,6 +39,7 @@ let noloc = Language.noloc
 %token <Language.loc> END
 %token <Language.loc> STR
 %token <Language.loc> INT
+%token <Language.loc> ERASED
 %token <Language.loc> IN
 %token <Language.loc> COMMA
 %token <Language.loc> LPAREN
@@ -164,9 +165,8 @@ expr_app:
       let loc = range (fst head) (l_range xloc atom_list) in
       (loc, ctx.fresh_tvar @@ Unbd None, Tag(snd head, atom_list))
   }
-  | head=LOWER atom_list=expr_atom_list { fun ctx ->
-      let (loc_head, sym_head) = lookup_sym ctx head in
-      let head = (loc_head, ctx.fresh_tvar @@ Unbd None, Var sym_head) in
+  | head=expr_atom atom_list=expr_atom_list { fun ctx ->
+      let head = head ctx in
       let atom_list = atom_list ctx in
       List.fold_left (fun whole e ->
         let loc = (range (xloc whole) (xloc e)) in
@@ -206,6 +206,12 @@ expr_lets:
   }
 
 expr_atom:
+  | e=expr_atom DOT f=LOWER { fun ctx ->
+      let e = e ctx in
+      let (loc_f, f) = f in
+      let loc = range (xloc e) loc_f in
+      (loc, ctx.fresh_tvar @@ Unbd None, Access(e, f))
+  }
   | x=LOWER { fun ctx ->
       let (loc_x, sym_x) = lookup_sym ctx x in
       (loc_x, ctx.fresh_tvar @@ Unbd None, Var sym_x)
@@ -229,12 +235,6 @@ expr_atom:
       let rb, fields = fields ctx in
       let l = range l rb in
       (l, ctx.fresh_tvar @@ Unbd None, Record fields)
-  }
-  | e=expr_atom DOT f=LOWER { fun ctx ->
-      let e = e ctx in
-      let (loc_f, f) = f in
-      let loc = range (xloc e) loc_f in
-      (loc, ctx.fresh_tvar @@ Unbd None, Access(e, f))
   }
 
 expr_record_fields:
@@ -361,6 +361,9 @@ ty_atom:
   }
   | s=INT { fun ctx ->
       (s, ctx.fresh_tvar @@ Content (TPrim `Int))
+  }
+  | s=ERASED { fun ctx ->
+      (s, ctx.fresh_tvar @@ Content (TPrim `Erased))
   }
   | l=LBRACE fields=ty_record_fields { fun ctx ->
       let rb, fields = fields ctx in

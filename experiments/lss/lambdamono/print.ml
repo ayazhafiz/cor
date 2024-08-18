@@ -47,7 +47,7 @@ let rec pp_expr f =
   let int_of_parens_ctx = function `Free -> 1 | `Apply -> 2 in
   let ( >> ) ctx1 ctx2 = int_of_parens_ctx ctx1 > int_of_parens_ctx ctx2 in
 
-  let rec go parens (_, e) =
+  let rec go parens f (_, e) =
     match e with
     | Var x -> pp_symbol f x
     | Int i -> pp_print_int f i
@@ -56,36 +56,23 @@ let rec pp_expr f =
     | Tag (tag, payloads) ->
         fprintf f "@[<v 0>";
         let expr () =
-          fprintf f "@[<hv 2>%s" tag;
-          List.iter
-            (fun p ->
-              fprintf f "@ ";
-              go `Apply p)
-            payloads;
-          fprintf f "@]"
+          fprintf f "@[<hv 2>%s%a@]" tag
+            (pp_print_list (fun f e -> fprintf f "@ %a" (go `Apply) e))
+            payloads
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
     | Record fields ->
-        fprintf f "@[<hv 2>{@,";
-        List.iteri
-          (fun i (field, t) ->
-            fprintf f "%s:@ " field;
-            go `Free t;
-            if i < List.length fields - 1 then fprintf f ",@ ")
-          fields;
-        fprintf f "@,}@]"
-    | Access (e, field) ->
-        fprintf f "@[<hv 2>";
-        go `Free e;
-        fprintf f ".%s@]" field
+        fprintf f "@[<hv 2>{@,%a@,}@]"
+          (pp_print_list ~pp_sep:Util.comma_sep (fun f (field, t) ->
+               fprintf f "%s:@ %a" field (go `Free) t))
+          fields
+    | Access (e, field) -> fprintf f "@[<hv 2>%a.%s@]" (go `Free) e field
     | Let ((t, x), body, rest) ->
         fprintf f "@[<v 0>@[<hv 0>";
         let expr () =
-          fprintf f "@[<v 0>@[<hov 2>let %a: %a =@ %a@]@]" pp_symbol x
-            Type_print.pp_ty t pp_expr body;
-          fprintf f "@ in@]@,";
-          go `Free rest
+          fprintf f "@[<v 0>@[<hov 2>let %a: %a =@ %a@]@]@ in@]@,%a" pp_symbol x
+            Type_print.pp_ty t pp_expr body (go `Free) rest
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
@@ -98,27 +85,33 @@ let rec pp_expr f =
         in
         with_parens f (parens >> `Free) expr;
         fprintf f "@]"
-    | KCall (head, args) ->
-        fprintf f "@[<hv 2>~%s@ " (List.assoc head S.string_of_kernelfn);
-        List.iteri
-          (fun i arg ->
-            if i > 0 then fprintf f "@ ";
-            go `Apply arg)
-          args;
+    | PackedFn { lambda; captures = Some captures } ->
+        fprintf f "@[<hv 2>PackedFn(%a, %a)@]" pp_symbol lambda pp_expr captures
+    | PackedFn { lambda; captures = None } ->
+        fprintf f "@[<hv 2>PackedFn(%a)@]" pp_symbol lambda
+    | CallIndirect (head, args) ->
+        fprintf f "@[";
+        let expr () =
+          fprintf f "@[<hv 2>%a(%a)@]" pp_expr head
+            (Format.pp_print_list ~pp_sep:comma_sep pp_expr)
+            args
+        in
+        with_parens f (parens >> `Free) expr;
         fprintf f "@]"
+    | KCall (head, args) ->
+        fprintf f "@[<hv 2>~%s@ %a@]"
+          (List.assoc head S.string_of_kernelfn)
+          (pp_print_list ~pp_sep:comma_sep (go `Apply))
+          args
     | When (e, branches) ->
-        fprintf f "@[<v 0>@[<v 2>when ";
-        go `Free e;
-        fprintf f " is";
-        List.iteri
-          (fun _i (pat, body) ->
-            fprintf f "@ @[<hv 2>| %a ->@ " pp_pat pat;
-            go `Free body;
-            fprintf f "@]")
-          branches;
-        fprintf f "@]@,end@]"
+        fprintf f "@[<v 0>@[<v 2>when %a is%a@]@,end@]" (go `Free) e
+          (pp_print_list
+             ~pp_sep:(fun _ () -> ())
+             (fun f (pat, body) ->
+               fprintf f "@,@[<hv 2>| %a ->@ %a@]" pp_pat pat (go `Free) body))
+          branches
   in
-  go `Free
+  go `Free f
 
 let pp_captures f =
   let open Format in

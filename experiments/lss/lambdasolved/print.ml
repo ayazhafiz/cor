@@ -120,7 +120,7 @@ let pp_captures f =
   | [] -> ()
   | captures ->
       fprintf f "@[<hv 2>(%a)@]"
-        (pp_print_list ~pp_sep:pp_print_space pp_typed_symbol_t)
+        (pp_print_list ~pp_sep:comma_sep pp_typed_symbol_t)
         captures
 
 let pp_def : Format.formatter -> def -> unit =

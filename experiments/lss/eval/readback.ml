@@ -4,7 +4,7 @@ open Syntax.Type
 open Syntax.Ast
 
 let readback : Symbol.t -> memory_cell -> tvar -> e_expr =
- fun symbols cell tvar ->
+ fun _symbols cell tvar ->
   let open Syntax in
   let open Type in
   let rec go cell t =
@@ -12,11 +12,12 @@ let readback : Symbol.t -> memory_cell -> tvar -> e_expr =
     let expr =
       match tvar_deref t with
       | Link _ -> failwith "link after unlink"
-      | Unbd _ -> Var (symbols.fresh_symbol "<unbound>")
+      | Unbd _ -> Var (Symbol.unsafe_from_string "<unbound>")
       | ForA _ -> failwith "forA after monomorphization"
       | Content (TPrim `Int) -> Int (get_word cell)
       | Content (TPrim `Str) -> Str (get_string cell)
-      | Content TTagEmpty -> Var (symbols.fresh_symbol "<void>")
+      | Content (TPrim `Erased) -> Var (Symbol.unsafe_from_string "<opaque>")
+      | Content TTagEmpty -> Var (Symbol.unsafe_from_string "<void>")
       | Content (TTag { tags; ext = _, ext }) ->
           let tags, _ext = chase_tags tags ext in
 
@@ -38,7 +39,7 @@ let readback : Symbol.t -> memory_cell -> tvar -> e_expr =
           let fields, _ext = chase_fields fields ext in
           let fields = List.map2 go_field fields (get_block cell) in
           Record fields
-      | Content (TFn _) -> Var (symbols.fresh_symbol "<fn>")
+      | Content (TFn _) -> Var (Symbol.unsafe_from_string "<fn>")
       | Alias _ -> failwith "alias after unlink"
     in
     (Language.noloc, t, expr)
@@ -51,6 +52,7 @@ let rec pp_memory_cell f = function
       Format.fprintf f "@[[%a]@]"
         (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_memory_cell)
         l
+  | Label s -> Format.fprintf f "%s" (Symbol.norm_of s)
 
 let pp_readback symbols f (cell, tvar) =
   let expr = readback symbols cell tvar in

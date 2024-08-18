@@ -23,9 +23,12 @@ and expr =
   | Access of e_expr * string
   | Let of typed_symbol * e_expr * e_expr
   | Call of symbol * e_expr list
+  | PackedFn of packed_fn
+  | CallIndirect of e_expr * e_expr list
   | KCall of kernelfn * e_expr list
   | When of e_expr * branch list
 
+and packed_fn = { lambda : symbol; captures : e_expr option }
 and branch = e_pat * e_expr
 
 type fn = { args : typed_symbol list; body : e_expr }

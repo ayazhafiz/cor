@@ -39,8 +39,7 @@ let lower_type : mono_cache -> T.tvar -> ty =
         assert (!(go ext) = TTag [] || !(go ext) = TRecord []);
         TRecord fields
     | T.TRecordEmpty -> TRecord []
-    | T.TPrim `Str -> TPrim `Str
-    | T.TPrim `Int -> TPrim `Int
+    | T.TPrim p -> TPrim p
   and go_tag : T.ty_tag -> ty_tag =
    fun (tag, args) ->
     let args = List.map (fun (_, t) -> go t) args in

@@ -70,6 +70,7 @@ let pp_ty f (t : tvar) =
           fprintf f "@,}@]"
       | Content (TPrim `Str) -> pp_print_string f "Str"
       | Content (TPrim `Int) -> pp_print_string f "Int"
+      | Content (TPrim `Erased) -> pp_print_string f "Erased"
   and go_tag visited f ((tag_name, payloads) : ty_tag) =
     fprintf f "@[<hov 2>%s" tag_name;
     List.iter (fun p -> fprintf f "@ %a" (go visited `AppHead) p) payloads;

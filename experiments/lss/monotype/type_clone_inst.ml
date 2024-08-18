@@ -19,8 +19,7 @@ let clone_inst : fresh_tvar -> ty_cache -> tvar -> tvar =
           | Link _ -> failwith "clone_type: Link"
           | Unbd x -> Unbd x
           | ForA x -> Unbd x
-          | Content (TPrim `Str) -> Content (TPrim `Str)
-          | Content (TPrim `Int) -> Content (TPrim `Int)
+          | Content (TPrim p) -> Content (TPrim p)
           | Content (TTag { tags; ext }) ->
               let go_tag (tag, args) = (tag, List.map go_loc args) in
               let tags = List.map go_tag tags in

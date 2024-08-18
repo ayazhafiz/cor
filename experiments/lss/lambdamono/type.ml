@@ -3,7 +3,7 @@ type variable = [ `Var of int ] [@@deriving show]
 type ty_content =
   | TTag of (string * tvar list) list
   | TRecord of (string * tvar) list
-  | TPrim of [ `Str | `Int ]
+  | TPrim of [ `Str | `Int | `Erased ]
 
 and tvar = { ty : ty_content ref; var : variable }
 

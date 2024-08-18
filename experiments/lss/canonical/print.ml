@@ -65,8 +65,8 @@ let rec pp_expr f =
         fprintf f "@[<v 0>@[<hv 2>{";
         List.iteri
           (fun i (field, e) ->
-            if i > 0 then fprintf f "@ ";
-            fprintf f "@[<hv 2>%s =@ " field;
+            if i > 0 then fprintf f ",@ ";
+            fprintf f "@[<hv 2>%s:@ " field;
             go `Apply e;
             fprintf f "@]")
           fields;

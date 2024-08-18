@@ -149,6 +149,7 @@ let pp_tvar :
         | Content TRecordEmpty -> pp_print_string f "{}"
         | Content (TPrim `Str) -> pp_print_string f "Str"
         | Content (TPrim `Int) -> pp_print_string f "Int"
+        | Content (TPrim `Erased) -> pp_print_string f "Erased"
         | Content (TTag { tags; ext }) ->
             let tags, ext = chase_tags tags @@ snd ext in
             fprintf f "@[<hv 2>[@,";

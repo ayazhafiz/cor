@@ -71,7 +71,7 @@ let rec extract_all_named_vars : tvar -> named_var list =
       in
       extracted @ extract_all_named_vars (snd ext)
   | Content TRecordEmpty -> []
-  | Content (TPrim (`Str | `Int)) -> []
+  | Content (TPrim _) -> []
   | Alias { alias = (_, _), args; real } ->
       (match tvar_deref real with
       | Unbd None -> ()
@@ -127,7 +127,7 @@ let canonicalize_alias { alias_type; name; args; real } =
         List.iter update_ty field_args;
         update_ty @@ snd ext
     | Content TRecordEmpty -> ()
-    | Content (TPrim (`Str | `Int)) -> ()
+    | Content (TPrim _) -> ()
     | Alias { alias; real = _ } when is_same_alias alias ->
         tvar_set tvar @@ Link alias_type;
         (*tvar_set_recur (unlink alias_type) true*)
@@ -225,8 +225,7 @@ let instantiate_signature : ctx -> alias_map -> tvar -> unit =
             | Link ty -> Link (inst_ty ty)
             | ForA a -> ForA a
             | Content TTagEmpty -> Content TTagEmpty
-            | Content (TPrim `Str) -> Content (TPrim `Str)
-            | Content (TPrim `Int) -> Content (TPrim `Int)
+            | Content (TPrim p) -> Content (TPrim p)
             | Content (TFn ((_, t1), (_, t2))) ->
                 let t1' = ctx.fresh_tvar @@ Link (inst_ty t1) in
                 let t2' = ctx.fresh_tvar @@ Link (inst_ty t2) in

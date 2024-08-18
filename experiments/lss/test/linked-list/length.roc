@@ -53,9 +53,9 @@ run main = len (Cons 0 (Cons 0 (Cons 0 (Cons 0 Nil))));;
 > fn len2(l: [Cons Int <rec>, Nil]): Int =
 >   when l is
 >     | Nil -> 0
->     | Cons x xs -> ~add 1 when Len1 is
->                             | Len1 -> len2(xs)
->                           end
+>     | Cons x xs -> ~add 1, when Len1 is
+>                              | Len1 -> len2(xs)
+>                            end
 >   end
 > run main: Int =
 >   when Len1 is

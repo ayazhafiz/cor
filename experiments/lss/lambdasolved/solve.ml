@@ -189,6 +189,9 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
         | Link _, _ | _, Link _ -> fail "found a link after unlinking"
         | ForA, _ | _, ForA ->
             fail "cannot unify a generalized type; forgot to instantiate it?"
+        | Content (LSet _), Content (TPrim `Erased)
+        | Content (TPrim `Erased), Content (LSet _) ->
+            Content (TPrim `Erased)
         | Content (LSet lset1), Content (LSet lset2) ->
             let union_captures (caps1 : captures) (caps2 : captures) =
               let diff_caps = SymbolMap.symmetric_diff caps1 caps2 in
@@ -274,6 +277,18 @@ let kernel_sig : kernelfn -> kernel_sig = function
   | `Add -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
   | `Sub -> { args = `Variadic (tvar_int ()); ret = tvar_int () }
   | `Itos -> { args = `List [ tvar_int () ]; ret = tvar_str () }
+  | `Erase -> { args = `List [ tvar_gen1 () ]; ret = tvar_erased () }
+  | `Unerase -> { args = `List [ tvar_erased () ]; ret = tvar_gen1 () }
+
+let inst_ksig : fresh_tvar -> kernel_sig -> kernel_sig =
+ fun fresh_tvar { args; ret } ->
+  let ret = inst fresh_tvar ret in
+  let args =
+    match args with
+    | `Variadic t -> `Variadic (inst fresh_tvar t)
+    | `List ts -> `List (List.map (inst fresh_tvar) ts)
+  in
+  { args; ret }
 
 let infer_pat : Ctx.t -> venv -> e_pat -> venv * tvar =
  fun ctx venv p ->
@@ -363,7 +378,7 @@ let infer_expr : Ctx.t -> venv -> e_expr -> tvar =
           t
       | KCall (kernelfn, args) ->
           let ({ args = kargs; ret = kret } : kernel_sig) =
-            kernel_sig kernelfn
+            inst_ksig ctx.fresh_tvar @@ kernel_sig kernelfn
           in
           let arg_tys = List.map (go venv) @@ args in
           (match kargs with

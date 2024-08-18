@@ -15,7 +15,7 @@ and ty_content =
   | TTagEmpty
   | TRecord of { fields : ty_field list; ext : loc_tvar }
   | TRecordEmpty
-  | TPrim of [ `Str | `Int ]
+  | TPrim of [ `Str | `Int | `Erased ]
 
 and ty_alias_content = { alias : loc_symbol * loc_tvar list; real : tvar }
 
@@ -32,8 +32,18 @@ and tvar = { ty : ty ref; var : variable }
 let tvar_deref tvar = !(tvar.ty)
 let tvar_set tvar ty = tvar.ty := ty
 let tvar_v tvar = tvar.var
-let tvar_int () = { ty = ref (Content (TPrim `Int)); var = `Var 0 }
-let tvar_str () = { ty = ref (Content (TPrim `Str)); var = `Var 1 }
+
+let next_var =
+  let n = ref 0 in
+  fun () ->
+    let v = !n in
+    incr n;
+    `Var v
+
+let tvar_int () = { ty = ref (Content (TPrim `Int)); var = next_var () }
+let tvar_str () = { ty = ref (Content (TPrim `Str)); var = next_var () }
+let tvar_erased () = { ty = ref (Content (TPrim `Erased)); var = next_var () }
+let tvar_gen1 () = { ty = ref (ForA None); var = next_var () }
 let min_var = 1000
 
 let rec unlink tvar =

@@ -23,7 +23,7 @@ let is_generalized : tvar -> bool =
       | Unbd _ -> false
       | Link t -> go t
       | ForA _ -> true
-      | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> false
+      | Content (TPrim _) | Content TTagEmpty -> false
       | Content (TTag { tags; ext }) ->
           let check_tag : ty_tag -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
@@ -57,7 +57,7 @@ let inst : ctx -> tvar -> tvar =
             | Unbd _ -> gt
             | Link t -> go t
             | ForA x -> ctx.fresh_tvar (Unbd x)
-            | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> gt
+            | Content (TPrim _) | Content TTagEmpty -> gt
             | Content (TTag { tags; ext = _, ext }) ->
                 let map_tag : ty_tag -> ty_tag =
                  fun (tag, args) ->
@@ -91,6 +91,16 @@ let inst : ctx -> tvar -> tvar =
     in
     go gt
 
+let inst_ksig : ctx -> kernel_sig -> kernel_sig =
+ fun ctx { args; ret } ->
+  let ret = inst ctx ret in
+  let args =
+    match args with
+    | `Variadic t -> `Variadic (inst ctx t)
+    | `List ts -> `List (List.map (inst ctx) ts)
+  in
+  { args; ret }
+
 let occurs : variable -> tvar -> bool =
  fun v t ->
   let visited = ref [] in
@@ -106,7 +116,7 @@ let occurs : variable -> tvar -> bool =
           assert (var <> v);
           false
       | Link t -> go t
-      | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> false
+      | Content (TPrim _) | Content TTagEmpty -> false
       | Content (TTag { tags; ext }) ->
           let check_tag : ty_tag -> bool =
            fun (_, args) -> List.exists (fun (_, t) -> go t) args
@@ -138,7 +148,7 @@ let gen : venv -> tvar -> unit =
           else tvar_set t (ForA s)
       | Link t -> go t
       | ForA _ -> ()
-      | Content (TPrim (`Str | `Int)) | Content TTagEmpty -> ()
+      | Content (TPrim _) | Content TTagEmpty -> ()
       | Content (TTag { tags; ext }) ->
           let gen_tag : ty_tag -> unit =
            fun (_, args) -> List.iter (fun (_, t) -> go t) args
@@ -227,8 +237,7 @@ let unify : fresh_tvar -> tvar -> tvar -> unit =
         | Content c1, Content c2 ->
             let c' =
               match (c1, c2) with
-              | TPrim `Str, TPrim `Str -> TPrim `Str
-              | TPrim `Int, TPrim `Int -> TPrim `Int
+              | TPrim p1, TPrim p2 when p1 = p2 -> TPrim p1
               | TTagEmpty, TTagEmpty -> TTagEmpty
               | TTagEmpty, TTag { tags = []; ext = _, ext } ->
                   unify t ext;
@@ -412,7 +421,9 @@ let rec infer_expr : ctx -> venv -> e_expr -> tvar =
         unify ctx.fresh_tvar t_f t_f_wanted;
         t_ret
     | KCall (kernelfn, args) ->
-        let ({ args = kargs; ret = kret } : kernel_sig) = kernel_sig kernelfn in
+        let ({ args = kargs; ret = kret } : kernel_sig) =
+          inst_ksig ctx @@ kernel_sig kernelfn
+        in
         let arg_tys = List.map (infer_expr ctx venv) @@ args in
         (match kargs with
         | `Variadic t -> List.iter (unify ctx.fresh_tvar t) arg_tys

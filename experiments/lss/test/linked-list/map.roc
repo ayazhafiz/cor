@@ -58,17 +58,21 @@ run main2 =
 >     | Cons x xs2 -> Cons (f x) (go1 xs2)
 >   end
 > let clos(f: Int -> Int): [Cons Int <rec>, Nil] -> [Cons Int <rec>, Nil] = \xs ->
->   go1 xs
+>   let go2: [Cons Int <rec>, Nil] -> [Cons Int <rec>, Nil] =
+>     go1 in
+>   go2 xs
 > let map2: (Int -> Int) -> [Cons Int <rec>, Nil] -> [Cons Int <rec>, Nil] = \f ->
 >   clos
-> let go2(f: Int -> [A Int]): [Cons Int <rec>, Nil] -> [Cons [A Int] <rec>, Nil] = \xs1 ->
+> let go3(f: Int -> [A Int]): [Cons Int <rec>, Nil] -> [Cons [A Int] <rec>, Nil] = \xs1 ->
 >   when xs1 is
 >     | Nil -> Nil 
->     | Cons x xs2 -> Cons (f x) (go2 xs2)
+>     | Cons x xs2 -> Cons (f x) (go3 xs2)
 >   end
 > let clos1(f: Int -> [A Int]): [Cons Int <rec>, Nil]
 >                                 -> [Cons [A Int] <rec>, Nil] = \xs ->
->   go2 xs
+>   let go4: [Cons Int <rec>, Nil] -> [Cons [A Int] <rec>, Nil] =
+>     go3 in
+>   go4 xs
 > let map1: (Int -> [A Int])
 >             -> [Cons Int <rec>, Nil] -> [Cons [A Int] <rec>, Nil] = \f ->
 >   clos1
@@ -82,20 +86,20 @@ run main2 =
 >   (map2 f4) (Cons 1 (Cons 2 (Nil )))
 
 > cor-out +lambdasolved -print
-> let f4: Int -[f4]-> Int = \x2 ->
->   ~add x2 1
-> let go2(f: Int -<'1303>-> [A Int]): [Cons Int <rec>, Nil]
->                                       -[go2 (f: (Int -<'1303>-> [A Int]))]-> 
+> let go3(f: Int -<'1318>-> [A Int]): [Cons Int <rec>, Nil]
+>                                       -[go3 (f: (Int -<'1318>-> [A Int]))]-> 
 >                                       [
 >                                         Cons [A Int] <rec>,
 >                                         Nil
 >                                         ] = \xs1 ->
 >   when xs1 is
 >     | Nil -> Nil 
->     | Cons x xs2 -> Cons (f x) (go2 xs2)
+>     | Cons x xs2 -> Cons (f x) (go3 xs2)
 >   end
-> let go1(f: Int -<'1367>-> Int): [Cons Int <rec>, Nil]
->                                   -[go1 (f: (Int -<'1367>-> Int))]-> 
+> let f4: Int -[f4]-> Int = \x2 ->
+>   ~add x2 1
+> let go1(f: Int -<'1396>-> Int): [Cons Int <rec>, Nil]
+>                                   -[go1 (f: (Int -<'1396>-> Int))]-> 
 >                                   [
 >                                     Cons Int <rec>,
 >                                     Nil
@@ -104,32 +108,40 @@ run main2 =
 >     | Nil -> Nil 
 >     | Cons x xs2 -> Cons (f x) (go1 xs2)
 >   end
-> let clos(f: Int -<'1443>-> Int): [Cons Int <rec>, Nil]
->                                    -[clos (f: (Int -<'1443>-> Int))]-> 
+> let clos(f: Int -<'1472>-> Int): [Cons Int <rec>, Nil]
+>                                    -[clos (f: (Int -<'1472>-> Int))]-> 
 >                                    [
 >                                      Cons Int <rec>,
 >                                      Nil
 >                                      ] = \xs ->
->   go1 xs
-> let clos1(f: Int -<'1517>-> [A Int]): [Cons Int <rec>, Nil]
->                                         -[clos1 (f: (Int -<'1517>-> [A Int]))]-> 
+>   let go2: [Cons Int <rec>, Nil]
+>              -[go1 (f: (Int -<'1472>-> Int))]-> [Cons Int <rec>, Nil] =
+>     go1
+>   in
+>   go2 xs
+> let clos1(f: Int -<'1560>-> [A Int]): [Cons Int <rec>, Nil]
+>                                         -[clos1 (f: (Int -<'1560>-> [A Int]))]-> 
 >                                         [
 >                                           Cons [A Int] <rec>,
 >                                           Nil
 >                                           ] = \xs ->
->   go2 xs
-> let map2: Int -<'1610>-> Int
+>   let go4: [Cons Int <rec>, Nil]
+>              -[go3 (f: (Int -<'1560>-> [A Int]))]-> [Cons [A Int] <rec>, Nil] =
+>     go3
+>   in
+>   go4 xs
+> let map2: Int -<'1673>-> Int
 >             -[map2]-> [Cons Int <rec>, Nil]
->                         -[clos (f: (Int -<'1610>-> Int))]-> [
+>                         -[clos (f: (Int -<'1673>-> Int))]-> [
 >                                                               Cons Int <rec>,
 >                                                               Nil
 >                                                               ] = \f ->
 >   clos
 > run main2: [Cons Int <rec>, Nil] =
 >   (map2 f4) (Cons 1 (Cons 2 (Nil )))
-> let map1: Int -<'1779>-> [A Int]
+> let map1: Int -<'1848>-> [A Int]
 >             -[map1]-> [Cons Int <rec>, Nil]
->                         -[clos1 (f: (Int -<'1779>-> [A Int]))]-> [
+>                         -[clos1 (f: (Int -<'1848>-> [A Int]))]-> [
 >                                                                    Cons 
 >                                                                     [A Int]
 >                                                                     <rec>,
@@ -142,7 +154,7 @@ run main2 =
 >   (map1 f3) (Cons 1 (Cons 2 (Nil )))
 
 > cor-out +lambdamono -print
-> fn go4(xs1: [Cons Int <rec>, Nil], captures13: {f: [F4]}): [
+> fn go6(xs1: [Cons Int <rec>, Nil], captures13: {f: [F4]}): [
 >                                                              Cons Int <rec>,
 >                                                              Nil
 >                                                              ] =
@@ -154,11 +166,12 @@ run main2 =
 >         when f is
 >           | F4 -> f5(x)
 >         end
+>         
 >         when Go1 {f: f} is
->           | Go1 captures12 -> go4(xs2, captures12)
+>           | Go1 captures12 -> go6(xs2, captures12)
 >         end
 >   end
-> fn go3(xs1: [Cons Int <rec>, Nil], captures8: {f: [F3]}): [
+> fn go5(xs1: [Cons Int <rec>, Nil], captures8: {f: [F3]}): [
 >                                                             Cons [A Int] <rec>,
 >                                                             Nil
 >                                                             ] =
@@ -170,8 +183,9 @@ run main2 =
 >         when f is
 >           | F3 -> f6(x)
 >         end
->         when Go2 {f: f} is
->           | Go2 captures7 -> go3(xs2, captures7)
+>         
+>         when Go3 {f: f} is
+>           | Go3 captures7 -> go5(xs2, captures7)
 >         end
 >   end
 > fn clos3(xs: [Cons Int <rec>, Nil], captures5: {f: [F3]}): [
@@ -179,8 +193,9 @@ run main2 =
 >                                                              Nil
 >                                                              ] =
 >   let f: [F3] = captures5.f in
->   when Go2 {f: f} is
->     | Go2 captures4 -> go3(xs, captures4)
+>   let go4: [Go3 {f: [F3]}] = Go3 {f: f} in
+>   when go4 is
+>     | Go3 captures4 -> go5(xs, captures4)
 >   end
 > fn f6(x1: Int): [A Int] =
 >   A x1
@@ -191,11 +206,12 @@ run main2 =
 >                                                               Nil
 >                                                               ] =
 >   let f: [F4] = captures10.f in
->   when Go1 {f: f} is
->     | Go1 captures9 -> go4(xs, captures9)
+>   let go2: [Go1 {f: [F4]}] = Go1 {f: f} in
+>   when go2 is
+>     | Go1 captures9 -> go6(xs, captures9)
 >   end
 > fn f5(x2: Int): Int =
->   ~add x2 1
+>   ~add x2, 1
 > fn map3(f: [F4]): [Clos {f: [F4]}] =
 >   Clos {f: f}
 > run main2: [Cons Int <rec>, Nil] =
@@ -212,7 +228,7 @@ run main2 =
 >   end
 
 > cor-out +ir -print
-> fn go4(xs1: Box!a([ `0 { int, !a }, `1 {} ]), captures13: { [ `0 {} ] }):
+> fn go6(xs1: Box!a([ `0 { int, !a }, `1 {} ]), captures13: { [ `0 {} ] }):
 >   Box!a([ `0 { int, !a }, `1 {} ])
 > {
 >   let f: [ `0 {} ] = @get_struct_field<captures13, 0>;
@@ -237,7 +253,7 @@ run main2 =
 >     0 -> {
 >       let payload1: { { [ `0 {} ] } } = @get_union_struct<var1>;
 >       let captures12: { [ `0 {} ] } = @get_struct_field<payload1, 0>;
->       @call_direct(go4, xs2, captures12)
+>       @call_direct(go6, xs2, captures12)
 >     }
 >     } in join join1;
 >     let struct1: { int, Box!a([ `0 { int, !a }, `1 {} ]) }
@@ -252,7 +268,7 @@ run main2 =
 >   return join2;
 > }
 > 
-> fn go3(xs1: Box!a([ `0 { int, !a }, `1 {} ]), captures8: { [ `0 {} ] }):
+> fn go5(xs1: Box!a([ `0 { int, !a }, `1 {} ]), captures8: { [ `0 {} ] }):
 >   Box!a([ `0 { [ `0 { int } ], !a }, `1 {} ])
 > {
 >   let f: [ `0 {} ] = @get_struct_field<captures8, 0>;
@@ -277,7 +293,7 @@ run main2 =
 >     0 -> {
 >       let payload3: { { [ `0 {} ] } } = @get_union_struct<var3>;
 >       let captures7: { [ `0 {} ] } = @get_struct_field<payload3, 0>;
->       @call_direct(go3, xs2, captures7)
+>       @call_direct(go5, xs2, captures7)
 >     }
 >     } in join join4;
 >     let struct4:
@@ -299,13 +315,13 @@ run main2 =
 >   let f: [ `0 {} ] = @get_struct_field<captures5, 0>;
 >   let var4: { [ `0 {} ] } = @make_struct{ f };
 >   let struct6: { { [ `0 {} ] } } = @make_struct{ var4 };
->   let var5: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct6>;
->   let discr6: int = @get_union_id<var5>;
+>   let go4: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct6>;
+>   let discr6: int = @get_union_id<go4>;
 >   switch discr6 {
 >   0 -> {
->     let payload4: { { [ `0 {} ] } } = @get_union_struct<var5>;
+>     let payload4: { { [ `0 {} ] } } = @get_union_struct<go4>;
 >     let captures4: { [ `0 {} ] } = @get_struct_field<payload4, 0>;
->     @call_direct(go3, xs, captures4)
+>     @call_direct(go5, xs, captures4)
 >   }
 >   } in join join6;
 >   return join6;
@@ -314,31 +330,31 @@ run main2 =
 > fn f6(x1: int): [ `0 { int } ]
 > {
 >   let struct7: { int } = @make_struct{ x1 };
->   let var6: [ `0 { int } ] = @make_union<0, struct7>;
->   return var6;
+>   let var5: [ `0 { int } ] = @make_union<0, struct7>;
+>   return var5;
 > }
 > 
 > fn map4(f: [ `0 {} ]): [ `0 { { [ `0 {} ] } } ]
 > {
->   let var7: { [ `0 {} ] } = @make_struct{ f };
->   let struct8: { { [ `0 {} ] } } = @make_struct{ var7 };
->   let var8: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct8>;
->   return var8;
+>   let var6: { [ `0 {} ] } = @make_struct{ f };
+>   let struct8: { { [ `0 {} ] } } = @make_struct{ var6 };
+>   let var7: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct8>;
+>   return var7;
 > }
 > 
 > fn clos2(xs: Box!a([ `0 { int, !a }, `1 {} ]), captures10: { [ `0 {} ] }):
 >   Box!a([ `0 { int, !a }, `1 {} ])
 > {
 >   let f: [ `0 {} ] = @get_struct_field<captures10, 0>;
->   let var9: { [ `0 {} ] } = @make_struct{ f };
->   let struct9: { { [ `0 {} ] } } = @make_struct{ var9 };
->   let var10: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct9>;
->   let discr7: int = @get_union_id<var10>;
+>   let var8: { [ `0 {} ] } = @make_struct{ f };
+>   let struct9: { { [ `0 {} ] } } = @make_struct{ var8 };
+>   let go2: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct9>;
+>   let discr7: int = @get_union_id<go2>;
 >   switch discr7 {
 >   0 -> {
->     let payload5: { { [ `0 {} ] } } = @get_union_struct<var10>;
+>     let payload5: { { [ `0 {} ] } } = @get_union_struct<go2>;
 >     let captures9: { [ `0 {} ] } = @get_struct_field<payload5, 0>;
->     @call_direct(go4, xs, captures9)
+>     @call_direct(go6, xs, captures9)
 >   }
 >   } in join join7;
 >   return join7;
@@ -346,29 +362,29 @@ run main2 =
 > 
 > fn f5(x2: int): int
 > {
->   let var11: int = 1;
->   let var12: int = @call_kfn(add, x2, var11);
->   return var12;
+>   let var9: int = 1;
+>   let var10: int = @call_kfn(add, x2, var9);
+>   return var10;
 > }
 > 
 > fn map3(f: [ `0 {} ]): [ `0 { { [ `0 {} ] } } ]
 > {
->   let var13: { [ `0 {} ] } = @make_struct{ f };
->   let struct10: { { [ `0 {} ] } } = @make_struct{ var13 };
->   let var14: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct10>;
->   return var14;
+>   let var11: { [ `0 {} ] } = @make_struct{ f };
+>   let struct10: { { [ `0 {} ] } } = @make_struct{ var11 };
+>   let var12: [ `0 { { [ `0 {} ] } } ] = @make_union<0, struct10>;
+>   return var12;
 > }
 > 
 > fn main2_thunk(): Box!a([ `0 { int, !a }, `1 {} ])
 > {
 >   let struct11: {} = @make_struct{};
->   let var15: [ `0 {} ] = @make_union<0, struct11>;
->   let discr8: int = @get_union_id<var15>;
+>   let var13: [ `0 {} ] = @make_union<0, struct11>;
+>   let discr8: int = @get_union_id<var13>;
 >   switch discr8 {
 >   0 -> {
 >     let struct12: {} = @make_struct{};
->     let var16: [ `0 {} ] = @make_union<0, struct12>;
->     @call_direct(map3, var16)
+>     let var14: [ `0 {} ] = @make_union<0, struct12>;
+>     @call_direct(map3, var14)
 >   }
 >   } in join join8;
 >   let discr9: int = @get_union_id<join8>;
@@ -376,21 +392,21 @@ run main2 =
 >   0 -> {
 >     let payload6: { { [ `0 {} ] } } = @get_union_struct<join8>;
 >     let captures1: { [ `0 {} ] } = @get_struct_field<payload6, 0>;
->     let var17: int = 1;
->     let var18: int = 2;
+>     let var15: int = 1;
+>     let var16: int = 2;
 >     let struct15: {} = @make_struct{};
->     let var19: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
+>     let var17: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
 >       = @make_union<1, struct15>;
 >     let struct14:
 >           { int, [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ] }
->       = @make_struct{ var18, var19 };
->     let var20: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
+>       = @make_struct{ var16, var17 };
+>     let var18: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
 >       = @make_union<0, struct14>;
 >     let struct13:
 >           { int, [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ] }
->       = @make_struct{ var17, var20 };
->     let var21: Box!a([ `0 { int, !a }, `1 {} ]) = @make_union<0, struct13>;
->     @call_direct(clos2, var21, captures1)
+>       = @make_struct{ var15, var18 };
+>     let var19: Box!a([ `0 { int, !a }, `1 {} ]) = @make_union<0, struct13>;
+>     @call_direct(clos2, var19, captures1)
 >   }
 >   } in join join9;
 >   return join9;
@@ -401,13 +417,13 @@ run main2 =
 > fn main1_thunk(): Box!a([ `0 { [ `0 { int } ], !a }, `1 {} ])
 > {
 >   let struct16: {} = @make_struct{};
->   let var22: [ `0 {} ] = @make_union<0, struct16>;
->   let discr10: int = @get_union_id<var22>;
+>   let var20: [ `0 {} ] = @make_union<0, struct16>;
+>   let discr10: int = @get_union_id<var20>;
 >   switch discr10 {
 >   0 -> {
 >     let struct17: {} = @make_struct{};
->     let var23: [ `0 {} ] = @make_union<0, struct17>;
->     @call_direct(map4, var23)
+>     let var21: [ `0 {} ] = @make_union<0, struct17>;
+>     @call_direct(map4, var21)
 >   }
 >   } in join join10;
 >   let discr11: int = @get_union_id<join10>;
@@ -415,21 +431,21 @@ run main2 =
 >   0 -> {
 >     let payload7: { { [ `0 {} ] } } = @get_union_struct<join10>;
 >     let captures3: { [ `0 {} ] } = @get_struct_field<payload7, 0>;
->     let var24: int = 1;
->     let var25: int = 2;
+>     let var22: int = 1;
+>     let var23: int = 2;
 >     let struct20: {} = @make_struct{};
->     let var26: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
+>     let var24: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
 >       = @make_union<1, struct20>;
 >     let struct19:
 >           { int, [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ] }
->       = @make_struct{ var25, var26 };
->     let var27: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
+>       = @make_struct{ var23, var24 };
+>     let var25: [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ]
 >       = @make_union<0, struct19>;
 >     let struct18:
 >           { int, [ `0 { int, Box!a([ `0 { int, !a }, `1 {} ]) }, `1 {} ] }
->       = @make_struct{ var24, var27 };
->     let var28: Box!a([ `0 { int, !a }, `1 {} ]) = @make_union<0, struct18>;
->     @call_direct(clos3, var28, captures3)
+>       = @make_struct{ var22, var25 };
+>     let var26: Box!a([ `0 { int, !a }, `1 {} ]) = @make_union<0, struct18>;
+>     @call_direct(clos3, var26, captures3)
 >   }
 >   } in join join11;
 >   return join11;
